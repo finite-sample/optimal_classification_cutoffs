@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "optimal-classification-cutoffs"
 version = "0.1.0"
-description = "Utilities for computing optimal classification cutoffs"
+description = "Utilities for computing optimal classification cutoffs for binary and multi-class"
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
@@ -13,10 +13,19 @@ dependencies = [
     "scipy",
     "scikit-learn"
 ]
+authors = [
+    {name = "Gaurav Sood", email = "contact@gsood.com"}
+]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent"
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
 [project.optional-dependencies]
@@ -24,3 +33,4 @@ examples = ["matplotlib", "pandas"]
 
 [tool.setuptools]
 packages = ["optimal_cutoffs"]
+

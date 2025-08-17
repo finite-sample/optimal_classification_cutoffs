@@ -1,0 +1,114 @@
+Metadata-Version: 2.4
+Name: optimal-classification-cutoffs
+Version: 0.1.0
+Summary: Utilities for computing optimal classification cutoffs for binary and multi-class
+Author-email: Gaurav Sood <contact@gsood.com>
+License: MIT License
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: scikit-learn
+Provides-Extra: examples
+Requires-Dist: matplotlib; extra == "examples"
+Requires-Dist: pandas; extra == "examples"
+Dynamic: license-file
+
+# Optimal Classification Cut-Offs
+
+Probabilistic classifiers output per-class probabilities, and fixed cutoffs such as ``0.5`` rarely maximize metrics like accuracy or the F\ :sub:`1` score.
+This package provides utilities to **select optimal probability cutoffs for each class**, supporting both multi-class and binary classifiers.
+Optimization methods include brute-force search, numerical techniques, and gradient-based approaches.
+Binary thresholding at a single cutoff remains fully supported as a special case.
+
+## Quick start
+
+```python
+from optimal_cutoffs import ThresholdOptimizer
+
+# true binary labels and predicted probabilities
+y_true = ...
+y_prob = ...
+
+optimizer = ThresholdOptimizer(objective="f1")
+optimizer.fit(y_true, y_prob)
+y_pred = optimizer.predict(y_prob)
+```
+
+## API
+
+### `get_confusion_matrix(true_labs, pred_prob, threshold)`
+- **Purpose:** Compute confusion-matrix counts for a threshold.
+- **Args:** arrays of true labels and probabilities, plus the decision threshold.
+- **Returns:** `(tp, tn, fp, fn)` counts.
+
+### `register_metric(name=None, func=None)`
+- **Purpose:** Add a metric function to the global registry.
+- **Args:** optional metric name and callable; can also be used as a decorator.
+- **Returns:** the registered function or decorator.
+
+### `register_metrics(metrics)`
+- **Purpose:** Register multiple metric functions at once.
+- **Args:** dictionary mapping names to callables.
+- **Returns:** `None`.
+
+### `get_probability(true_labs, pred_prob, objective='accuracy', verbose=False)`
+- **Purpose:** Brute-force search for the threshold that maximizes accuracy or F\ :sub:`1`.
+- **Args:** true labels, predicted probabilities, metric name, and verbosity flag.
+- **Returns:** optimal threshold.
+
+### `get_optimal_threshold(true_labs, pred_prob, metric='f1', method='smart_brute')`
+- **Purpose:** Optimize any registered metric using different strategies
+  (brute force, ``minimize``, or ``gradient``).
+- **Args:** true labels, probabilities, metric name, and optimization method.
+- **Returns:** optimal threshold.
+
+### `cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='smart_brute', cv=5, random_state=None)`
+- **Purpose:** Estimate thresholds via cross-validation and report per-fold scores.
+- **Returns:** arrays of thresholds and scores.
+
+### `nested_cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='smart_brute', inner_cv=5, outer_cv=5, random_state=None)`
+- **Purpose:** Perform nested cross-validation for threshold estimation and
+  unbiased performance evaluation.
+- **Returns:** arrays of outer-fold thresholds and scores.
+
+### `ThresholdOptimizer(objective='accuracy', verbose=False)`
+- **Purpose:** High-level wrapper with ``fit``/``predict`` methods.
+- **Args:** metric name and verbosity flag.
+- **Returns:** fitted instance with ``threshold_`` attribute after calling ``fit``.
+
+## Examples
+
+- [Cross-validation and gradient methods](examples/comscore.ipynb)
+
+## Authors
+
+Suriyan Laohaprapanon and Gaurav Sood
