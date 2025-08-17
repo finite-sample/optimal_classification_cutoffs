@@ -27,7 +27,24 @@ def _f1(prob, true_labs, pred_prob, verbose=False):
 
 
 def get_probability(true_labs, pred_prob, objective="accuracy", verbose=False):
-    """Brute-force probability threshold search for simple metrics."""
+    """Brute-force search for a simple metric's best threshold.
+
+    Parameters
+    ----------
+    true_labs:
+        Array of true binary labels.
+    pred_prob:
+        Predicted probabilities from a classifier.
+    objective:
+        Metric to optimize. Supported values are ``"accuracy"`` and ``"f1"``.
+    verbose:
+        If ``True``, print intermediate metric values during the search.
+
+    Returns
+    -------
+    float
+        Threshold that maximizes the specified metric.
+    """
     if objective == "accuracy":
         prob = optimize.brute(
             _accuracy, (slice(0.1, 0.9, 0.1),), args=(true_labs, pred_prob, verbose), disp=verbose
@@ -52,7 +69,26 @@ def _metric_score(true_labs, pred_prob, threshold, metric="f1"):
 
 
 def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute"):
-    """Find the optimal threshold for a metric using different strategies."""
+    """Find the threshold that optimizes a metric.
+
+    Parameters
+    ----------
+    true_labs:
+        Array of true binary labels.
+    pred_prob:
+        Predicted probabilities from a classifier.
+    metric:
+        Name of a metric registered in :data:`~optimal_cutoffs.metrics.METRIC_REGISTRY`.
+    method:
+        Strategy used for optimization: ``"smart_brute"`` evaluates all unique
+        probabilities, ``"minimize"`` uses ``scipy.optimize.minimize_scalar``,
+        and ``"gradient"`` performs a simple gradient ascent.
+
+    Returns
+    -------
+    float
+        The threshold that maximizes the chosen metric.
+    """
     if method == "smart_brute":
         thresholds = np.unique(pred_prob)
         scores = [_metric_score(true_labs, pred_prob, t, metric) for t in thresholds]
