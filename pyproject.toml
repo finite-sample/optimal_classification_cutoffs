@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "optimal-classification-cutoffs"
 version = "0.1.0"
-description = "Utilities for computing optimal classification cutoffs for binary and multi-class"
+description = "Utilities for computing optimal classification cutoffs for binary classification"
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [

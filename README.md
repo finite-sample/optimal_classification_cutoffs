@@ -1,9 +1,8 @@
 # Optimal Classification Cut-Offs
 
 Probabilistic classifiers output per-class probabilities, and fixed cutoffs such as ``0.5`` rarely maximize metrics like accuracy or the F\ :sub:`1` score.
-This package provides utilities to **select optimal probability cutoffs for each class**, supporting both multi-class and binary classifiers.
+This package provides utilities to **select optimal probability cutoffs for binary classification**.
 Optimization methods include brute-force search, numerical techniques, and gradient-based approaches.
-Binary thresholding at a single cutoff remains fully supported as a special case.
 
 ## Quick start
 
@@ -37,14 +36,13 @@ y_pred = optimizer.predict(y_prob)
 - **Returns:** `None`.
 
 ### `get_probability(true_labs, pred_prob, objective='accuracy', verbose=False)`
-- **Purpose:** Brute-force search for the threshold that maximizes accuracy or F\ :sub:`1`.
-- **Args:** true labels, predicted probabilities, metric name, and verbosity flag.
+- **Purpose:** Brute-force search for the threshold that maximizes accuracy or F\ :sub:`1` using scipy.optimize.brute.
+- **Args:** true labels, predicted probabilities, objective ("accuracy" or "f1"), and verbosity flag.
 - **Returns:** optimal threshold.
 
 ### `get_optimal_threshold(true_labs, pred_prob, metric='f1', method='smart_brute')`
-- **Purpose:** Optimize any registered metric using different strategies
-  (brute force, ``minimize``, or ``gradient``).
-- **Args:** true labels, probabilities, metric name, and optimization method.
+- **Purpose:** Optimize any registered metric using different strategies: "smart_brute" (evaluates all unique probabilities), "minimize" (scipy.optimize.minimize_scalar), or "gradient" (simple gradient ascent).
+- **Args:** true labels, probabilities, metric name (from METRIC_REGISTRY), and optimization method.
 - **Returns:** optimal threshold.
 
 ### `cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='smart_brute', cv=5, random_state=None)`
@@ -57,12 +55,14 @@ y_pred = optimizer.predict(y_prob)
 - **Returns:** arrays of outer-fold thresholds and scores.
 
 ### `ThresholdOptimizer(objective='accuracy', verbose=False)`
-- **Purpose:** High-level wrapper with ``fit``/``predict`` methods.
-- **Args:** metric name and verbosity flag.
-- **Returns:** fitted instance with ``threshold_`` attribute after calling ``fit``.
+- **Purpose:** High-level wrapper with ``fit``/``predict`` methods using scikit-learn style API.
+- **Args:** objective ("accuracy" or "f1") and verbosity flag.
+- **Returns:** fitted instance with ``threshold_`` attribute after calling ``fit``. The ``predict`` method returns boolean predictions.
 
 ## Examples
 
+- [Basic usage with synthetic data](examples/basic_usage.py)
+- [Advanced usage with sklearn](examples/advanced_usage.ipynb)
 - [Cross-validation and gradient methods](examples/comscore.ipynb)
 
 ## Authors
