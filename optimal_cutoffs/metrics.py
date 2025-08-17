@@ -88,6 +88,95 @@ def accuracy_score(tp: int, tn: int, fp: int, fn: int) -> float:
     return (tp + tn) / total if total > 0 else 0.0
 
 
+@register_metric("precision")
+def precision_score(tp: int, tn: int, fp: int, fn: int) -> float:
+    """Compute precision (positive predictive value).
+
+    Parameters
+    ----------
+    tp, tn, fp, fn:
+        Elements of the confusion matrix.
+
+    Returns
+    -------
+    float
+        Ratio of true positives to predicted positives.
+    """
+    return tp / (tp + fp) if tp + fp > 0 else 0.0
+
+
+@register_metric("recall")
+def recall_score(tp: int, tn: int, fp: int, fn: int) -> float:
+    """Compute recall (sensitivity, true positive rate).
+
+    Parameters
+    ----------
+    tp, tn, fp, fn:
+        Elements of the confusion matrix.
+
+    Returns
+    -------
+    float
+        Ratio of true positives to actual positives.
+    """
+    return tp / (tp + fn) if tp + fn > 0 else 0.0
+
+
+def multiclass_metric(confusion_matrices, metric_name, average="macro"):
+    """Compute multiclass metrics from per-class confusion matrices.
+
+    Parameters
+    ----------
+    confusion_matrices:
+        List of per-class confusion matrix tuples ``(tp, tn, fp, fn)``.
+    metric_name:
+        Name of the metric to compute (must be in METRIC_REGISTRY).
+    average:
+        Averaging strategy: "macro" (unweighted mean), "micro" (global), or "weighted".
+
+    Returns
+    -------
+    float
+        Aggregated metric score.
+    """
+    if metric_name not in METRIC_REGISTRY:
+        raise ValueError(f"Unknown metric: {metric_name}")
+    
+    metric_func = METRIC_REGISTRY[metric_name]
+    
+    if average == "macro":
+        # Unweighted mean of per-class scores
+        scores = [metric_func(*cm) for cm in confusion_matrices]
+        return float(np.mean(scores))
+    
+    elif average == "micro":
+        # Global metric computed from summed confusion matrices
+        total_tp = sum(cm[0] for cm in confusion_matrices)
+        total_tn = sum(cm[1] for cm in confusion_matrices)
+        total_fp = sum(cm[2] for cm in confusion_matrices)
+        total_fn = sum(cm[3] for cm in confusion_matrices)
+        return float(metric_func(total_tp, total_tn, total_fp, total_fn))
+    
+    elif average == "weighted":
+        # Weighted by support (number of true instances for each class)
+        scores = []
+        supports = []
+        for cm in confusion_matrices:
+            tp, tn, fp, fn = cm
+            scores.append(metric_func(*cm))
+            supports.append(tp + fn)  # actual positives for this class
+        
+        total_support = sum(supports)
+        if total_support == 0:
+            return 0.0
+        
+        weighted_score = sum(score * support for score, support in zip(scores, supports)) / total_support
+        return float(weighted_score)
+    
+    else:
+        raise ValueError(f"Unknown averaging method: {average}")
+
+
 def get_confusion_matrix(true_labs, pred_prob, prob):
     """Compute confusion-matrix counts for a given threshold.
 
@@ -111,3 +200,43 @@ def get_confusion_matrix(true_labs, pred_prob, prob):
     fp = np.sum(np.logical_and(pred_labs == 1, true_labs == 0))
     fn = np.sum(np.logical_and(pred_labs == 0, true_labs == 1))
     return tp, tn, fp, fn
+
+
+def get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds):
+    """Compute per-class confusion-matrix counts for multiclass classification using One-vs-Rest.
+
+    Parameters
+    ----------
+    true_labs:
+        Array of true class labels (0, 1, 2, ..., n_classes-1).
+    pred_prob:
+        Array of predicted probabilities with shape (n_samples, n_classes).
+    thresholds:
+        Array of decision thresholds, one per class.
+
+    Returns
+    -------
+    list[tuple[int, int, int, int]]
+        List of per-class counts ``(tp, tn, fp, fn)`` for each class.
+    """
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+    thresholds = np.asarray(thresholds)
+    
+    if pred_prob.ndim == 1:
+        # Binary case - backward compatibility
+        return [get_confusion_matrix(true_labs, pred_prob, thresholds[0])]
+    
+    n_classes = pred_prob.shape[1]
+    confusion_matrices = []
+    
+    for class_idx in range(n_classes):
+        # One-vs-Rest: current class vs all others
+        true_binary = (true_labs == class_idx).astype(int)
+        pred_binary_prob = pred_prob[:, class_idx]
+        threshold = thresholds[class_idx]
+        
+        cm = get_confusion_matrix(true_binary, pred_binary_prob, threshold)
+        confusion_matrices.append(cm)
+    
+    return confusion_matrices

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import optimize
 
-from .metrics import METRIC_REGISTRY, get_confusion_matrix
+from .metrics import METRIC_REGISTRY, get_confusion_matrix, get_multiclass_confusion_matrix, multiclass_metric
 
 
 def _accuracy(prob, true_labs, pred_prob, verbose=False):
@@ -68,15 +68,22 @@ def _metric_score(true_labs, pred_prob, threshold, metric="f1"):
     return float(metric_func(tp, tn, fp, fn))
 
 
+def _multiclass_metric_score(true_labs, pred_prob, thresholds, metric="f1", average="macro"):
+    """Compute a multiclass metric score for given per-class thresholds."""
+    confusion_matrices = get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds)
+    return multiclass_metric(confusion_matrices, metric, average)
+
+
 def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute"):
     """Find the threshold that optimizes a metric.
 
     Parameters
     ----------
     true_labs:
-        Array of true binary labels.
+        Array of true binary labels or multiclass labels (0, 1, 2, ..., n_classes-1).
     pred_prob:
-        Predicted probabilities from a classifier.
+        Predicted probabilities from a classifier. For binary: 1D array (n_samples,).
+        For multiclass: 2D array (n_samples, n_classes).
     metric:
         Name of a metric registered in :data:`~optimal_cutoffs.metrics.METRIC_REGISTRY`.
     method:
@@ -86,9 +93,17 @@ def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute
 
     Returns
     -------
-    float
-        The threshold that maximizes the chosen metric.
+    float or numpy.ndarray
+        For binary: The threshold that maximizes the chosen metric.
+        For multiclass: Array of per-class thresholds.
     """
+    pred_prob = np.asarray(pred_prob)
+    
+    # Check if this is multiclass
+    if pred_prob.ndim == 2:
+        return get_optimal_multiclass_thresholds(true_labs, pred_prob, metric, method)
+    
+    # Binary case (existing logic)
     if method == "smart_brute":
         thresholds = np.unique(pred_prob)
         scores = [_metric_score(true_labs, pred_prob, t, metric) for t in thresholds]
@@ -123,4 +138,44 @@ def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute
     raise ValueError(f"Unknown method: {method}")
 
 
-__all__ = ["get_probability", "get_optimal_threshold"]
+def get_optimal_multiclass_thresholds(true_labs, pred_prob, metric="f1", method="smart_brute", average="macro"):
+    """Find optimal per-class thresholds for multiclass classification using One-vs-Rest.
+
+    Parameters
+    ----------
+    true_labs:
+        Array of true class labels (0, 1, 2, ..., n_classes-1).
+    pred_prob:
+        Array of predicted probabilities with shape (n_samples, n_classes).
+    metric:
+        Name of a metric registered in :data:`~optimal_cutoffs.metrics.METRIC_REGISTRY`.
+    method:
+        Strategy used for optimization: ``"smart_brute"``, ``"minimize"``, or ``"gradient"``.
+    average:
+        Averaging strategy for multiclass metrics: "macro", "micro", or "weighted".
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of optimal thresholds, one per class.
+    """
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+    n_classes = pred_prob.shape[1]
+    
+    optimal_thresholds = np.zeros(n_classes)
+    
+    for class_idx in range(n_classes):
+        # One-vs-Rest: current class vs all others
+        true_binary = (true_labs == class_idx).astype(int)
+        pred_binary_prob = pred_prob[:, class_idx]
+        
+        # Optimize threshold for this class
+        optimal_thresholds[class_idx] = get_optimal_threshold(
+            true_binary, pred_binary_prob, metric, method
+        )
+    
+    return optimal_thresholds
+
+
+__all__ = ["get_probability", "get_optimal_threshold", "get_optimal_multiclass_thresholds"]
