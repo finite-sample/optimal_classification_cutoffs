@@ -100,7 +100,13 @@ def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute
             bounds=(0, 1),
             method="bounded",
         )
-        return float(res.x)
+        # ``minimize_scalar`` may return a threshold that is suboptimal for
+        # piecewise-constant metrics like F1. To provide a more robust
+        # solution, also evaluate all unique predicted probabilities and pick
+        # whichever threshold yields the highest score.
+        candidates = np.unique(np.append(pred_prob, res.x))
+        scores = [_metric_score(true_labs, pred_prob, t, metric) for t in candidates]
+        return float(candidates[int(np.argmax(scores))])
 
     if method == "gradient":
         threshold = 0.5
