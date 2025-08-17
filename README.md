@@ -1,4 +1,10 @@
-# Optimal Classification Cut-Offs
+## Optimal Classification Cut-Offs
+
+[![PyPI version](https://img.shields.io/pypi/v/optimal-classification-cutoffs.svg)](https://pypi.org/project/optimal-classification-cutoffs/)
+[![PyPI Downloads](https://static.pepy.tech/badge/optimal-classification-cutoffs)](https://pepy.tech/projects/optimal-classification-cutoffs)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 Probabilistic classifiers output per-class probabilities, and fixed cutoffs such as ``0.5`` rarely maximize metrics like accuracy or the F\ :sub:`1` score.
 This package provides utilities to **select optimal probability cutoffs for both binary and multiclass classification**.
