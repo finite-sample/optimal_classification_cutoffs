@@ -48,56 +48,56 @@ y_pred = optimizer.predict(y_prob)  # returns class indices
 
 ## API
 
-### `get_confusion_matrix(true_labs, pred_prob, threshold)`
+`get_confusion_matrix(true_labs, pred_prob, threshold)`
 - **Purpose:** Compute confusion-matrix counts for a threshold.
 - **Args:** arrays of true binary labels and probabilities, plus the decision threshold.
 - **Returns:** `(tp, tn, fp, fn)` counts.
 
-### `get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds)`
+`get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds)`
 - **Purpose:** Compute per-class confusion-matrix counts for multiclass classification using One-vs-Rest.
 - **Args:** true class labels (0, 1, 2, ...), probability matrix (n_samples, n_classes), and per-class thresholds.
 - **Returns:** List of per-class `(tp, tn, fp, fn)` tuples.
 
-### `register_metric(name=None, func=None)`
+`register_metric(name=None, func=None)`
 - **Purpose:** Add a metric function to the global registry.
 - **Args:** optional metric name and callable; can also be used as a decorator.
 - **Returns:** the registered function or decorator.
 
-### `register_metrics(metrics)`
+`register_metrics(metrics)`
 - **Purpose:** Register multiple metric functions at once.
 - **Args:** dictionary mapping names to callables.
 - **Returns:** `None`.
 
-### `multiclass_metric(confusion_matrices, metric_name, average="macro")`
+`multiclass_metric(confusion_matrices, metric_name, average="macro")`
 - **Purpose:** Compute multiclass metrics from per-class confusion matrices.
 - **Args:** list of confusion matrices, metric name, averaging strategy ("macro", "micro", "weighted").
 - **Returns:** aggregated metric score.
 
-### `get_probability(true_labs, pred_prob, objective='accuracy', verbose=False)`
+`get_probability(true_labs, pred_prob, objective='accuracy', verbose=False)`
 - **Purpose:** Brute-force search for the threshold that maximizes accuracy or F\ :sub:`1` using scipy.optimize.brute.
 - **Args:** true labels, predicted probabilities, objective ("accuracy" or "f1"), and verbosity flag.
 - **Returns:** optimal threshold.
 
-### `get_optimal_threshold(true_labs, pred_prob, metric='f1', method='smart_brute')`
+`get_optimal_threshold(true_labs, pred_prob, metric='f1', method='smart_brute')`
 - **Purpose:** Optimize any registered metric using different strategies: "smart_brute" (evaluates all unique probabilities), "minimize" (scipy.optimize.minimize_scalar), or "gradient" (simple gradient ascent). **Automatically detects binary vs multiclass inputs.**
 - **Args:** true labels (binary or multiclass), probabilities (1D for binary, 2D for multiclass), metric name, and optimization method.
 - **Returns:** optimal threshold (float for binary, array for multiclass).
 
-### `get_optimal_multiclass_thresholds(true_labs, pred_prob, metric='f1', method='smart_brute', average='macro')`
+`get_optimal_multiclass_thresholds(true_labs, pred_prob, metric='f1', method='smart_brute', average='macro')`
 - **Purpose:** Find optimal per-class thresholds for multiclass classification using One-vs-Rest strategy.
 - **Args:** true class labels, probability matrix (n_samples, n_classes), metric name, optimization method, and averaging strategy.
 - **Returns:** array of optimal thresholds, one per class.
 
-### `cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='smart_brute', cv=5, random_state=None)`
+`cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='smart_brute', cv=5, random_state=None)`
 - **Purpose:** Estimate thresholds via cross-validation and report per-fold scores.
 - **Returns:** arrays of thresholds and scores.
 
-### `nested_cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='smart_brute', inner_cv=5, outer_cv=5, random_state=None)`
+`nested_cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='smart_brute', inner_cv=5, outer_cv=5, random_state=None)`
 - **Purpose:** Perform nested cross-validation for threshold estimation and
   unbiased performance evaluation.
 - **Returns:** arrays of outer-fold thresholds and scores.
 
-### `ThresholdOptimizer(objective='accuracy', verbose=False, method='smart_brute')`
+`ThresholdOptimizer(objective='accuracy', verbose=False, method='smart_brute')`
 - **Purpose:** High-level wrapper with ``fit``/``predict`` methods using scikit-learn style API. **Supports both binary and multiclass classification.**
 - **Args:** objective metric name (e.g., "accuracy", "f1", "precision", "recall"), verbosity flag, and optimization method.
 - **Returns:** fitted instance with ``threshold_`` attribute (float for binary, array for multiclass). The ``predict`` method returns boolean predictions for binary, class indices for multiclass.
