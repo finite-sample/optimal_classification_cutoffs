@@ -1,42 +1,39 @@
-## Optimal Cut-Offs
+# Optimal Classification Cut-Offs
 
-Probabilities from classification models can have two problems: 
+This package helps you pick the best probability threshold for binary classifiers.
+Probabilistic models emit scores between 0 and 1, but the default threshold of 0.5 rarely
+produces the most useful predictions. `optimal_cut_offs` performs a simple brute-force search
+over candidate thresholds and returns the value that maximizes metrics such as accuracy or the F₁ score.
 
-1. Miscalibration: A p of .9 often doesn't mean a 90% chance of 1 (assuming a dichotomous y). (You can calibrate it using isotonic regression.)
+## Quick start
 
-2. Optimal cut-offs: For multi-class classifiers, we do not know what probability value will maximize the accuracy or F1 score. Or any metric for which you need to trade-off between FP and FN.
+```python
+from optimal_cut_offs import ThresholdOptimizer
 
-Here we share a solution for #2. It involves running the outputs through a brute-force optimizer. We provide a simple wrapper to make it yet easier to use.
+# true binary labels and predicted probabilities
+y_true = ...
+y_prob = ...
 
-### Function
-
-The function `get_probability` takes the following arguments: 
-
-1. `true_labs` (required): NumPy array or Pandas Series in which the true labels are stored. 
-2. `pred_prob` (required): NumPy array or Pandas Series in which the predicted probabilities are stored.
-3. `objective` (optional): `accuracy` (default) or `f1`
-4. `verbose` (optional): `True` or `False` (default) to show/hide verbose messages.
-
-The function outputs a numeric p-value that gives the lowest F1-score or FP+FN (max. accuracy).
-
-### Usage
-
-To use the [function](optimal_cut_offs.py), just download it and put it in the local directory and call import. 
-
-```
-import optimal_cut_offs
-
-df = ...
-
-p = optimal_cut_offs.get_probability(df.true_labs, df.pred_prob, 'accuracy')
-
+optimizer = ThresholdOptimizer(objective="f1")
+optimizer.fit(y_true, y_prob)
+y_pred = optimizer.predict(y_prob)
 ```
 
-### Illustration
+## API
 
-Check out this [Jupyter notebook](comscore.ipynb) to see the script in action. 
-For context, the notebook underlies the outputs you see [here](https://github.com/themains/domain_knowledge/blob/master/scripts/porn.ipynb).
+### `get_confusion_matrix(true_labs, pred_prob, prob)`
+Return counts of true/false positives and negatives for a probability threshold.
 
-### Authors
+### `get_probability(true_labs, pred_prob, objective='accuracy', verbose=False)`
+Brute-force search for the threshold that maximizes accuracy or F₁.
+
+### `ThresholdOptimizer(objective='accuracy', verbose=False)`
+Convenience wrapper around `get_probability` with `fit`/`predict` methods.
+
+## Examples
+
+- [Cross-validation and gradient methods](comscore.ipynb)
+
+## Authors
 
 Suriyan Laohaprapanon and Gaurav Sood
