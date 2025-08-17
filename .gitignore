@@ -1,3 +1,6 @@
 *.pyc
 *.pyo
 /dist
+.DS_Store
+/optimal_classification_cutoffs.egg-info
+/optimal_classification_cutoffs.egg-info
