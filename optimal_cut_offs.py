@@ -4,6 +4,8 @@ import numpy as np
 from scipy import optimize
 from sklearn.model_selection import KFold
 
+from metrics import METRIC_REGISTRY
+
 
 def _accuracy(prob, true_labs, pred_prob, verbose=False):
     """Helper for brute-force search that returns `1 - accuracy`.
@@ -126,20 +128,13 @@ def get_probability(true_labs, pred_prob, objective='accuracy', verbose=False):
 
 
 def _metric_score(true_labs, pred_prob, threshold, metric="f1"):
-    """Compute a metric score for a given threshold."""
+    """Compute a metric score for a given threshold using registry metrics."""
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, threshold)
-    if metric == "f1":
-        precision = tp / (tp + fp) if tp + fp > 0 else 0.0
-        recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-        return (
-            2 * precision * recall / (precision + recall)
-            if (precision + recall) > 0
-            else 0.0
-        )
-    elif metric == "accuracy":
-        return (tp + tn) / (tp + tn + fp + fn)
-    else:
-        raise ValueError("Unknown metric: %s" % metric)
+    try:
+        metric_func = METRIC_REGISTRY[metric]
+    except KeyError as exc:
+        raise ValueError(f"Unknown metric: {metric}") from exc
+    return float(metric_func(tp, tn, fp, fn))
 
 
 def get_optimal_threshold(
