@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from optimal_cut_offs import get_confusion_matrix, get_optimal_threshold
-from metrics import METRIC_REGISTRY, register_metric, register_metrics
+from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs.metrics import METRIC_REGISTRY, register_metric, register_metrics
 
 
 def test_confusion_matrix_and_metrics():

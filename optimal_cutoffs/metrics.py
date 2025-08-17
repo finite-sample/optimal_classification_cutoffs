@@ -1,6 +1,7 @@
-"""Metric registry and utilities for custom objectives."""
+"""Metric registry, confusion matrix utilities, and built-in metrics."""
 
 from typing import Callable, Dict
+import numpy as np
 
 METRIC_REGISTRY: Dict[str, Callable[[int, int, int, int], float]] = {}
 
@@ -38,3 +39,13 @@ def f1_score(tp: int, tn: int, fp: int, fn: int) -> float:
 def accuracy_score(tp: int, tn: int, fp: int, fn: int) -> float:
     total = tp + tn + fp + fn
     return (tp + tn) / total if total > 0 else 0.0
+
+
+def get_confusion_matrix(true_labs, pred_prob, prob):
+    """Compute confusion-matrix counts for a given probability threshold."""
+    pred_labs = pred_prob > prob
+    tp = np.sum(np.logical_and(pred_labs == 1, true_labs == 1))
+    tn = np.sum(np.logical_and(pred_labs == 0, true_labs == 0))
+    fp = np.sum(np.logical_and(pred_labs == 1, true_labs == 0))
+    fn = np.sum(np.logical_and(pred_labs == 0, true_labs == 1))
+    return tp, tn, fp, fn

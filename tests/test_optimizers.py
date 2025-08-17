@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from optimal_cut_offs import get_optimal_threshold, cross_validate_thresholds
+from optimal_cutoffs import get_optimal_threshold, cv_threshold_optimization
 
 
 def test_get_optimal_threshold_methods():
@@ -13,11 +13,11 @@ def test_get_optimal_threshold_methods():
         assert thr == pytest.approx(0.5, abs=0.2)
 
 
-def test_cross_validate_thresholds():
+def test_cv_threshold_optimization():
     rng = np.random.default_rng(0)
     y_prob = rng.random(100)
     y_true = (y_prob > 0.5).astype(int)
-    thresholds, scores = cross_validate_thresholds(
+    thresholds, scores = cv_threshold_optimization(
         y_true, y_prob, method="smart_brute", cv=5, random_state=0
     )
     assert thresholds.shape == (5,)

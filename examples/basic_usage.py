@@ -1,7 +1,7 @@
 """Basic example demonstrating the optimal classification cutoff utilities."""
 
 import numpy as np
-from optimal_cut_offs import ThresholdOptimizer, get_confusion_matrix, get_probability
+from optimal_cutoffs import ThresholdOptimizer, get_confusion_matrix, get_probability
 
 # Simulated data
 y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1, 0, 1])

@@ -24,4 +24,3 @@ examples = ["matplotlib", "pandas"]
 
 [tool.setuptools]
 packages = ["optimal_cutoffs"]
-py-modules = ["optimal_cut_offs"]
