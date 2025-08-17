@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy import optimize
+from sklearn.model_selection import KFold
 
 
 def _accuracy(prob, true_labs, pred_prob, verbose=False):
@@ -122,6 +123,79 @@ def get_probability(true_labs, pred_prob, objective='accuracy', verbose=False):
     else:
         raise ValueError('`objective` must be `accuracy` or `f1`')
     return prob[0]
+
+
+def _metric_score(true_labs, pred_prob, threshold, metric="f1"):
+    """Compute a metric score for a given threshold."""
+    tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, threshold)
+    if metric == "f1":
+        precision = tp / (tp + fp) if tp + fp > 0 else 0.0
+        recall = tp / (tp + fn) if tp + fn > 0 else 0.0
+        return (
+            2 * precision * recall / (precision + recall)
+            if (precision + recall) > 0
+            else 0.0
+        )
+    elif metric == "accuracy":
+        return (tp + tn) / (tp + tn + fp + fn)
+    else:
+        raise ValueError("Unknown metric: %s" % metric)
+
+
+def get_optimal_threshold(
+    true_labs, pred_prob, metric="f1", method="smart_brute"
+):
+    """Find the optimal threshold for a metric using different strategies."""
+
+    if method == "smart_brute":
+        thresholds = np.unique(pred_prob)
+        scores = [_metric_score(true_labs, pred_prob, t, metric) for t in thresholds]
+        return float(thresholds[int(np.argmax(scores))])
+
+    if method == "minimize":
+        res = optimize.minimize_scalar(
+            lambda t: -_metric_score(true_labs, pred_prob, t, metric),
+            bounds=(0, 1),
+            method="bounded",
+        )
+        return float(res.x)
+
+    if method == "gradient":
+        threshold = 0.5
+        lr = 0.1
+        eps = 1e-5
+        for _ in range(100):
+            grad = (
+                _metric_score(true_labs, pred_prob, threshold + eps, metric)
+                - _metric_score(true_labs, pred_prob, threshold - eps, metric)
+            ) / (2 * eps)
+            threshold = np.clip(threshold + lr * grad, 0.0, 1.0)
+        return float(threshold)
+
+    raise ValueError("Unknown method: %s" % method)
+
+
+def cross_validate_thresholds(
+    true_labs,
+    pred_prob,
+    metric="f1",
+    method="smart_brute",
+    cv=5,
+    random_state=None,
+):
+    """Estimate thresholds via cross-validation and evaluate scores."""
+
+    kf = KFold(n_splits=cv, shuffle=True, random_state=random_state)
+    thresholds = []
+    scores = []
+    for train_idx, test_idx in kf.split(true_labs):
+        thr = get_optimal_threshold(
+            true_labs[train_idx], pred_prob[train_idx], metric=metric, method=method
+        )
+        thresholds.append(thr)
+        score = _metric_score(true_labs[test_idx], pred_prob[test_idx], thr, metric)
+        scores.append(score)
+    return np.array(thresholds), np.array(scores)
 
 
 class ThresholdOptimizer:
