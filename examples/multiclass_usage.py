@@ -74,7 +74,7 @@ print(f"Recall-optimized thresholds:    {thresholds_recall}")
 
 # Compute confusion matrices and multiclass metrics
 cms = get_multiclass_confusion_matrix(y, y_prob, thresholds_f1)
-print(f"\nPer-class confusion matrices (F1-optimized):")
+print("\nPer-class confusion matrices (F1-optimized):")
 for i, cm in enumerate(cms):
     tp, tn, fp, fn = cm
     print(f"  Class {i}: TP={tp}, TN={tn}, FP={fp}, FN={fn}")
@@ -84,7 +84,7 @@ f1_macro = multiclass_metric(cms, "f1", "macro")
 f1_micro = multiclass_metric(cms, "f1", "micro")
 f1_weighted = multiclass_metric(cms, "f1", "weighted")
 
-print(f"\nMulticlass F1 scores:")
+print("\nMulticlass F1 scores:")
 print(f"  Macro average:    {f1_macro:.3f}")
 print(f"  Micro average:    {f1_micro:.3f}")
 print(f"  Weighted average: {f1_weighted:.3f}")
