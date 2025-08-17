@@ -150,12 +150,29 @@ def multiclass_metric(confusion_matrices, metric_name, average="macro"):
         return float(np.mean(scores))
     
     elif average == "micro":
-        # Global metric computed from summed confusion matrices
+        # For micro averaging, sum only TP, FP, FN (not TN which is inflated in One-vs-Rest)
         total_tp = sum(cm[0] for cm in confusion_matrices)
-        total_tn = sum(cm[1] for cm in confusion_matrices)
         total_fp = sum(cm[2] for cm in confusion_matrices)
         total_fn = sum(cm[3] for cm in confusion_matrices)
-        return float(metric_func(total_tp, total_tn, total_fp, total_fn))
+        
+        # Compute micro metrics directly
+        if metric_name == "precision":
+            return float(total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0)
+        elif metric_name == "recall":
+            return float(total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0)
+        elif metric_name == "f1":
+            precision = total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
+            recall = total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
+            return float(2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0)
+        elif metric_name == "accuracy":
+            # For accuracy in One-vs-Rest, compute as correct predictions / total predictions
+            # This is equivalent to (total_tp) / (total_tp + total_fp + total_fn)
+            total_predictions = total_tp + total_fp + total_fn
+            return float(total_tp / total_predictions if total_predictions > 0 else 0.0)
+        else:
+            # Fallback: try using the metric function with computed values
+            # Note: TN is not meaningful in One-vs-Rest micro averaging
+            return float(metric_func(total_tp, 0, total_fp, total_fn))
     
     elif average == "weighted":
         # Weighted by support (number of true instances for each class)
@@ -223,11 +240,36 @@ def get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds):
     pred_prob = np.asarray(pred_prob)
     thresholds = np.asarray(thresholds)
     
+    # Input validation
+    if len(true_labs) == 0:
+        raise ValueError("true_labs cannot be empty")
+    
     if pred_prob.ndim == 1:
         # Binary case - backward compatibility
+        if len(true_labs) != len(pred_prob):
+            raise ValueError(f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({len(pred_prob)})")
         return [get_confusion_matrix(true_labs, pred_prob, thresholds[0])]
     
+    if pred_prob.ndim != 2:
+        raise ValueError(f"pred_prob must be 1D or 2D, got {pred_prob.ndim}D")
+    
+    if len(true_labs) != pred_prob.shape[0]:
+        raise ValueError(f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({pred_prob.shape[0]})")
+    
+    if np.any(np.isnan(pred_prob)) or np.any(np.isinf(pred_prob)):
+        raise ValueError("pred_prob contains NaN or infinite values")
+    
+    # Check class labels are valid for One-vs-Rest
+    unique_labels = np.unique(true_labs)
+    expected_labels = np.arange(len(unique_labels))
+    if not np.array_equal(np.sort(unique_labels), expected_labels):
+        raise ValueError(f"Class labels must be consecutive integers starting from 0. "
+                        f"Got {unique_labels}, expected {expected_labels}")
+    
     n_classes = pred_prob.shape[1]
+    if len(thresholds) != n_classes:
+        raise ValueError(f"Number of thresholds ({len(thresholds)}) must match number of classes ({n_classes})")
+    
     confusion_matrices = []
     
     for class_idx in range(n_classes):

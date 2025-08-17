@@ -161,8 +161,28 @@ def get_optimal_multiclass_thresholds(true_labs, pred_prob, metric="f1", method=
     """
     true_labs = np.asarray(true_labs)
     pred_prob = np.asarray(pred_prob)
-    n_classes = pred_prob.shape[1]
     
+    # Input validation
+    if len(true_labs) == 0:
+        raise ValueError("true_labs cannot be empty")
+    
+    if pred_prob.ndim != 2:
+        raise ValueError(f"pred_prob must be 2D for multiclass, got {pred_prob.ndim}D")
+    
+    if len(true_labs) != pred_prob.shape[0]:
+        raise ValueError(f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({pred_prob.shape[0]})")
+    
+    if np.any(np.isnan(pred_prob)) or np.any(np.isinf(pred_prob)):
+        raise ValueError("pred_prob contains NaN or infinite values")
+    
+    # Check class labels are valid for One-vs-Rest
+    unique_labels = np.unique(true_labs)
+    expected_labels = np.arange(len(unique_labels))
+    if not np.array_equal(np.sort(unique_labels), expected_labels):
+        raise ValueError(f"Class labels must be consecutive integers starting from 0. "
+                        f"Got {unique_labels}, expected {expected_labels}")
+    
+    n_classes = pred_prob.shape[1]
     optimal_thresholds = np.zeros(n_classes)
     
     for class_idx in range(n_classes):
