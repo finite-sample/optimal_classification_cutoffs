@@ -1,10 +1,9 @@
 # Optimal Classification Cut-Offs
 
-Binary classifiers emit probabilities, but choosing a threshold of ``0.5`` often
-fails to maximize metrics such as accuracy or the F\ :sub:`1` score. This
-package provides utilities to **select an optimal probability threshold** for a
-given metric using brute-force search, numerical optimization, or gradient
-methods.
+Probabilistic classifiers output per-class probabilities, and fixed cutoffs such as ``0.5`` rarely maximize metrics like accuracy or the F\ :sub:`1` score.
+This package provides utilities to **select optimal probability cutoffs for each class**, supporting both multi-class and binary classifiers.
+Optimization methods include brute-force search, numerical techniques, and gradient-based approaches.
+Binary thresholding at a single cutoff remains fully supported as a special case.
 
 ## Quick start
 
