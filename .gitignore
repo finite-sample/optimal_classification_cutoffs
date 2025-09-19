@@ -3,4 +3,30 @@
 /dist
 .DS_Store
 /optimal_classification_cutoffs.egg-info
-/optimal_classification_cutoffs.egg-info
+
+# Sphinx documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Build artifacts
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

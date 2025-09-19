@@ -21,7 +21,7 @@ X, y = make_classification(
     n_classes=3,
     n_informative=8,
     n_redundant=2,
-    random_state=42
+    random_state=42,
 )
 
 # Train a logistic regression model
@@ -65,7 +65,7 @@ print("\n=== Method 2: Lower-level functions ===")
 
 # Get optimal thresholds for different metrics
 thresholds_f1 = get_optimal_multiclass_thresholds(y, y_prob, metric="f1")
-thresholds_precision = get_optimal_multiclass_thresholds(y, y_prob, metric="precision") 
+thresholds_precision = get_optimal_multiclass_thresholds(y, y_prob, metric="precision")
 thresholds_recall = get_optimal_multiclass_thresholds(y, y_prob, metric="recall")
 
 print(f"F1-optimized thresholds:        {thresholds_f1}")
@@ -96,21 +96,25 @@ for class_idx in range(len(np.unique(y))):
     # Convert to binary problem for this class
     y_binary = (y == class_idx).astype(int)
     y_prob_binary = y_prob[:, class_idx]
-    
+
     # Optimize threshold for this specific class
     class_optimizer = ThresholdOptimizer(objective="f1")
     class_optimizer.fit(y_binary, y_prob_binary)
-    
+
     print(f"Class {class_idx}:")
     print(f"  Optimal threshold: {class_optimizer.threshold_:.3f}")
-    print(f"  Class frequency:   {np.sum(y_binary)}/{len(y_binary)} ({np.mean(y_binary):.1%})")
+    print(
+        f"  Class frequency:   {np.sum(y_binary)}/{len(y_binary)} ({np.mean(y_binary):.1%})"
+    )
 
 # Method 4: Different optimization methods
 print("\n=== Method 4: Different Optimization Methods ===")
 
 methods = ["smart_brute", "minimize", "gradient"]
 for method in methods:
-    thresholds = get_optimal_multiclass_thresholds(y, y_prob, metric="f1", method=method)
+    thresholds = get_optimal_multiclass_thresholds(
+        y, y_prob, metric="f1", method=method
+    )
     print(f"{method:12s}: {thresholds}")
 
 print("\n=== Summary ===")
