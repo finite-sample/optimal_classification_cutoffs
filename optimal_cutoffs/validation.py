@@ -285,6 +285,7 @@ def _validate_optimization_method(method: str) -> None:
         "minimize",
         "gradient",
         "coord_ascent",
+        "dinkelbach",
     }
     if method not in valid_methods:
         raise ValueError(

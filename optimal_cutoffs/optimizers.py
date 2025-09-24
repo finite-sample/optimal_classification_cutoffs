@@ -13,6 +13,7 @@ from .metrics import (
     has_vectorized_implementation,
     is_piecewise_metric,
     multiclass_metric,
+    multiclass_metric_exclusive,
 )
 from .multiclass_coord import optimal_multiclass_thresholds_coord_ascent
 from .piecewise import optimal_threshold_sortscan
@@ -337,6 +338,71 @@ def _optimal_threshold_piecewise_fallback(
     return float(best_threshold)
 
 
+def _dinkelbach_expected_fbeta(
+    y_true: ArrayLike, pred_prob: ArrayLike, beta: float = 1.0
+) -> float:
+    """Dinkelbach method for exact expected F-beta optimization under calibration.
+
+    Solves max_k ((1+β²)S_k) / (β²P + k) where:
+    - S_k = sum_{j<=k} p_(j) after sorting probabilities descending
+    - P = sum_i y_i (total positive labels)
+    - k ranges from 1 to n (number of samples)
+
+    This provides the exact optimal threshold for expected F-beta score
+    under the assumption that predicted probabilities are well-calibrated.
+
+    Parameters
+    ----------
+    y_true : ArrayLike
+        Array of true binary labels (0 or 1).
+    pred_prob : ArrayLike
+        Predicted probabilities from a classifier.
+    beta : float, default=1.0
+        Beta parameter for F-beta score. beta=1.0 gives F1 score.
+
+    Returns
+    -------
+    float
+        Optimal threshold that maximizes expected F-beta score.
+
+    References
+    ----------
+    Based on Dinkelbach's algorithm for fractional programming.
+    Exact for expected F-beta under calibration assumptions.
+    """
+    y = np.asarray(y_true)
+    p = np.asarray(pred_prob)
+
+    # Sort probabilities in descending order
+    idx = np.argsort(-p, kind="mergesort")
+    p_sorted = p[idx]
+
+    # Cumulative sum of sorted probabilities
+    S = np.cumsum(p_sorted)
+    P = y.sum()  # Total positive labels
+
+    # Compute F-beta objective: (1+β²)S_k / (β²P + k)
+    beta2 = beta * beta
+    numer = (1.0 + beta2) * S
+    denom = beta2 * P + (np.arange(p_sorted.size) + 1)
+    f = numer / denom
+
+    # Find k that maximizes the objective
+    k = int(np.argmax(f))
+
+    # Return midpoint threshold between k-th and (k+1)-th sorted probabilities
+    left = p_sorted[k]
+    right = p_sorted[k + 1] if k + 1 < p_sorted.size else left
+
+    if right != left:
+        thr = float(0.5 * (left + right))
+    else:
+        # Handle case where left == right (tied probabilities)
+        thr = float(np.nextafter(left, 1.0))
+
+    return thr
+
+
 def get_optimal_threshold(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
@@ -364,6 +430,7 @@ def get_optimal_threshold(
         - ``"smart_brute"``: Evaluates all unique probabilities
         - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
         - ``"gradient"``: Simple gradient ascent
+        - ``"dinkelbach"``: Exact expected F-beta optimization (F1 only)
     sample_weight:
         Optional array of sample weights for handling imbalanced datasets.
     comparison:
@@ -508,6 +575,20 @@ def get_optimal_threshold(
             threshold = np.clip(threshold + lr * grad, 0.0, 1.0)
         # Final safety clip to ensure numerical precision doesn't cause issues
         return float(np.clip(threshold, 0.0, 1.0))
+
+    if method == "dinkelbach":
+        # Use Dinkelbach method for exact expected F-beta optimization
+        if metric == "f1":
+            beta = 1.0
+        else:
+            raise ValueError(
+                f"dinkelbach method currently only supports F1 metric, got '{metric}'"
+            )
+
+        if sample_weight is not None:
+            raise ValueError("dinkelbach method does not support sample weights")
+
+        return _dinkelbach_expected_fbeta(true_labs, pred_prob, beta)
 
     raise ValueError(f"Unknown method: {method}")
 
@@ -678,10 +759,17 @@ def _optimize_micro_averaged_thresholds(
 
     def objective(thresholds):
         """Objective function: negative micro-averaged metric."""
-        cms = get_multiclass_confusion_matrix(
-            true_labs, pred_prob, thresholds, sample_weight, comparison
-        )
-        score = multiclass_metric(cms, metric, "micro")
+        if metric == "accuracy":
+            # For accuracy, use exclusive single-label metric instead of OvR micro
+            score = multiclass_metric_exclusive(
+                true_labs, pred_prob, thresholds, metric, comparison, sample_weight
+            )
+        else:
+            # For other metrics, use OvR micro-averaging
+            cms = get_multiclass_confusion_matrix(
+                true_labs, pred_prob, thresholds, sample_weight, comparison
+            )
+            score = multiclass_metric(cms, metric, "micro")
         return -float(score)
 
     if method == "smart_brute":

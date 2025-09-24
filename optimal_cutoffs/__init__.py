@@ -1,6 +1,22 @@
 """Top-level package for optimal classification cutoff utilities."""
 
-__version__ = "0.1.0"
+# Single source of truth for version in pyproject.toml
+try:
+    from importlib.metadata import version
+
+    __version__ = version("optimal-classification-cutoffs")
+except Exception:
+    # Fallback for development: read from pyproject.toml
+    import pathlib
+
+    import tomllib
+
+    pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
+    if pyproject_path.exists():
+        with open(pyproject_path, "rb") as f:
+            __version__ = tomllib.load(f)["project"]["version"]
+    else:
+        __version__ = "unknown"
 
 from .cv import cv_threshold_optimization, nested_cv_threshold_optimization
 from .metrics import (

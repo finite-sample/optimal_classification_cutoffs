@@ -121,7 +121,7 @@ def nested_cv_threshold_optimization(
         train_weights = None if sample_weight is None else sample_weight[train_idx]
         test_weights = None if sample_weight is None else sample_weight[test_idx]
 
-        inner_thresholds, _ = cv_threshold_optimization(
+        inner_thresholds, inner_scores = cv_threshold_optimization(
             true_labs[train_idx],
             pred_prob[train_idx],
             metric=metric,
@@ -130,7 +130,9 @@ def nested_cv_threshold_optimization(
             random_state=random_state,
             sample_weight=train_weights,
         )
-        thr = float(np.mean(inner_thresholds))
+        # Select best threshold from inner CV instead of averaging
+        best_idx = int(np.argmax(inner_scores))
+        thr = float(inner_thresholds[best_idx])
         outer_thresholds.append(thr)
         score = _metric_score(
             true_labs[test_idx], pred_prob[test_idx], thr, metric, test_weights

@@ -13,7 +13,13 @@ MetricFunc: TypeAlias = Callable[
     [int | float, int | float, int | float, int | float], float
 ]
 OptimizationMethod: TypeAlias = Literal[
-    "auto", "smart_brute", "sort_scan", "minimize", "gradient", "coord_ascent"
+    "auto",
+    "smart_brute",
+    "sort_scan",
+    "minimize",
+    "gradient",
+    "coord_ascent",
+    "dinkelbach",
 ]
 AveragingMethod: TypeAlias = Literal["macro", "micro", "weighted", "none"]
 ComparisonOperator: TypeAlias = Literal[">", ">="]

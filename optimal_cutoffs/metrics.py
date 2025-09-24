@@ -323,6 +323,126 @@ def recall_score(
     return tp / (tp + fn) if tp + fn > 0 else 0.0
 
 
+def _compute_exclusive_predictions(
+    true_labs: np.ndarray,
+    pred_prob: np.ndarray,
+    thresholds: np.ndarray,
+    comparison: str = ">",
+) -> np.ndarray:
+    """Compute exclusive single-label predictions using margin-based decision rule.
+
+    For each sample, predicts the class with the highest margin (p_j - tau_j).
+    If all margins are negative, falls back to argmax probability.
+
+    Parameters
+    ----------
+    true_labs : np.ndarray
+        True class labels (n_samples,)
+    pred_prob : np.ndarray
+        Predicted probabilities (n_samples, n_classes)
+    thresholds : np.ndarray
+        Per-class thresholds (n_classes,)
+    comparison : str
+        Comparison operator (">" or ">=")
+
+    Returns
+    -------
+    np.ndarray
+        Predicted class labels (n_samples,)
+    """
+    n_samples, n_classes = pred_prob.shape
+    predictions = np.zeros(n_samples, dtype=int)
+
+    for i in range(n_samples):
+        # Compute margins: p_j - tau_j
+        margins = pred_prob[i] - thresholds
+
+        # Find classes above threshold
+        if comparison == ">":
+            above_threshold = margins > 0
+        else:  # ">="
+            above_threshold = margins >= 0
+
+        if np.any(above_threshold):
+            # Among classes above threshold, pick the one with highest margin
+            valid_classes = np.where(above_threshold)[0]
+            best_class = valid_classes[np.argmax(margins[valid_classes])]
+            predictions[i] = best_class
+        else:
+            # No class above threshold, pick highest probability class
+            predictions[i] = np.argmax(pred_prob[i])
+
+    return predictions
+
+
+def multiclass_metric_exclusive(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    thresholds: ArrayLike,
+    metric_name: str,
+    comparison: str = ">",
+    sample_weight: ArrayLike | None = None,
+) -> float:
+    """Compute exclusive single-label multiclass metrics.
+
+    Uses margin-based decision rule: predict class with highest margin (p_j - tau_j).
+    Computes sample-level accuracy or macro-averaged precision/recall/F1.
+
+    Parameters
+    ----------
+    true_labs : ArrayLike
+        True class labels (n_samples,)
+    pred_prob : ArrayLike
+        Predicted probabilities (n_samples, n_classes)
+    thresholds : ArrayLike
+        Per-class thresholds (n_classes,)
+    metric_name : str
+        Metric to compute ("accuracy", "f1", "precision", "recall")
+    comparison : str
+        Comparison operator (">" or ">=")
+    sample_weight : ArrayLike | None
+        Optional sample weights
+
+    Returns
+    -------
+    float
+        Computed metric value
+    """
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+    thresholds = np.asarray(thresholds)
+
+    # Get exclusive predictions
+    pred_labels = _compute_exclusive_predictions(
+        true_labs, pred_prob, thresholds, comparison
+    )
+
+    if metric_name == "accuracy":
+        # Sample-level accuracy
+        correct = true_labs == pred_labels
+        if sample_weight is not None:
+            sample_weight = np.asarray(sample_weight)
+            return float(np.average(correct, weights=sample_weight))
+        else:
+            return float(np.mean(correct))
+    else:
+        # For other metrics, compute macro-averaged over classes
+        from sklearn.metrics import f1_score, precision_score, recall_score
+
+        kwargs = {"average": "macro", "zero_division": 0}
+        if sample_weight is not None:
+            kwargs["sample_weight"] = sample_weight
+
+        if metric_name == "precision":
+            return float(precision_score(true_labs, pred_labels, **kwargs))
+        elif metric_name == "recall":
+            return float(recall_score(true_labs, pred_labels, **kwargs))
+        elif metric_name == "f1":
+            return float(f1_score(true_labs, pred_labels, **kwargs))
+        else:
+            raise ValueError(f"Metric '{metric_name}' not supported for exclusive mode")
+
+
 def multiclass_metric(
     confusion_matrices: list[tuple[int | float, int | float, int | float, int | float]],
     metric_name: str,
@@ -340,9 +460,11 @@ def multiclass_metric(
         Averaging strategy: "macro", "micro", "weighted", or "none".
         - "macro": Unweighted mean of per-class metrics (treats all classes equally)
         - "micro": Global metric computed on pooled confusion matrix
-          (treats all samples equally)
+          (treats all samples equally, OvR multilabel)
         - "weighted": Weighted mean by support (number of true instances per class)
         - "none": No averaging, returns array of per-class metrics
+
+        Note: For exclusive single-label accuracy, use multiclass_metric_exclusive().
 
     Returns
     -------
