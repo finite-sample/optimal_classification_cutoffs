@@ -77,6 +77,16 @@ Using the Scikit-learn Interface
    # Predict on test data
    y_pred = optimizer.predict(y_prob_test)
 
+Theory and Background
+=====================
+
+Understanding why standard optimization methods can fail for classification metrics:
+
+.. toctree::
+   :maxdepth: 2
+   
+   theory
+
 API Reference
 =============
 

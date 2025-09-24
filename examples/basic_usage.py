@@ -2,7 +2,11 @@
 
 import numpy as np
 
-from optimal_cutoffs import ThresholdOptimizer, get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs import (
+    ThresholdOptimizer,
+    get_confusion_matrix,
+    get_optimal_threshold,
+)
 
 # Simulated data
 y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1, 0, 1])

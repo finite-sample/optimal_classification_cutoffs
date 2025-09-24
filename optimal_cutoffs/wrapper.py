@@ -4,8 +4,9 @@ from typing import Self
 
 import numpy as np
 
+from .multiclass_coord import _assign_labels_shifted
 from .optimizers import get_optimal_threshold, get_probability
-from .types import ArrayLike, OptimizationMethod, SampleWeightLike, ComparisonOperator
+from .types import ArrayLike, ComparisonOperator, OptimizationMethod, SampleWeightLike
 
 
 class ThresholdOptimizer:
@@ -19,7 +20,7 @@ class ThresholdOptimizer:
         self,
         objective: str = "accuracy",
         verbose: bool = False,
-        method: OptimizationMethod = "smart_brute",
+        method: OptimizationMethod = "auto",
         comparison: ComparisonOperator = ">",
     ) -> None:
         """Create a new optimizer.
@@ -31,7 +32,13 @@ class ThresholdOptimizer:
         verbose:
             If ``True``, print progress during threshold search.
         method:
-            Optimization method: ``"smart_brute"``, ``"minimize"``, or ``"gradient"``.
+            Optimization method:
+            - ``"auto"``: Automatically selects best method (default)
+            - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with vectorized implementation
+            - ``"smart_brute"``: Evaluates all unique probabilities
+            - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
+            - ``"gradient"``: Simple gradient ascent
+            - ``"coord_ascent"``: Coordinate ascent for coupled multiclass optimization (single-label consistent)
         comparison:
             Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
         """
@@ -107,29 +114,34 @@ class ThresholdOptimizer:
         pred_prob = np.asarray(pred_prob)
 
         if self.is_multiclass_:
-            # Multiclass prediction using One-vs-Rest thresholds
-            n_samples, n_classes = pred_prob.shape
-            if self.comparison == ">":
-                binary_predictions = pred_prob > self.threshold_
-            else:  # ">="
-                binary_predictions = pred_prob >= self.threshold_
+            # Multiclass prediction strategy depends on optimization method
+            if self.method == "coord_ascent":
+                # Coordinate ascent uses argmax(P - tau) for single-label consistency
+                return _assign_labels_shifted(pred_prob, self.threshold_)
+            else:
+                # One-vs-Rest prediction using per-class thresholds
+                n_samples, n_classes = pred_prob.shape
+                if self.comparison == ">":
+                    binary_predictions = pred_prob > self.threshold_
+                else:  # ">="
+                    binary_predictions = pred_prob >= self.threshold_
 
-            # For each sample, predict the class with highest probability among those above threshold
-            # If no classes above threshold, predict the class with highest probability
-            predictions = np.zeros(n_samples, dtype=int)
+                # For each sample, predict the class with highest probability among those above threshold
+                # If no classes above threshold, predict the class with highest probability
+                predictions = np.zeros(n_samples, dtype=int)
 
-            for i in range(n_samples):
-                above_threshold = np.where(binary_predictions[i])[0]
-                if len(above_threshold) > 0:
-                    # Among classes above threshold, pick the one with highest probability
-                    predictions[i] = above_threshold[
-                        np.argmax(pred_prob[i, above_threshold])
-                    ]
-                else:
-                    # No class above threshold, pick highest probability class
-                    predictions[i] = np.argmax(pred_prob[i])
+                for i in range(n_samples):
+                    above_threshold = np.where(binary_predictions[i])[0]
+                    if len(above_threshold) > 0:
+                        # Among classes above threshold, pick the one with highest probability
+                        predictions[i] = above_threshold[
+                            np.argmax(pred_prob[i, above_threshold])
+                        ]
+                    else:
+                        # No class above threshold, pick highest probability class
+                        predictions[i] = np.argmax(pred_prob[i])
 
-            return predictions
+                return predictions
         else:
             # Binary prediction
             if self.comparison == ">":

@@ -92,14 +92,17 @@ def test_piecewise_edge_cases():
 
 def test_piecewise_known_optimal():
     """Test piecewise optimization on cases with known optimal solutions."""
+    from optimal_cutoffs.optimizers import _metric_score
 
     # Perfect separation case
     y_true = np.array([0, 0, 1, 1])
     y_prob = np.array([0.1, 0.2, 0.8, 0.9])
 
-    # Optimal threshold should be one of the boundary values for perfect separation
+    # Should achieve perfect accuracy (threshold can be midpoint or boundary value)
     threshold = _optimal_threshold_piecewise(y_true, y_prob, "accuracy")
-    assert threshold in [0.1, 0.2, 0.8, 0.9], f"Unexpected threshold: {threshold}"
+    accuracy = _metric_score(y_true, y_prob, threshold, "accuracy")
+    assert accuracy == 1.0, f"Expected perfect accuracy, got {accuracy}"
+    assert 0.2 <= threshold <= 0.8, f"Unexpected threshold: {threshold}"
 
     # For F1, precision, recall - results should be reasonable
     for metric in ["f1", "precision", "recall"]:
@@ -119,6 +122,7 @@ def test_piecewise_vs_original_brute_force():
         return float(thresholds[int(np.argmax(scores))])
 
     # Test on several random datasets
+    from optimal_cutoffs.optimizers import _metric_score
     rng = np.random.default_rng(123)
 
     for n_samples in [20, 50, 100]:
@@ -130,9 +134,12 @@ def test_piecewise_vs_original_brute_force():
             threshold_piecewise = _optimal_threshold_piecewise(y_true, y_prob, metric)
             threshold_original = _original_smart_brute(y_true, y_prob, metric)
 
-            # Results should be very close (allowing for floating point precision)
-            assert abs(threshold_piecewise - threshold_original) < 1e-6, (
-                f"Mismatch for {metric} on {n_samples} samples"
+            # Scores should be identical (thresholds may differ due to midpoint calculation)
+            score_piecewise = _metric_score(y_true, y_prob, threshold_piecewise, metric)
+            score_original = _metric_score(y_true, y_prob, threshold_original, metric)
+            assert abs(score_piecewise - score_original) < 1e-10, (
+                f"Score mismatch for {metric} on {n_samples} samples: "
+                f"{score_piecewise} vs {score_original}"
             )
 
 

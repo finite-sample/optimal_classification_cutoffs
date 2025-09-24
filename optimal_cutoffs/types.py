@@ -1,19 +1,18 @@
 """Type definitions and protocols for optimal_cutoffs package."""
 
 from collections.abc import Callable
-from typing import Protocol, TypeAlias
-
-import numpy as np
 
 # Type aliases for better readability and consistency
-from typing import Literal
+from typing import Literal, Protocol, TypeAlias
+
+import numpy as np
 
 ArrayLike: TypeAlias = np.ndarray | list[float] | list[int]
 SampleWeightLike: TypeAlias = ArrayLike | None
 MetricFunc: TypeAlias = Callable[
     [int | float, int | float, int | float, int | float], float
 ]
-OptimizationMethod: TypeAlias = Literal["smart_brute", "minimize", "gradient"]
+OptimizationMethod: TypeAlias = Literal["auto", "smart_brute", "sort_scan", "minimize", "gradient", "coord_ascent"]
 AveragingMethod: TypeAlias = Literal["macro", "micro", "weighted", "none"]
 ComparisonOperator: TypeAlias = Literal[">", ">="]
 MulticlassMetricReturn: TypeAlias = float | np.ndarray  # float for averaged, array for average="none"

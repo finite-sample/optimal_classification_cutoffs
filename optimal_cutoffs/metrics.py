@@ -4,27 +4,27 @@ from collections.abc import Callable
 
 import numpy as np
 
-from .types import ArrayLike, MetricFunc, ComparisonOperator
+from .types import ArrayLike, ComparisonOperator, MetricFunc
 from .validation import (
+    _validate_comparison_operator,
     _validate_inputs,
     _validate_threshold,
-    _validate_metric_name,
-    _validate_averaging_method,
-    _validate_comparison_operator,
 )
 
 METRIC_REGISTRY: dict[str, MetricFunc] = {}
+VECTORIZED_REGISTRY: dict[str, Callable] = {}  # For vectorized metric functions
 METRIC_PROPERTIES: dict[str, dict[str, bool | float]] = {}
 
 
 def register_metric(
     name: str | None = None,
     func: MetricFunc | None = None,
+    vectorized_func: Callable | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
 ) -> MetricFunc | Callable[[MetricFunc], MetricFunc]:
-    """Register a metric function.
+    """Register a metric function with optional vectorized version.
 
     Parameters
     ----------
@@ -32,9 +32,12 @@ def register_metric(
         Optional key under which to store the metric. If not provided the
         function's ``__name__`` is used.
     func:
-        Metric callable accepting ``tp, tn, fp, fn``. When supplied the
-        function is registered immediately. If omitted, the returned decorator
-        can be used to annotate a metric function.
+        Metric callable accepting ``tp, tn, fp, fn`` scalars and returning a float.
+        When supplied the function is registered immediately. If omitted, the
+        returned decorator can be used to annotate a metric function.
+    vectorized_func:
+        Optional vectorized version of the metric that accepts ``tp, tn, fp, fn``
+        as arrays and returns an array of scores. Used for O(n log n) optimization.
     is_piecewise:
         Whether the metric is piecewise-constant with respect to threshold changes.
         Piecewise metrics can be optimized using O(n log n) algorithms.
@@ -52,6 +55,8 @@ def register_metric(
     if func is not None:
         metric_name = name or func.__name__
         METRIC_REGISTRY[metric_name] = func
+        if vectorized_func is not None:
+            VECTORIZED_REGISTRY[metric_name] = vectorized_func
         METRIC_PROPERTIES[metric_name] = {
             "is_piecewise": is_piecewise,
             "maximize": maximize,
@@ -62,6 +67,8 @@ def register_metric(
     def decorator(f: MetricFunc) -> MetricFunc:
         metric_name = name or f.__name__
         METRIC_REGISTRY[metric_name] = f
+        if vectorized_func is not None:
+            VECTORIZED_REGISTRY[metric_name] = vectorized_func
         METRIC_PROPERTIES[metric_name] = {
             "is_piecewise": is_piecewise,
             "maximize": maximize,
@@ -156,7 +163,86 @@ def needs_probability_scores(metric_name: str) -> bool:
     return METRIC_PROPERTIES.get(metric_name, {"needs_proba": False})["needs_proba"]
 
 
-@register_metric("f1")
+def has_vectorized_implementation(metric_name: str) -> bool:
+    """Check if a metric has a vectorized implementation available.
+
+    Parameters
+    ----------
+    metric_name:
+        Name of the metric to check.
+
+    Returns
+    -------
+    bool
+        True if the metric has a vectorized implementation, False otherwise.
+    """
+    return metric_name in VECTORIZED_REGISTRY
+
+
+def get_vectorized_metric(metric_name: str) -> Callable:
+    """Get vectorized version of a metric function.
+
+    Parameters
+    ----------
+    metric_name:
+        Name of the metric.
+
+    Returns
+    -------
+    Callable
+        Vectorized metric function that accepts arrays.
+
+    Raises
+    ------
+    ValueError
+        If metric is not available in vectorized form.
+    """
+    if metric_name not in VECTORIZED_REGISTRY:
+        available = list(VECTORIZED_REGISTRY.keys())
+        raise ValueError(
+            f"Vectorized implementation not available for metric '{metric_name}'. "
+            f"Available: {available}"
+        )
+    return VECTORIZED_REGISTRY[metric_name]
+
+
+# Vectorized metric implementations for O(n log n) optimization
+def _f1_vectorized(
+    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
+) -> np.ndarray:
+    """Vectorized F1 score computation."""
+    precision = np.where(tp + fp > 0, tp / (tp + fp), 0.0)
+    recall = np.where(tp + fn > 0, tp / (tp + fn), 0.0)
+    return np.where(
+        precision + recall > 0,
+        2 * precision * recall / (precision + recall),
+        0.0
+    )
+
+
+def _accuracy_vectorized(
+    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
+) -> np.ndarray:
+    """Vectorized accuracy computation."""
+    total = tp + tn + fp + fn
+    return np.where(total > 0, (tp + tn) / total, 0.0)
+
+
+def _precision_vectorized(
+    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
+) -> np.ndarray:
+    """Vectorized precision computation."""
+    return np.where(tp + fp > 0, tp / (tp + fp), 0.0)
+
+
+def _recall_vectorized(
+    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
+) -> np.ndarray:
+    """Vectorized recall computation."""
+    return np.where(tp + fn > 0, tp / (tp + fn), 0.0)
+
+
+@register_metric("f1", vectorized_func=_f1_vectorized)
 def f1_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -181,7 +267,7 @@ def f1_score(
     )
 
 
-@register_metric("accuracy")
+@register_metric("accuracy", vectorized_func=_accuracy_vectorized)
 def accuracy_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -201,7 +287,7 @@ def accuracy_score(
     return (tp + tn) / total if total > 0 else 0.0
 
 
-@register_metric("precision")
+@register_metric("precision", vectorized_func=_precision_vectorized)
 def precision_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -220,7 +306,7 @@ def precision_score(
     return tp / (tp + fp) if tp + fp > 0 else 0.0
 
 
-@register_metric("recall")
+@register_metric("recall", vectorized_func=_recall_vectorized)
 def recall_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -255,7 +341,8 @@ def multiclass_metric(
     average:
         Averaging strategy: "macro", "micro", "weighted", or "none".
         - "macro": Unweighted mean of per-class metrics (treats all classes equally)
-        - "micro": Global metric computed on pooled confusion matrix (treats all samples equally)
+        - "micro": Global metric computed on pooled confusion matrix
+          (treats all samples equally)
         - "weighted": Weighted mean by support (number of true instances per class)
         - "none": No averaging, returns array of per-class metrics
 
@@ -275,7 +362,8 @@ def multiclass_metric(
         return float(np.mean(scores))
 
     elif average == "micro":
-        # For micro averaging, sum only TP, FP, FN (not TN which is inflated in One-vs-Rest)
+        # For micro averaging, sum only TP, FP, FN
+        # (not TN which is inflated in One-vs-Rest)
         total_tp = sum(cm[0] for cm in confusion_matrices)
         total_fp = sum(cm[2] for cm in confusion_matrices)
         total_fn = sum(cm[3] for cm in confusion_matrices)
@@ -302,7 +390,8 @@ def multiclass_metric(
                 else 0.0
             )
         elif metric_name == "accuracy":
-            # For accuracy in One-vs-Rest, compute as correct predictions / total predictions
+            # For accuracy in One-vs-Rest, compute as correct predictions
+            # / total predictions
             # This is equivalent to (total_tp) / (total_tp + total_fp + total_fn)
             total_predictions = total_tp + total_fp + total_fn
             return float(total_tp / total_predictions if total_predictions > 0 else 0.0)
@@ -340,7 +429,8 @@ def multiclass_metric(
 
     else:
         raise ValueError(
-            f"Unknown averaging method: {average}. Must be one of: 'macro', 'micro', 'weighted', 'none'."
+f"Unknown averaging method: {average}. "
+f"Must be one of: 'macro', 'micro', 'weighted', 'none'."
         )
 
 
@@ -376,11 +466,15 @@ def get_confusion_matrix(
     """
     # Validate inputs
     true_labs, pred_prob, sample_weight = _validate_inputs(
-        true_labs, pred_prob, require_binary=True, sample_weight=sample_weight, allow_multiclass=False
+        true_labs,
+        pred_prob,
+        require_binary=True,
+        sample_weight=sample_weight,
+        allow_multiclass=False
     )
     _validate_threshold(float(prob))
     _validate_comparison_operator(comparison)
-    
+
     # Apply threshold with specified comparison operator
     if comparison == ">":
         pred_labs = pred_prob > prob
@@ -397,7 +491,8 @@ def get_confusion_matrix(
         sample_weight = np.asarray(sample_weight)
         if len(sample_weight) != len(true_labs):
             raise ValueError(
-                f"Length mismatch: sample_weight ({len(sample_weight)}) vs true_labs ({len(true_labs)})"
+f"Length mismatch: sample_weight ({len(sample_weight)}) "
+f"vs true_labs ({len(true_labs)})"
             )
         tp = np.sum(sample_weight * np.logical_and(pred_labs == 1, true_labs == 1))
         tn = np.sum(sample_weight * np.logical_and(pred_labs == 0, true_labs == 0))
@@ -414,7 +509,8 @@ def get_multiclass_confusion_matrix(
     sample_weight: ArrayLike | None = None,
     comparison: ComparisonOperator = ">",
 ) -> list[tuple[int | float, int | float, int | float, int | float]]:
-    """Compute per-class confusion-matrix counts for multiclass classification using One-vs-Rest.
+    """Compute per-class confusion-matrix counts for multiclass classification
+    using One-vs-Rest.
 
     Parameters
     ----------
@@ -440,7 +536,7 @@ def get_multiclass_confusion_matrix(
         true_labs, pred_prob, sample_weight=sample_weight
     )
     _validate_comparison_operator(comparison)
-    
+
     if pred_prob.ndim == 1:
         # Binary case - backward compatibility
         thresholds = np.asarray(thresholds)
@@ -448,7 +544,7 @@ def get_multiclass_confusion_matrix(
         return [
             get_confusion_matrix(true_labs, pred_prob, thresholds[0], sample_weight, comparison)
         ]
-    
+
     # Multiclass case
     n_classes = pred_prob.shape[1]
     thresholds = np.asarray(thresholds)
