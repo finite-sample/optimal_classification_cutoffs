@@ -7,8 +7,8 @@ from sklearn.metrics import classification_report
 
 from optimal_cutoffs import (
     ThresholdOptimizer,
-    get_optimal_multiclass_thresholds,
     get_multiclass_confusion_matrix,
+    get_optimal_multiclass_thresholds,
     multiclass_metric,
 )
 

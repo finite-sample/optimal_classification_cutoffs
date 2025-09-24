@@ -1,6 +1,6 @@
 """Threshold search strategies for optimizing classification metrics."""
 
-from __future__ import annotations
+from typing import Literal
 
 import numpy as np
 from scipy import optimize
@@ -9,11 +9,15 @@ from .metrics import (
     METRIC_REGISTRY,
     get_confusion_matrix,
     get_multiclass_confusion_matrix,
+    is_piecewise_metric,
     multiclass_metric,
 )
+from .types import ArrayLike, AveragingMethod, OptimizationMethod
 
 
-def _accuracy(prob, true_labs, pred_prob, verbose=False):
+def _accuracy(
+    prob: np.ndarray, true_labs: ArrayLike, pred_prob: ArrayLike, verbose: bool = False
+) -> float:
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, prob[0])
     accuracy = (tp + tn) / (tp + tn + fp + fn)
     if verbose:
@@ -21,7 +25,9 @@ def _accuracy(prob, true_labs, pred_prob, verbose=False):
     return 1 - accuracy
 
 
-def _f1(prob, true_labs, pred_prob, verbose=False):
+def _f1(
+    prob: np.ndarray, true_labs: ArrayLike, pred_prob: ArrayLike, verbose: bool = False
+) -> float:
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, prob[0])
     precision = tp / (tp + fp) if tp + fp > 0 else 0.0
     recall = tp / (tp + fn) if tp + fn > 0 else 0.0
@@ -35,7 +41,12 @@ def _f1(prob, true_labs, pred_prob, verbose=False):
     return 1 - f1
 
 
-def get_probability(true_labs, pred_prob, objective="accuracy", verbose=False):
+def get_probability(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    objective: Literal["accuracy", "f1"] = "accuracy",
+    verbose: bool = False
+) -> float:
     """Brute-force search for a simple metric's best threshold.
 
     Parameters
@@ -73,7 +84,9 @@ def get_probability(true_labs, pred_prob, objective="accuracy", verbose=False):
     return float(prob[0] if isinstance(prob, np.ndarray) else prob)
 
 
-def _metric_score(true_labs, pred_prob, threshold, metric="f1"):
+def _metric_score(
+    true_labs: ArrayLike, pred_prob: ArrayLike, threshold: float, metric: str = "f1"
+) -> float:
     """Compute a metric score for a given threshold using registry metrics."""
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, threshold)
     try:
@@ -84,8 +97,12 @@ def _metric_score(true_labs, pred_prob, threshold, metric="f1"):
 
 
 def _multiclass_metric_score(
-    true_labs, pred_prob, thresholds, metric="f1", average="macro"
-):
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    thresholds: ArrayLike,
+    metric: str = "f1",
+    average: AveragingMethod = "macro"
+) -> float:
     """Compute a multiclass metric score for given per-class thresholds."""
     confusion_matrices = get_multiclass_confusion_matrix(
         true_labs, pred_prob, thresholds
@@ -93,7 +110,114 @@ def _multiclass_metric_score(
     return multiclass_metric(confusion_matrices, metric, average)
 
 
-def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute"):
+def _optimal_threshold_piecewise(
+    true_labs: ArrayLike, pred_prob: ArrayLike, metric: str = "f1"
+) -> float:
+    """Find optimal threshold using O(n log n) algorithm for piecewise metrics.
+
+    This algorithm sorts predictions once and uses cumulative sums to compute
+    confusion matrix elements in O(1) for each candidate threshold, resulting
+    in O(n log n) total time complexity.
+
+    Parameters
+    ----------
+    true_labs:
+        Array of true binary labels.
+    pred_prob:
+        Array of predicted probabilities.
+    metric:
+        Name of metric to optimize from METRIC_REGISTRY.
+
+    Returns
+    -------
+    float
+        Optimal threshold that maximizes the metric.
+    """
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+
+    if len(true_labs) == 0:
+        raise ValueError("true_labs cannot be empty")
+
+    if len(true_labs) != len(pred_prob):
+        raise ValueError(
+            f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({len(pred_prob)})"
+        )
+
+    # Get metric function
+    try:
+        metric_func = METRIC_REGISTRY[metric]
+    except KeyError as exc:
+        raise ValueError(f"Unknown metric: {metric}") from exc
+
+    # Handle edge case: single prediction
+    if len(pred_prob) == 1:
+        return float(pred_prob[0])
+
+    # Sort by predicted probability in descending order for efficiency
+    sort_idx = np.argsort(-pred_prob)
+    sorted_probs = pred_prob[sort_idx]
+    sorted_labels = true_labs[sort_idx]
+
+    # Compute total positives and negatives
+    P = int(np.sum(true_labs))
+    N = len(true_labs) - P
+
+    # Handle edge case: all same class
+    if P == 0 or N == 0:
+        return 0.5
+
+    # Find unique probabilities to use as threshold candidates
+    unique_probs = np.unique(pred_prob)
+
+    best_score = -np.inf
+    best_threshold = 0.5
+
+    # For O(n log n) optimization, we can use cumulative sums
+    # Sort examples by probability (descending)
+    sort_indices = np.argsort(-pred_prob)
+    sorted_probs = pred_prob[sort_indices]
+    sorted_labels = true_labs[sort_indices]
+
+    # Cumulative sums for TP and total positives at each position
+    cum_tp = np.cumsum(sorted_labels)
+    cum_total = np.arange(1, len(sorted_labels) + 1)
+    cum_fp = cum_total - cum_tp
+
+    # Evaluate at each unique threshold
+    for threshold in unique_probs:
+        # Find position where we switch from positive to negative predictions
+        # All samples with prob > threshold are predicted positive
+        pos_mask = sorted_probs > threshold
+
+        if np.any(pos_mask):
+            # Find last position where prob > threshold
+            last_pos = np.where(pos_mask)[0][-1]
+            tp = int(cum_tp[last_pos])
+            fp = int(cum_fp[last_pos])
+        else:
+            # No predictions above threshold -> all negative
+            tp = fp = 0
+
+        fn = P - tp
+        tn = N - fp
+
+        # Compute metric score
+        score = float(metric_func(tp, tn, fp, fn))
+
+        if score > best_score:
+            best_score = score
+            best_threshold = threshold
+
+    return float(best_threshold)
+
+
+def get_optimal_threshold(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    metric: str = "f1",
+    method: OptimizationMethod = "smart_brute"
+) -> float | np.ndarray:
     """Find the threshold that optimizes a metric.
 
     Parameters
@@ -112,7 +236,7 @@ def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute
 
     Returns
     -------
-    float or numpy.ndarray
+    float | np.ndarray
         For binary: The threshold that maximizes the chosen metric.
         For multiclass: Array of per-class thresholds.
     """
@@ -124,9 +248,16 @@ def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute
 
     # Binary case (existing logic)
     if method == "smart_brute":
-        thresholds = np.unique(pred_prob)
-        scores = [_metric_score(true_labs, pred_prob, t, metric) for t in thresholds]
-        return float(thresholds[int(np.argmax(scores))])
+        # Use fast piecewise optimization for piecewise-constant metrics
+        if is_piecewise_metric(metric):
+            return _optimal_threshold_piecewise(true_labs, pred_prob, metric)
+        else:
+            # Fall back to original brute force for non-piecewise metrics
+            thresholds = np.unique(pred_prob)
+            scores = [
+                _metric_score(true_labs, pred_prob, t, metric) for t in thresholds
+            ]
+            return float(thresholds[int(np.argmax(scores))])
 
     if method == "minimize":
         res = optimize.minimize_scalar(
@@ -158,8 +289,12 @@ def get_optimal_threshold(true_labs, pred_prob, metric="f1", method="smart_brute
 
 
 def get_optimal_multiclass_thresholds(
-    true_labs, pred_prob, metric="f1", method="smart_brute", average="macro"
-):
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    metric: str = "f1",
+    method: OptimizationMethod = "smart_brute",
+    average: AveragingMethod = "macro"
+) -> np.ndarray:
     """Find optimal per-class thresholds for multiclass classification using One-vs-Rest.
 
     Parameters
@@ -177,7 +312,7 @@ def get_optimal_multiclass_thresholds(
 
     Returns
     -------
-    numpy.ndarray
+    np.ndarray
         Array of optimal thresholds, one per class.
     """
     true_labs = np.asarray(true_labs)

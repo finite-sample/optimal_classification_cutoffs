@@ -1,21 +1,20 @@
 """Cross-validation helpers for threshold optimization."""
 
-from __future__ import annotations
-
 import numpy as np
 from sklearn.model_selection import KFold
 
-from .optimizers import get_optimal_threshold, _metric_score
+from .optimizers import _metric_score, get_optimal_threshold
+from .types import ArrayLike, OptimizationMethod
 
 
 def cv_threshold_optimization(
-    true_labs,
-    pred_prob,
-    metric="f1",
-    method="smart_brute",
-    cv=5,
-    random_state=None,
-):
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    metric: str = "f1",
+    method: OptimizationMethod = "smart_brute",
+    cv: int = 5,
+    random_state: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Estimate an optimal threshold using cross-validation.
 
     Parameters
@@ -36,7 +35,7 @@ def cv_threshold_optimization(
 
     Returns
     -------
-    tuple[numpy.ndarray, numpy.ndarray]
+    tuple[np.ndarray, np.ndarray]
         Arrays of per-fold thresholds and scores.
     """
 
@@ -54,14 +53,14 @@ def cv_threshold_optimization(
 
 
 def nested_cv_threshold_optimization(
-    true_labs,
-    pred_prob,
-    metric="f1",
-    method="smart_brute",
-    inner_cv=5,
-    outer_cv=5,
-    random_state=None,
-):
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    metric: str = "f1",
+    method: OptimizationMethod = "smart_brute",
+    inner_cv: int = 5,
+    outer_cv: int = 5,
+    random_state: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Nested cross-validation for threshold optimization.
 
     Parameters
@@ -84,7 +83,7 @@ def nested_cv_threshold_optimization(
 
     Returns
     -------
-    tuple[numpy.ndarray, numpy.ndarray]
+    tuple[np.ndarray, np.ndarray]
         Arrays of outer-fold thresholds and scores.
     """
 

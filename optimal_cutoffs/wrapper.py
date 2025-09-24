@@ -1,9 +1,11 @@
 """High-level wrapper for threshold optimization."""
 
-from __future__ import annotations
+from typing import Self
 
 import numpy as np
-from .optimizers import get_probability, get_optimal_threshold
+
+from .optimizers import get_optimal_threshold, get_probability
+from .types import ArrayLike, OptimizationMethod
 
 
 class ThresholdOptimizer:
@@ -17,8 +19,8 @@ class ThresholdOptimizer:
         self,
         objective: str = "accuracy",
         verbose: bool = False,
-        method: str = "smart_brute",
-    ):
+        method: OptimizationMethod = "smart_brute",
+    ) -> None:
         """Create a new optimizer.
 
         Parameters
@@ -33,10 +35,10 @@ class ThresholdOptimizer:
         self.objective = objective
         self.verbose = verbose
         self.method = method
-        self.threshold_ = None
-        self.is_multiclass_ = False
+        self.threshold_: float | np.ndarray | None = None
+        self.is_multiclass_: bool = False
 
-    def fit(self, true_labs, pred_prob):
+    def fit(self, true_labs: ArrayLike, pred_prob: ArrayLike) -> Self:
         """Estimate the optimal threshold(s) from labeled data.
 
         Parameters
@@ -49,7 +51,7 @@ class ThresholdOptimizer:
 
         Returns
         -------
-        ThresholdOptimizer
+        Self
             Fitted instance with ``threshold_`` attribute set.
         """
         pred_prob = np.asarray(pred_prob)
@@ -70,7 +72,7 @@ class ThresholdOptimizer:
 
         return self
 
-    def predict(self, pred_prob):
+    def predict(self, pred_prob: ArrayLike) -> np.ndarray:
         """Convert probabilities to class predictions using the learned threshold(s).
 
         Parameters
@@ -80,7 +82,7 @@ class ThresholdOptimizer:
 
         Returns
         -------
-        numpy.ndarray
+        np.ndarray
             For binary: Boolean array of predicted class labels.
             For multiclass: Integer array of predicted class labels.
         """

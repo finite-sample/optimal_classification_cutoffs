@@ -2,12 +2,13 @@
 
 import numpy as np
 import pytest
+
 from optimal_cutoffs import (
-    get_multiclass_confusion_matrix,
-    multiclass_metric,
-    get_optimal_threshold,
-    get_optimal_multiclass_thresholds,
     ThresholdOptimizer,
+    get_multiclass_confusion_matrix,
+    get_optimal_multiclass_thresholds,
+    get_optimal_threshold,
+    multiclass_metric,
 )
 
 

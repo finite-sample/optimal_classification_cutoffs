@@ -1,6 +1,7 @@
 """Basic example demonstrating the optimal classification cutoff utilities."""
 
 import numpy as np
+
 from optimal_cutoffs import ThresholdOptimizer, get_confusion_matrix, get_probability
 
 # Simulated data

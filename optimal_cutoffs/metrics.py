@@ -1,14 +1,20 @@
 """Metric registry, confusion matrix utilities, and built-in metrics."""
 
-from typing import Callable, Dict
+from collections.abc import Callable
+
 import numpy as np
 
-METRIC_REGISTRY: Dict[str, Callable[[int, int, int, int], float]] = {}
+from .types import ArrayLike, MetricFunc
+
+METRIC_REGISTRY: dict[str, MetricFunc] = {}
+METRIC_PROPERTIES: dict[str, dict[str, bool]] = {}
 
 
 def register_metric(
-    name: str = None, func: Callable[[int, int, int, int], float] = None
-):
+    name: str | None = None,
+    func: MetricFunc | None = None,
+    is_piecewise: bool = True,
+) -> MetricFunc | Callable[[MetricFunc], MetricFunc]:
     """Register a metric function.
 
     Parameters
@@ -20,30 +26,41 @@ def register_metric(
         Metric callable accepting ``tp, tn, fp, fn``. When supplied the
         function is registered immediately. If omitted, the returned decorator
         can be used to annotate a metric function.
+    is_piecewise:
+        Whether the metric is piecewise-constant with respect to threshold changes.
+        Piecewise metrics can be optimized using O(n log n) algorithms.
 
     Returns
     -------
-    Callable
+    MetricFunc | Callable[[MetricFunc], MetricFunc]
         The registered function or decorator.
     """
     if func is not None:
-        METRIC_REGISTRY[name or func.__name__] = func
+        metric_name = name or func.__name__
+        METRIC_REGISTRY[metric_name] = func
+        METRIC_PROPERTIES[metric_name] = {"is_piecewise": is_piecewise}
         return func
 
-    def decorator(f: Callable[[int, int, int, int], float]):
-        METRIC_REGISTRY[name or f.__name__] = f
+    def decorator(f: MetricFunc) -> MetricFunc:
+        metric_name = name or f.__name__
+        METRIC_REGISTRY[metric_name] = f
+        METRIC_PROPERTIES[metric_name] = {"is_piecewise": is_piecewise}
         return f
 
     return decorator
 
 
-def register_metrics(metrics: Dict[str, Callable[[int, int, int, int], float]]):
+def register_metrics(
+    metrics: dict[str, MetricFunc], is_piecewise: bool = True
+) -> None:
     """Register multiple metric functions.
 
     Parameters
     ----------
     metrics:
         Mapping of metric names to callables that accept ``tp, tn, fp, fn``.
+    is_piecewise:
+        Whether the metrics are piecewise-constant with respect to threshold changes.
 
     Returns
     -------
@@ -51,11 +68,30 @@ def register_metrics(metrics: Dict[str, Callable[[int, int, int, int], float]]):
         This function mutates the global :data:`METRIC_REGISTRY` in-place.
     """
     METRIC_REGISTRY.update(metrics)
+    for name in metrics:
+        METRIC_PROPERTIES[name] = {"is_piecewise": is_piecewise}
+
+
+def is_piecewise_metric(metric_name: str) -> bool:
+    """Check if a metric is piecewise-constant.
+
+    Parameters
+    ----------
+    metric_name:
+        Name of the metric to check.
+
+    Returns
+    -------
+    bool
+        True if the metric is piecewise-constant, False otherwise.
+        Defaults to True for unknown metrics.
+    """
+    return METRIC_PROPERTIES.get(metric_name, {"is_piecewise": True})["is_piecewise"]
 
 
 @register_metric("f1")
 def f1_score(tp: int, tn: int, fp: int, fn: int) -> float:
-    """Compute the F\ :sub:`1` score.
+    r"""Compute the F\ :sub:`1` score.
 
     Parameters
     ----------
@@ -128,7 +164,11 @@ def recall_score(tp: int, tn: int, fp: int, fn: int) -> float:
     return tp / (tp + fn) if tp + fn > 0 else 0.0
 
 
-def multiclass_metric(confusion_matrices, metric_name, average="macro"):
+def multiclass_metric(
+    confusion_matrices: list[tuple[int, int, int, int]],
+    metric_name: str,
+    average: str = "macro"
+) -> float:
     """Compute multiclass metrics from per-class confusion matrices.
 
     Parameters
@@ -206,7 +246,7 @@ def multiclass_metric(confusion_matrices, metric_name, average="macro"):
             return 0.0
 
         weighted_score = (
-            sum(score * support for score, support in zip(scores, supports))
+            sum(score * support for score, support in zip(scores, supports, strict=False))
             / total_support
         )
         return float(weighted_score)
@@ -215,7 +255,9 @@ def multiclass_metric(confusion_matrices, metric_name, average="macro"):
         raise ValueError(f"Unknown averaging method: {average}")
 
 
-def get_confusion_matrix(true_labs, pred_prob, prob):
+def get_confusion_matrix(
+    true_labs: ArrayLike, pred_prob: ArrayLike, prob: float
+) -> tuple[int, int, int, int]:
     """Compute confusion-matrix counts for a given threshold.
 
     Parameters
@@ -240,7 +282,9 @@ def get_confusion_matrix(true_labs, pred_prob, prob):
     return tp, tn, fp, fn
 
 
-def get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds):
+def get_multiclass_confusion_matrix(
+    true_labs: ArrayLike, pred_prob: ArrayLike, thresholds: ArrayLike
+) -> list[tuple[int, int, int, int]]:
     """Compute per-class confusion-matrix counts for multiclass classification using One-vs-Rest.
 
     Parameters
