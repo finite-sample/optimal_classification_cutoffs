@@ -4,16 +4,25 @@ from collections.abc import Callable
 
 import numpy as np
 
-from .types import ArrayLike, MetricFunc
+from .types import ArrayLike, MetricFunc, ComparisonOperator
+from .validation import (
+    _validate_inputs,
+    _validate_threshold,
+    _validate_metric_name,
+    _validate_averaging_method,
+    _validate_comparison_operator,
+)
 
 METRIC_REGISTRY: dict[str, MetricFunc] = {}
-METRIC_PROPERTIES: dict[str, dict[str, bool]] = {}
+METRIC_PROPERTIES: dict[str, dict[str, bool | float]] = {}
 
 
 def register_metric(
     name: str | None = None,
     func: MetricFunc | None = None,
     is_piecewise: bool = True,
+    maximize: bool = True,
+    needs_proba: bool = False,
 ) -> MetricFunc | Callable[[MetricFunc], MetricFunc]:
     """Register a metric function.
 
@@ -29,6 +38,11 @@ def register_metric(
     is_piecewise:
         Whether the metric is piecewise-constant with respect to threshold changes.
         Piecewise metrics can be optimized using O(n log n) algorithms.
+    maximize:
+        Whether the metric should be maximized (True) or minimized (False).
+    needs_proba:
+        Whether the metric requires probability scores rather than just thresholds.
+        Used for metrics like log-loss or Brier score.
 
     Returns
     -------
@@ -38,20 +52,31 @@ def register_metric(
     if func is not None:
         metric_name = name or func.__name__
         METRIC_REGISTRY[metric_name] = func
-        METRIC_PROPERTIES[metric_name] = {"is_piecewise": is_piecewise}
+        METRIC_PROPERTIES[metric_name] = {
+            "is_piecewise": is_piecewise,
+            "maximize": maximize,
+            "needs_proba": needs_proba,
+        }
         return func
 
     def decorator(f: MetricFunc) -> MetricFunc:
         metric_name = name or f.__name__
         METRIC_REGISTRY[metric_name] = f
-        METRIC_PROPERTIES[metric_name] = {"is_piecewise": is_piecewise}
+        METRIC_PROPERTIES[metric_name] = {
+            "is_piecewise": is_piecewise,
+            "maximize": maximize,
+            "needs_proba": needs_proba,
+        }
         return f
 
     return decorator
 
 
 def register_metrics(
-    metrics: dict[str, MetricFunc], is_piecewise: bool = True
+    metrics: dict[str, MetricFunc],
+    is_piecewise: bool = True,
+    maximize: bool = True,
+    needs_proba: bool = False,
 ) -> None:
     """Register multiple metric functions.
 
@@ -61,6 +86,10 @@ def register_metrics(
         Mapping of metric names to callables that accept ``tp, tn, fp, fn``.
     is_piecewise:
         Whether the metrics are piecewise-constant with respect to threshold changes.
+    maximize:
+        Whether the metrics should be maximized (True) or minimized (False).
+    needs_proba:
+        Whether the metrics require probability scores rather than just thresholds.
 
     Returns
     -------
@@ -69,7 +98,11 @@ def register_metrics(
     """
     METRIC_REGISTRY.update(metrics)
     for name in metrics:
-        METRIC_PROPERTIES[name] = {"is_piecewise": is_piecewise}
+        METRIC_PROPERTIES[name] = {
+            "is_piecewise": is_piecewise,
+            "maximize": maximize,
+            "needs_proba": needs_proba,
+        }
 
 
 def is_piecewise_metric(metric_name: str) -> bool:
@@ -89,8 +122,44 @@ def is_piecewise_metric(metric_name: str) -> bool:
     return METRIC_PROPERTIES.get(metric_name, {"is_piecewise": True})["is_piecewise"]
 
 
+def should_maximize_metric(metric_name: str) -> bool:
+    """Check if a metric should be maximized.
+
+    Parameters
+    ----------
+    metric_name:
+        Name of the metric to check.
+
+    Returns
+    -------
+    bool
+        True if the metric should be maximized, False if minimized.
+        Defaults to True for unknown metrics.
+    """
+    return METRIC_PROPERTIES.get(metric_name, {"maximize": True})["maximize"]
+
+
+def needs_probability_scores(metric_name: str) -> bool:
+    """Check if a metric needs probability scores rather than just thresholds.
+
+    Parameters
+    ----------
+    metric_name:
+        Name of the metric to check.
+
+    Returns
+    -------
+    bool
+        True if the metric needs probability scores, False otherwise.
+        Defaults to False for unknown metrics.
+    """
+    return METRIC_PROPERTIES.get(metric_name, {"needs_proba": False})["needs_proba"]
+
+
 @register_metric("f1")
-def f1_score(tp: int, tn: int, fp: int, fn: int) -> float:
+def f1_score(
+    tp: int | float, tn: int | float, fp: int | float, fn: int | float
+) -> float:
     r"""Compute the F\ :sub:`1` score.
 
     Parameters
@@ -113,7 +182,9 @@ def f1_score(tp: int, tn: int, fp: int, fn: int) -> float:
 
 
 @register_metric("accuracy")
-def accuracy_score(tp: int, tn: int, fp: int, fn: int) -> float:
+def accuracy_score(
+    tp: int | float, tn: int | float, fp: int | float, fn: int | float
+) -> float:
     """Compute classification accuracy.
 
     Parameters
@@ -131,7 +202,9 @@ def accuracy_score(tp: int, tn: int, fp: int, fn: int) -> float:
 
 
 @register_metric("precision")
-def precision_score(tp: int, tn: int, fp: int, fn: int) -> float:
+def precision_score(
+    tp: int | float, tn: int | float, fp: int | float, fn: int | float
+) -> float:
     """Compute precision (positive predictive value).
 
     Parameters
@@ -148,7 +221,9 @@ def precision_score(tp: int, tn: int, fp: int, fn: int) -> float:
 
 
 @register_metric("recall")
-def recall_score(tp: int, tn: int, fp: int, fn: int) -> float:
+def recall_score(
+    tp: int | float, tn: int | float, fp: int | float, fn: int | float
+) -> float:
     """Compute recall (sensitivity, true positive rate).
 
     Parameters
@@ -165,10 +240,10 @@ def recall_score(tp: int, tn: int, fp: int, fn: int) -> float:
 
 
 def multiclass_metric(
-    confusion_matrices: list[tuple[int, int, int, int]],
+    confusion_matrices: list[tuple[int | float, int | float, int | float, int | float]],
     metric_name: str,
-    average: str = "macro"
-) -> float:
+    average: str = "macro",
+) -> float | np.ndarray:
     """Compute multiclass metrics from per-class confusion matrices.
 
     Parameters
@@ -178,12 +253,16 @@ def multiclass_metric(
     metric_name:
         Name of the metric to compute (must be in METRIC_REGISTRY).
     average:
-        Averaging strategy: "macro" (unweighted mean), "micro" (global), or "weighted".
+        Averaging strategy: "macro", "micro", "weighted", or "none".
+        - "macro": Unweighted mean of per-class metrics (treats all classes equally)
+        - "micro": Global metric computed on pooled confusion matrix (treats all samples equally)
+        - "weighted": Weighted mean by support (number of true instances per class)
+        - "none": No averaging, returns array of per-class metrics
 
     Returns
     -------
-    float
-        Aggregated metric score.
+    float | np.ndarray
+        Aggregated metric score (float) or per-class scores (array) if average="none".
     """
     if metric_name not in METRIC_REGISTRY:
         raise ValueError(f"Unknown metric: {metric_name}")
@@ -246,45 +325,95 @@ def multiclass_metric(
             return 0.0
 
         weighted_score = (
-            sum(score * support for score, support in zip(scores, supports, strict=False))
+            sum(
+                score * support
+                for score, support in zip(scores, supports, strict=False)
+            )
             / total_support
         )
         return float(weighted_score)
 
+    elif average == "none":
+        # No averaging: return per-class scores
+        scores = [metric_func(*cm) for cm in confusion_matrices]
+        return np.array(scores)
+
     else:
-        raise ValueError(f"Unknown averaging method: {average}")
+        raise ValueError(
+            f"Unknown averaging method: {average}. Must be one of: 'macro', 'micro', 'weighted', 'none'."
+        )
 
 
 def get_confusion_matrix(
-    true_labs: ArrayLike, pred_prob: ArrayLike, prob: float
-) -> tuple[int, int, int, int]:
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    prob: float,
+    sample_weight: ArrayLike | None = None,
+    comparison: ComparisonOperator = ">",
+) -> tuple[int | float, int | float, int | float, int | float]:
     """Compute confusion-matrix counts for a given threshold.
 
     Parameters
     ----------
     true_labs:
-        Array of true binary labels.
+        Array of true binary labels in {0, 1}.
     pred_prob:
-        Array of predicted probabilities in ``[0, 1]``.
+        Array of predicted probabilities in [0, 1].
     prob:
         Decision threshold applied to ``pred_prob``.
+    sample_weight:
+        Optional array of sample weights. If None, all samples have equal weight.
+    comparison:
+        Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
+        - ">": pred_prob > threshold (default, excludes ties)
+        - ">=": pred_prob >= threshold (includes ties)
 
     Returns
     -------
-    tuple[int, int, int, int]
-        Counts ``(tp, tn, fp, fn)``.
+    tuple[int | float, int | float, int | float, int | float]
+        Counts ``(tp, tn, fp, fn)``. Returns int when sample_weight is None,
+        float when sample_weight is provided to preserve fractional weighted counts.
     """
-    pred_labs = pred_prob > prob
-    tp = np.sum(np.logical_and(pred_labs == 1, true_labs == 1))
-    tn = np.sum(np.logical_and(pred_labs == 0, true_labs == 0))
-    fp = np.sum(np.logical_and(pred_labs == 1, true_labs == 0))
-    fn = np.sum(np.logical_and(pred_labs == 0, true_labs == 1))
-    return tp, tn, fp, fn
+    # Validate inputs
+    true_labs, pred_prob, sample_weight = _validate_inputs(
+        true_labs, pred_prob, require_binary=True, sample_weight=sample_weight, allow_multiclass=False
+    )
+    _validate_threshold(float(prob))
+    _validate_comparison_operator(comparison)
+    
+    # Apply threshold with specified comparison operator
+    if comparison == ">":
+        pred_labs = pred_prob > prob
+    else:  # ">="
+        pred_labs = pred_prob >= prob
+
+    if sample_weight is None:
+        tp = np.sum(np.logical_and(pred_labs == 1, true_labs == 1))
+        tn = np.sum(np.logical_and(pred_labs == 0, true_labs == 0))
+        fp = np.sum(np.logical_and(pred_labs == 1, true_labs == 0))
+        fn = np.sum(np.logical_and(pred_labs == 0, true_labs == 1))
+        return int(tp), int(tn), int(fp), int(fn)
+    else:
+        sample_weight = np.asarray(sample_weight)
+        if len(sample_weight) != len(true_labs):
+            raise ValueError(
+                f"Length mismatch: sample_weight ({len(sample_weight)}) vs true_labs ({len(true_labs)})"
+            )
+        tp = np.sum(sample_weight * np.logical_and(pred_labs == 1, true_labs == 1))
+        tn = np.sum(sample_weight * np.logical_and(pred_labs == 0, true_labs == 0))
+        fp = np.sum(sample_weight * np.logical_and(pred_labs == 1, true_labs == 0))
+        fn = np.sum(sample_weight * np.logical_and(pred_labs == 0, true_labs == 1))
+        # Return float values when using sample weights to preserve fractional counts
+        return float(tp), float(tn), float(fp), float(fn)
 
 
 def get_multiclass_confusion_matrix(
-    true_labs: ArrayLike, pred_prob: ArrayLike, thresholds: ArrayLike
-) -> list[tuple[int, int, int, int]]:
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    thresholds: ArrayLike,
+    sample_weight: ArrayLike | None = None,
+    comparison: ComparisonOperator = ">",
+) -> list[tuple[int | float, int | float, int | float, int | float]]:
     """Compute per-class confusion-matrix counts for multiclass classification using One-vs-Rest.
 
     Parameters
@@ -295,53 +424,35 @@ def get_multiclass_confusion_matrix(
         Array of predicted probabilities with shape (n_samples, n_classes).
     thresholds:
         Array of decision thresholds, one per class.
+    sample_weight:
+        Optional array of sample weights. If None, all samples have equal weight.
+    comparison:
+        Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
 
     Returns
     -------
-    list[tuple[int, int, int, int]]
+    list[tuple[int | float, int | float, int | float, int | float]]
         List of per-class counts ``(tp, tn, fp, fn)`` for each class.
+        Returns int when sample_weight is None, float when sample_weight is provided.
     """
-    true_labs = np.asarray(true_labs)
-    pred_prob = np.asarray(pred_prob)
-    thresholds = np.asarray(thresholds)
-
-    # Input validation
-    if len(true_labs) == 0:
-        raise ValueError("true_labs cannot be empty")
-
+    # Validate inputs
+    true_labs, pred_prob, sample_weight = _validate_inputs(
+        true_labs, pred_prob, sample_weight=sample_weight
+    )
+    _validate_comparison_operator(comparison)
+    
     if pred_prob.ndim == 1:
         # Binary case - backward compatibility
-        if len(true_labs) != len(pred_prob):
-            raise ValueError(
-                f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({len(pred_prob)})"
-            )
-        return [get_confusion_matrix(true_labs, pred_prob, thresholds[0])]
-
-    if pred_prob.ndim != 2:
-        raise ValueError(f"pred_prob must be 1D or 2D, got {pred_prob.ndim}D")
-
-    if len(true_labs) != pred_prob.shape[0]:
-        raise ValueError(
-            f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({pred_prob.shape[0]})"
-        )
-
-    if np.any(np.isnan(pred_prob)) or np.any(np.isinf(pred_prob)):
-        raise ValueError("pred_prob contains NaN or infinite values")
-
-    # Check class labels are valid for One-vs-Rest
-    unique_labels = np.unique(true_labs)
-    expected_labels = np.arange(len(unique_labels))
-    if not np.array_equal(np.sort(unique_labels), expected_labels):
-        raise ValueError(
-            f"Class labels must be consecutive integers starting from 0. "
-            f"Got {unique_labels}, expected {expected_labels}"
-        )
-
+        thresholds = np.asarray(thresholds)
+        _validate_threshold(thresholds[0])
+        return [
+            get_confusion_matrix(true_labs, pred_prob, thresholds[0], sample_weight, comparison)
+        ]
+    
+    # Multiclass case
     n_classes = pred_prob.shape[1]
-    if len(thresholds) != n_classes:
-        raise ValueError(
-            f"Number of thresholds ({len(thresholds)}) must match number of classes ({n_classes})"
-        )
+    thresholds = np.asarray(thresholds)
+    _validate_threshold(thresholds, n_classes)
 
     confusion_matrices = []
 
@@ -351,7 +462,9 @@ def get_multiclass_confusion_matrix(
         pred_binary_prob = pred_prob[:, class_idx]
         threshold = thresholds[class_idx]
 
-        cm = get_confusion_matrix(true_binary, pred_binary_prob, threshold)
+        cm = get_confusion_matrix(
+            true_binary, pred_binary_prob, threshold, sample_weight, comparison
+        )
         confusion_matrices.append(cm)
 
     return confusion_matrices

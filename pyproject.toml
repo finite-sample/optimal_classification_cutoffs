@@ -40,7 +40,8 @@ dev = [
     "pytest>=6.0",
     "pytest-cov",
     "ruff",
-    "mypy>=1.0"
+    "mypy>=1.0",
+    "hypothesis>=6.0"
 ]
 
 [tool.setuptools]

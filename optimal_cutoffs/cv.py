@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import KFold
 
 from .optimizers import _metric_score, get_optimal_threshold
-from .types import ArrayLike, OptimizationMethod
+from .types import ArrayLike, OptimizationMethod, SampleWeightLike
 
 
 def cv_threshold_optimization(
@@ -14,6 +14,7 @@ def cv_threshold_optimization(
     method: OptimizationMethod = "smart_brute",
     cv: int = 5,
     random_state: int | None = None,
+    sample_weight: SampleWeightLike = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Estimate an optimal threshold using cross-validation.
 
@@ -32,6 +33,8 @@ def cv_threshold_optimization(
         Number of folds for :class:`~sklearn.model_selection.KFold` cross-validation.
     random_state:
         Seed for the cross-validator shuffling.
+    sample_weight:
+        Optional array of sample weights for handling imbalanced datasets.
 
     Returns
     -------
@@ -39,15 +42,30 @@ def cv_threshold_optimization(
         Arrays of per-fold thresholds and scores.
     """
 
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+    if sample_weight is not None:
+        sample_weight = np.asarray(sample_weight)
+
     kf = KFold(n_splits=cv, shuffle=True, random_state=random_state)
     thresholds = []
     scores = []
     for train_idx, test_idx in kf.split(true_labs):
+        # Extract training data and weights
+        train_weights = None if sample_weight is None else sample_weight[train_idx]
+        test_weights = None if sample_weight is None else sample_weight[test_idx]
+
         thr = get_optimal_threshold(
-            true_labs[train_idx], pred_prob[train_idx], metric=metric, method=method
+            true_labs[train_idx],
+            pred_prob[train_idx],
+            metric=metric,
+            method=method,
+            sample_weight=train_weights,
         )
         thresholds.append(thr)
-        score = _metric_score(true_labs[test_idx], pred_prob[test_idx], thr, metric)
+        score = _metric_score(
+            true_labs[test_idx], pred_prob[test_idx], thr, metric, test_weights
+        )
         scores.append(score)
     return np.array(thresholds), np.array(scores)
 
@@ -60,6 +78,7 @@ def nested_cv_threshold_optimization(
     inner_cv: int = 5,
     outer_cv: int = 5,
     random_state: int | None = None,
+    sample_weight: SampleWeightLike = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Nested cross-validation for threshold optimization.
 
@@ -80,6 +99,8 @@ def nested_cv_threshold_optimization(
         Number of outer folds for unbiased performance assessment.
     random_state:
         Seed for the cross-validators.
+    sample_weight:
+        Optional array of sample weights for handling imbalanced datasets.
 
     Returns
     -------
@@ -87,10 +108,19 @@ def nested_cv_threshold_optimization(
         Arrays of outer-fold thresholds and scores.
     """
 
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+    if sample_weight is not None:
+        sample_weight = np.asarray(sample_weight)
+
     outer = KFold(n_splits=outer_cv, shuffle=True, random_state=random_state)
     outer_thresholds = []
     outer_scores = []
     for train_idx, test_idx in outer.split(true_labs):
+        # Extract training and test data with weights
+        train_weights = None if sample_weight is None else sample_weight[train_idx]
+        test_weights = None if sample_weight is None else sample_weight[test_idx]
+
         inner_thresholds, _ = cv_threshold_optimization(
             true_labs[train_idx],
             pred_prob[train_idx],
@@ -98,9 +128,12 @@ def nested_cv_threshold_optimization(
             method=method,
             cv=inner_cv,
             random_state=random_state,
+            sample_weight=train_weights,
         )
         thr = float(np.mean(inner_thresholds))
         outer_thresholds.append(thr)
-        score = _metric_score(true_labs[test_idx], pred_prob[test_idx], thr, metric)
+        score = _metric_score(
+            true_labs[test_idx], pred_prob[test_idx], thr, metric, test_weights
+        )
         outer_scores.append(score)
     return np.array(outer_thresholds), np.array(outer_scores)

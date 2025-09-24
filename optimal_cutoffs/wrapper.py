@@ -5,7 +5,7 @@ from typing import Self
 import numpy as np
 
 from .optimizers import get_optimal_threshold, get_probability
-from .types import ArrayLike, OptimizationMethod
+from .types import ArrayLike, OptimizationMethod, SampleWeightLike, ComparisonOperator
 
 
 class ThresholdOptimizer:
@@ -20,6 +20,7 @@ class ThresholdOptimizer:
         objective: str = "accuracy",
         verbose: bool = False,
         method: OptimizationMethod = "smart_brute",
+        comparison: ComparisonOperator = ">",
     ) -> None:
         """Create a new optimizer.
 
@@ -31,14 +32,22 @@ class ThresholdOptimizer:
             If ``True``, print progress during threshold search.
         method:
             Optimization method: ``"smart_brute"``, ``"minimize"``, or ``"gradient"``.
+        comparison:
+            Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
         """
         self.objective = objective
         self.verbose = verbose
         self.method = method
+        self.comparison = comparison
         self.threshold_: float | np.ndarray | None = None
         self.is_multiclass_: bool = False
 
-    def fit(self, true_labs: ArrayLike, pred_prob: ArrayLike) -> Self:
+    def fit(
+        self,
+        true_labs: ArrayLike,
+        pred_prob: ArrayLike,
+        sample_weight: SampleWeightLike = None,
+    ) -> Self:
         """Estimate the optimal threshold(s) from labeled data.
 
         Parameters
@@ -48,6 +57,8 @@ class ThresholdOptimizer:
         pred_prob:
             Predicted probabilities from a classifier. For binary: 1D array (n_samples,).
             For multiclass: 2D array (n_samples, n_classes).
+        sample_weight:
+            Optional array of sample weights for handling imbalanced datasets.
 
         Returns
         -------
@@ -59,13 +70,17 @@ class ThresholdOptimizer:
         # Check if multiclass
         self.is_multiclass_ = pred_prob.ndim == 2
 
-        if self.is_multiclass_ or self.objective not in ["accuracy", "f1"]:
+        if (
+            self.is_multiclass_
+            or self.objective not in ["accuracy", "f1"]
+            or sample_weight is not None
+        ):
             # Use the more general optimizer
             self.threshold_ = get_optimal_threshold(
-                true_labs, pred_prob, self.objective, self.method
+                true_labs, pred_prob, self.objective, self.method, sample_weight, self.comparison
             )
         else:
-            # Use legacy optimizer for backward compatibility
+            # Use legacy optimizer for backward compatibility (only when no sample weights)
             self.threshold_ = get_probability(
                 true_labs, pred_prob, self.objective, self.verbose
             )
@@ -94,7 +109,10 @@ class ThresholdOptimizer:
         if self.is_multiclass_:
             # Multiclass prediction using One-vs-Rest thresholds
             n_samples, n_classes = pred_prob.shape
-            binary_predictions = pred_prob > self.threshold_
+            if self.comparison == ">":
+                binary_predictions = pred_prob > self.threshold_
+            else:  # ">="
+                binary_predictions = pred_prob >= self.threshold_
 
             # For each sample, predict the class with highest probability among those above threshold
             # If no classes above threshold, predict the class with highest probability
@@ -114,4 +132,7 @@ class ThresholdOptimizer:
             return predictions
         else:
             # Binary prediction
-            return pred_prob > self.threshold_
+            if self.comparison == ">":
+                return pred_prob > self.threshold_
+            else:  # ">="
+                return pred_prob >= self.threshold_

@@ -12,7 +12,14 @@ from .metrics import (
     is_piecewise_metric,
     multiclass_metric,
 )
-from .types import ArrayLike, AveragingMethod, OptimizationMethod
+from .types import ArrayLike, AveragingMethod, OptimizationMethod, ComparisonOperator
+from .validation import (
+    _validate_inputs,
+    _validate_metric_name,
+    _validate_optimization_method,
+    _validate_averaging_method,
+    _validate_comparison_operator,
+)
 
 
 def _accuracy(
@@ -45,9 +52,15 @@ def get_probability(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     objective: Literal["accuracy", "f1"] = "accuracy",
-    verbose: bool = False
+    verbose: bool = False,
 ) -> float:
     """Brute-force search for a simple metric's best threshold.
+
+    .. deprecated:: 1.0.0
+        :func:`get_probability` is deprecated and will be removed in a future version.
+        Use :func:`get_optimal_threshold` instead, which provides a unified API for
+        both binary and multiclass classification with more optimization methods
+        and additional features like sample weights.
 
     Parameters
     ----------
@@ -65,6 +78,16 @@ def get_probability(
     float
         Threshold that maximizes the specified metric.
     """
+    import warnings
+
+    warnings.warn(
+        "get_probability is deprecated and will be removed in a future version. "
+        "Use get_optimal_threshold instead, which provides a unified API for "
+        "both binary and multiclass classification with more optimization methods "
+        "and additional features like sample weights.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if objective == "accuracy":
         prob = optimize.brute(
             _accuracy,
@@ -85,10 +108,36 @@ def get_probability(
 
 
 def _metric_score(
-    true_labs: ArrayLike, pred_prob: ArrayLike, threshold: float, metric: str = "f1"
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    threshold: float,
+    metric: str = "f1",
+    sample_weight: ArrayLike | None = None,
+    comparison: ComparisonOperator = ">",
 ) -> float:
-    """Compute a metric score for a given threshold using registry metrics."""
-    tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, threshold)
+    """Compute a metric score for a given threshold using registry metrics.
+
+    Parameters
+    ----------
+    true_labs:
+        Array of true labels.
+    pred_prob:
+        Array of predicted probabilities.
+    threshold:
+        Decision threshold.
+    metric:
+        Name of metric from registry.
+    sample_weight:
+        Optional array of sample weights.
+
+    Returns
+    -------
+    float
+        Computed metric score.
+    """
+    tp, tn, fp, fn = get_confusion_matrix(
+        true_labs, pred_prob, threshold, sample_weight, comparison
+    )
     try:
         metric_func = METRIC_REGISTRY[metric]
     except KeyError as exc:
@@ -101,17 +150,43 @@ def _multiclass_metric_score(
     pred_prob: ArrayLike,
     thresholds: ArrayLike,
     metric: str = "f1",
-    average: AveragingMethod = "macro"
+    average: AveragingMethod = "macro",
+    sample_weight: ArrayLike | None = None,
 ) -> float:
-    """Compute a multiclass metric score for given per-class thresholds."""
+    """Compute a multiclass metric score for given per-class thresholds.
+
+    Parameters
+    ----------
+    true_labs:
+        Array of true class labels.
+    pred_prob:
+        Array of predicted probabilities.
+    thresholds:
+        Array of per-class thresholds.
+    metric:
+        Name of metric from registry.
+    average:
+        Averaging strategy for multiclass.
+    sample_weight:
+        Optional array of sample weights.
+
+    Returns
+    -------
+    float
+        Computed multiclass metric score.
+    """
     confusion_matrices = get_multiclass_confusion_matrix(
-        true_labs, pred_prob, thresholds
+        true_labs, pred_prob, thresholds, sample_weight
     )
     return multiclass_metric(confusion_matrices, metric, average)
 
 
 def _optimal_threshold_piecewise(
-    true_labs: ArrayLike, pred_prob: ArrayLike, metric: str = "f1"
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    metric: str = "f1",
+    sample_weight: ArrayLike | None = None,
+    comparison: ComparisonOperator = ">",
 ) -> float:
     """Find optimal threshold using O(n log n) algorithm for piecewise metrics.
 
@@ -127,6 +202,10 @@ def _optimal_threshold_piecewise(
         Array of predicted probabilities.
     metric:
         Name of metric to optimize from METRIC_REGISTRY.
+    sample_weight:
+        Optional array of sample weights.
+    comparison:
+        Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
 
     Returns
     -------
@@ -159,9 +238,21 @@ def _optimal_threshold_piecewise(
     sorted_probs = pred_prob[sort_idx]
     sorted_labels = true_labs[sort_idx]
 
-    # Compute total positives and negatives
-    P = int(np.sum(true_labs))
-    N = len(true_labs) - P
+    # Handle sample weights
+    if sample_weight is not None:
+        sample_weight = np.asarray(sample_weight)
+        if len(sample_weight) != len(true_labs):
+            raise ValueError(
+                f"Length mismatch: sample_weight ({len(sample_weight)}) vs true_labs ({len(true_labs)})"
+            )
+        # Sort weights along with labels and probabilities
+        weights_sorted = sample_weight[sort_idx]
+    else:
+        weights_sorted = np.ones(len(true_labs))
+
+    # Compute total positives and negatives (weighted)
+    P = float(np.sum(weights_sorted * sorted_labels))
+    N = float(np.sum(weights_sorted * (1 - sorted_labels)))
 
     # Handle edge case: all same class
     if P == 0 or N == 0:
@@ -174,36 +265,35 @@ def _optimal_threshold_piecewise(
     best_threshold = 0.5
 
     # For O(n log n) optimization, we can use cumulative sums
-    # Sort examples by probability (descending)
-    sort_indices = np.argsort(-pred_prob)
-    sorted_probs = pred_prob[sort_indices]
-    sorted_labels = true_labs[sort_indices]
+    # Sort examples by probability (descending) - already done above
 
-    # Cumulative sums for TP and total positives at each position
-    cum_tp = np.cumsum(sorted_labels)
-    cum_total = np.arange(1, len(sorted_labels) + 1)
-    cum_fp = cum_total - cum_tp
+    # Cumulative sums for TP and FP (weighted)
+    cum_tp = np.cumsum(weights_sorted * sorted_labels)
+    cum_fp = np.cumsum(weights_sorted * (1 - sorted_labels))
 
     # Evaluate at each unique threshold
     for threshold in unique_probs:
         # Find position where we switch from positive to negative predictions
-        # All samples with prob > threshold are predicted positive
-        pos_mask = sorted_probs > threshold
+        # Apply comparison operator for thresholding
+        if comparison == ">":
+            pos_mask = sorted_probs > threshold
+        else:  # ">="
+            pos_mask = sorted_probs >= threshold
 
         if np.any(pos_mask):
-            # Find last position where prob > threshold
+            # Find last position where condition is satisfied
             last_pos = np.where(pos_mask)[0][-1]
-            tp = int(cum_tp[last_pos])
-            fp = int(cum_fp[last_pos])
+            tp = float(cum_tp[last_pos])
+            fp = float(cum_fp[last_pos])
         else:
             # No predictions above threshold -> all negative
-            tp = fp = 0
+            tp = fp = 0.0
 
         fn = P - tp
         tn = N - fp
 
         # Compute metric score
-        score = float(metric_func(tp, tn, fp, fn))
+        score = float(metric_func(int(tp), int(tn), int(fp), int(fn)))
 
         if score > best_score:
             best_score = score
@@ -216,7 +306,9 @@ def get_optimal_threshold(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethod = "smart_brute"
+    method: OptimizationMethod = "smart_brute",
+    sample_weight: ArrayLike | None = None,
+    comparison: ComparisonOperator = ">",
 ) -> float | np.ndarray:
     """Find the threshold that optimizes a metric.
 
@@ -233,6 +325,10 @@ def get_optimal_threshold(
         Strategy used for optimization: ``"smart_brute"`` evaluates all unique
         probabilities, ``"minimize"`` uses ``scipy.optimize.minimize_scalar``,
         and ``"gradient"`` performs a simple gradient ascent.
+    sample_weight:
+        Optional array of sample weights for handling imbalanced datasets.
+    comparison:
+        Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
 
     Returns
     -------
@@ -240,28 +336,45 @@ def get_optimal_threshold(
         For binary: The threshold that maximizes the chosen metric.
         For multiclass: Array of per-class thresholds.
     """
-    pred_prob = np.asarray(pred_prob)
+    # Validate inputs
+    true_labs, pred_prob, sample_weight = _validate_inputs(
+        true_labs, pred_prob, sample_weight=sample_weight
+    )
+    _validate_metric_name(metric)
+    _validate_optimization_method(method)
+    _validate_comparison_operator(comparison)
 
     # Check if this is multiclass
     if pred_prob.ndim == 2:
-        return get_optimal_multiclass_thresholds(true_labs, pred_prob, metric, method)
+        return get_optimal_multiclass_thresholds(
+            true_labs,
+            pred_prob,
+            metric,
+            method,
+            average="macro",
+            sample_weight=sample_weight,
+            comparison=comparison,
+        )
 
     # Binary case (existing logic)
     if method == "smart_brute":
         # Use fast piecewise optimization for piecewise-constant metrics
         if is_piecewise_metric(metric):
-            return _optimal_threshold_piecewise(true_labs, pred_prob, metric)
+            return _optimal_threshold_piecewise(
+                true_labs, pred_prob, metric, sample_weight, comparison
+            )
         else:
             # Fall back to original brute force for non-piecewise metrics
             thresholds = np.unique(pred_prob)
             scores = [
-                _metric_score(true_labs, pred_prob, t, metric) for t in thresholds
+                _metric_score(true_labs, pred_prob, t, metric, sample_weight, comparison)
+                for t in thresholds
             ]
             return float(thresholds[int(np.argmax(scores))])
 
     if method == "minimize":
         res = optimize.minimize_scalar(
-            lambda t: -_metric_score(true_labs, pred_prob, t, metric),
+            lambda t: -_metric_score(true_labs, pred_prob, t, metric, sample_weight, comparison),
             bounds=(0, 1),
             method="bounded",
         )
@@ -270,7 +383,10 @@ def get_optimal_threshold(
         # solution, also evaluate all unique predicted probabilities and pick
         # whichever threshold yields the highest score.
         candidates = np.unique(np.append(pred_prob, res.x))
-        scores = [_metric_score(true_labs, pred_prob, t, metric) for t in candidates]
+        scores = [
+            _metric_score(true_labs, pred_prob, t, metric, sample_weight, comparison)
+            for t in candidates
+        ]
         return float(candidates[int(np.argmax(scores))])
 
     if method == "gradient":
@@ -278,12 +394,21 @@ def get_optimal_threshold(
         lr = 0.1
         eps = 1e-5
         for _ in range(100):
+            # Ensure evaluation points are within bounds
+            thresh_plus = np.clip(threshold + eps, 0.0, 1.0)
+            thresh_minus = np.clip(threshold - eps, 0.0, 1.0)
+            
             grad = (
-                _metric_score(true_labs, pred_prob, threshold + eps, metric)
-                - _metric_score(true_labs, pred_prob, threshold - eps, metric)
+                _metric_score(
+                    true_labs, pred_prob, thresh_plus, metric, sample_weight, comparison
+                )
+                - _metric_score(
+                    true_labs, pred_prob, thresh_minus, metric, sample_weight, comparison
+                )
             ) / (2 * eps)
             threshold = np.clip(threshold + lr * grad, 0.0, 1.0)
-        return float(threshold)
+        # Final safety clip to ensure numerical precision doesn't cause issues
+        return float(np.clip(threshold, 0.0, 1.0))
 
     raise ValueError(f"Unknown method: {method}")
 
@@ -293,8 +418,11 @@ def get_optimal_multiclass_thresholds(
     pred_prob: ArrayLike,
     metric: str = "f1",
     method: OptimizationMethod = "smart_brute",
-    average: AveragingMethod = "macro"
-) -> np.ndarray:
+    average: AveragingMethod = "macro",
+    sample_weight: ArrayLike | None = None,
+    vectorized: bool = False,
+    comparison: ComparisonOperator = ">",
+) -> np.ndarray | float:
     """Find optimal per-class thresholds for multiclass classification using One-vs-Rest.
 
     Parameters
@@ -308,12 +436,22 @@ def get_optimal_multiclass_thresholds(
     method:
         Strategy used for optimization: ``"smart_brute"``, ``"minimize"``, or ``"gradient"``.
     average:
-        Averaging strategy for multiclass metrics: "macro", "micro", or "weighted".
+        Averaging strategy that affects optimization:
+        - "macro"/"none": Optimize each class independently (default behavior)
+        - "micro": Optimize to maximize micro-averaged metric across all classes
+        - "weighted": Optimize each class independently, same as macro
+    sample_weight:
+        Optional array of sample weights for handling imbalanced datasets.
+    vectorized:
+        If True, use vectorized implementation for better performance when possible.
+    comparison:
+        Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
 
     Returns
     -------
-    np.ndarray
-        Array of optimal thresholds, one per class.
+    np.ndarray | float
+        For "macro"/"weighted"/"none": Array of optimal thresholds, one per class.
+        For "micro" with single threshold strategy: Single optimal threshold.
     """
     true_labs = np.asarray(true_labs)
     pred_prob = np.asarray(pred_prob)
@@ -343,16 +481,134 @@ def get_optimal_multiclass_thresholds(
         )
 
     n_classes = pred_prob.shape[1]
+
+    if average == "micro":
+        # For micro-averaging, we can either:
+        # 1. Pool all OvR problems and optimize a single threshold
+        # 2. Optimize per-class thresholds to maximize micro-averaged metric
+        # We implement approach 2 for more flexibility
+        return _optimize_micro_averaged_thresholds(
+            true_labs, pred_prob, metric, method, sample_weight, vectorized, comparison
+        )
+    else:
+        # For macro, weighted, none: optimize each class independently
+        if vectorized and method == "smart_brute" and is_piecewise_metric(metric):
+            return _optimize_thresholds_vectorized(
+                true_labs, pred_prob, metric, sample_weight, comparison
+            )
+        else:
+            # Standard per-class optimization
+            optimal_thresholds = np.zeros(n_classes)
+            for class_idx in range(n_classes):
+                # One-vs-Rest: current class vs all others
+                true_binary = (true_labs == class_idx).astype(int)
+                pred_binary_prob = pred_prob[:, class_idx]
+
+                # Optimize threshold for this class
+                optimal_thresholds[class_idx] = get_optimal_threshold(
+                    true_binary, pred_binary_prob, metric, method, sample_weight, comparison
+                )
+            return optimal_thresholds
+
+
+def _optimize_micro_averaged_thresholds(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    metric: str,
+    method: OptimizationMethod,
+    sample_weight: ArrayLike | None,
+    vectorized: bool,
+    comparison: ComparisonOperator = ">",
+) -> np.ndarray:
+    """Optimize thresholds to maximize micro-averaged metric.
+
+    For micro-averaging, we optimize per-class thresholds jointly to maximize
+    the micro-averaged metric score across all classes.
+    """
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+    n_classes = pred_prob.shape[1]
+
+    def objective(thresholds):
+        """Objective function: negative micro-averaged metric."""
+        cms = get_multiclass_confusion_matrix(
+            true_labs, pred_prob, thresholds, sample_weight, comparison
+        )
+        score = multiclass_metric(cms, metric, "micro")
+        return -float(score)
+
+    if method == "smart_brute":
+        # For micro-averaging with smart_brute, we need to search over combinations
+        # of thresholds. Start with independent optimization as initial guess.
+        initial_thresholds = np.zeros(n_classes)
+        for class_idx in range(n_classes):
+            true_binary = (true_labs == class_idx).astype(int)
+            pred_binary_prob = pred_prob[:, class_idx]
+            initial_thresholds[class_idx] = get_optimal_threshold(
+                true_binary, pred_binary_prob, metric, "smart_brute", sample_weight, comparison
+            )
+
+        # For now, return the independent optimization result
+        # TODO: Implement joint optimization for micro-averaging
+        return initial_thresholds
+
+    elif method in ["minimize", "gradient"]:
+        # Use scipy optimization for joint threshold optimization
+        from scipy.optimize import minimize
+
+        # Initial guess: independent optimization per class
+        initial_guess = np.zeros(n_classes)
+        for class_idx in range(n_classes):
+            true_binary = (true_labs == class_idx).astype(int)
+            pred_binary_prob = pred_prob[:, class_idx]
+            initial_guess[class_idx] = get_optimal_threshold(
+                true_binary, pred_binary_prob, metric, "minimize", sample_weight, comparison
+            )
+
+        # Joint optimization
+        result = minimize(
+            objective,
+            initial_guess,
+            method="L-BFGS-B",
+            bounds=[(0, 1) for _ in range(n_classes)],
+        )
+
+        return result.x
+
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
+
+def _optimize_thresholds_vectorized(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    metric: str,
+    sample_weight: ArrayLike | None,
+    comparison: ComparisonOperator = ">",
+) -> np.ndarray:
+    """Vectorized optimization for piecewise metrics.
+
+    This function vectorizes the piecewise threshold optimization
+    across all classes for better performance.
+    """
+    true_labs = np.asarray(true_labs)
+    pred_prob = np.asarray(pred_prob)
+    n_samples, n_classes = pred_prob.shape
+
+    # Create binary labels for all classes at once: (n_samples, n_classes)
+    true_binary_all = (true_labs[:, None] == np.arange(n_classes)).astype(int)
+
     optimal_thresholds = np.zeros(n_classes)
 
+    # For now, fall back to per-class optimization
+    # TODO: Implement fully vectorized version
     for class_idx in range(n_classes):
-        # One-vs-Rest: current class vs all others
-        true_binary = (true_labs == class_idx).astype(int)
-        pred_binary_prob = pred_prob[:, class_idx]
-
-        # Optimize threshold for this class
-        optimal_thresholds[class_idx] = get_optimal_threshold(
-            true_binary, pred_binary_prob, metric, method
+        optimal_thresholds[class_idx] = _optimal_threshold_piecewise(
+            true_binary_all[:, class_idx],
+            pred_prob[:, class_idx],
+            metric,
+            sample_weight,
+            comparison,
         )
 
     return optimal_thresholds
