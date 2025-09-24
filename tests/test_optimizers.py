@@ -123,6 +123,7 @@ def test_piecewise_vs_original_brute_force():
 
     # Test on several random datasets
     from optimal_cutoffs.optimizers import _metric_score
+
     rng = np.random.default_rng(123)
 
     for n_samples in [20, 50, 100]:

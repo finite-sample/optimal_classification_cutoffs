@@ -18,7 +18,9 @@ class TestComparisonOperators:
         """Test that comparison operators affect confusion matrix calculations."""
         # Simple test case where comparison operator should make a difference
         true_labels = np.array([0, 1, 0, 1])
-        pred_probs = np.array([0.3, 0.5, 0.7, 0.5])  # Note: two predictions exactly at 0.5
+        pred_probs = np.array(
+            [0.3, 0.5, 0.7, 0.5]
+        )  # Note: two predictions exactly at 0.5
         threshold = 0.5
 
         # With ">" (exclusive), prob=0.5 predictions should be negative
@@ -51,7 +53,9 @@ class TestComparisonOperators:
 
         # Get optimal thresholds with both operators
         thresh_gt = get_optimal_threshold(true_labels, pred_probs, "f1", comparison=">")
-        thresh_gte = get_optimal_threshold(true_labels, pred_probs, "f1", comparison=">=")
+        thresh_gte = get_optimal_threshold(
+            true_labels, pred_probs, "f1", comparison=">="
+        )
 
         # Both should be valid thresholds
         assert 0 <= thresh_gt <= 1
@@ -63,14 +67,16 @@ class TestComparisonOperators:
     def test_multiclass_confusion_matrix_comparison_operators(self):
         """Test comparison operators with multiclass confusion matrices."""
         true_labels = np.array([0, 1, 2, 0, 1, 2])
-        pred_probs = np.array([
-            [0.7, 0.2, 0.1],  # class 0
-            [0.1, 0.6, 0.3],  # class 1
-            [0.2, 0.3, 0.5],  # class 2
-            [0.5, 0.3, 0.2],  # class 0 (tie at threshold)
-            [0.3, 0.5, 0.2],  # class 1 (tie at threshold)
-            [0.1, 0.4, 0.5],  # class 2 (tie at threshold)
-        ])
+        pred_probs = np.array(
+            [
+                [0.7, 0.2, 0.1],  # class 0
+                [0.1, 0.6, 0.3],  # class 1
+                [0.2, 0.3, 0.5],  # class 2
+                [0.5, 0.3, 0.2],  # class 0 (tie at threshold)
+                [0.3, 0.5, 0.2],  # class 1 (tie at threshold)
+                [0.1, 0.4, 0.5],  # class 2 (tie at threshold)
+            ]
+        )
         thresholds = np.array([0.5, 0.5, 0.5])  # All thresholds at 0.5
 
         # Get confusion matrices with both operators
@@ -112,7 +118,9 @@ class TestComparisonOperators:
 
         # Get optimal thresholds with both operators
         thresh_gt = get_optimal_threshold(true_labels, pred_probs, "f1", comparison=">")
-        thresh_gte = get_optimal_threshold(true_labels, pred_probs, "f1", comparison=">=")
+        thresh_gte = get_optimal_threshold(
+            true_labels, pred_probs, "f1", comparison=">="
+        )
 
         # Should return arrays of thresholds
         assert isinstance(thresh_gt, np.ndarray)

@@ -84,7 +84,9 @@ class TestRegistryIntegration:
             return (tp + tn) / (tp + tn + fp + fn)
 
         # Should fail when trying to use sort_scan
-        with pytest.raises(ValueError, match="sort_scan method requires vectorized implementation"):
+        with pytest.raises(
+            ValueError, match="sort_scan method requires vectorized implementation"
+        ):
             get_optimal_threshold(
                 self.y_true, self.pred_prob, metric="test_metric", method="sort_scan"
             )
@@ -104,18 +106,22 @@ class TestRegistryIntegration:
 
         # All methods should give very similar results
         for i, method1 in enumerate(methods):
-            for method2 in methods[i+1:]:
+            for method2 in methods[i + 1 :]:
                 diff = abs(thresholds[method1] - thresholds[method2])
-                assert diff < 0.1, f"Large difference between {method1} and {method2}: {diff}"
+                assert diff < 0.1, (
+                    f"Large difference between {method1} and {method2}: {diff}"
+                )
 
     def test_sample_weights_with_sort_scan(self):
         """Test sort_scan method with sample weights."""
         weights = np.random.uniform(0.5, 2.0, size=len(self.y_true))
 
         thresh = get_optimal_threshold(
-            self.y_true, self.pred_prob,
-            metric="f1", method="sort_scan",
-            sample_weight=weights
+            self.y_true,
+            self.pred_prob,
+            metric="f1",
+            method="sort_scan",
+            sample_weight=weights,
         )
         assert 0.0 <= thresh <= 1.0
 
@@ -123,9 +129,11 @@ class TestRegistryIntegration:
         """Test different comparison operators with sort_scan."""
         for comparison in [">", ">="]:
             thresh = get_optimal_threshold(
-                self.y_true, self.pred_prob,
-                metric="f1", method="sort_scan",
-                comparison=comparison
+                self.y_true,
+                self.pred_prob,
+                metric="f1",
+                method="sort_scan",
+                comparison=comparison,
             )
             assert 0.0 <= thresh <= 1.0
 
@@ -142,7 +150,9 @@ class TestRegistryIntegration:
                 )
             except ValueError as e:
                 if "Invalid optimization method" in str(e):
-                    pytest.fail(f"Method {method} should be valid but raised validation error")
+                    pytest.fail(
+                        f"Method {method} should be valid but raised validation error"
+                    )
 
         # Invalid method should raise error
         with pytest.raises(ValueError, match="Invalid optimization method"):
@@ -187,7 +197,9 @@ class TestPerformanceComparison:
 
         # Sort_scan should be significantly faster for large datasets
         # Allow some variability in timing, but expect at least 2x speedup
-        assert time_sort_scan < time_smart_brute or time_smart_brute < 0.001  # Very fast case
+        assert (
+            time_sort_scan < time_smart_brute or time_smart_brute < 0.001
+        )  # Very fast case
 
 
 class TestBackwardCompatibility:

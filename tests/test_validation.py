@@ -89,7 +89,9 @@ class TestInputValidation:
         _validate_inputs(true_labels, pred_probs)
 
         # Invalid: non-consecutive labels (missing class 1, has class 3)
-        with pytest.raises(ValueError, match="must be consecutive integers starting from 0"):
+        with pytest.raises(
+            ValueError, match="must be consecutive integers starting from 0"
+        ):
             _validate_inputs([0, 2, 3], np.random.rand(3, 3))  # Has 0,2,3 but missing 1
 
         # Invalid: negative labels
@@ -152,15 +154,21 @@ class TestInputValidation:
 
         # NaN values
         with pytest.raises(ValueError, match="sample_weight contains NaN"):
-            _validate_inputs(true_labels, pred_probs, sample_weight=[1.0, np.nan, 1.5, 0.5])
+            _validate_inputs(
+                true_labels, pred_probs, sample_weight=[1.0, np.nan, 1.5, 0.5]
+            )
 
         # Negative values
         with pytest.raises(ValueError, match="sample_weight must be non-negative"):
-            _validate_inputs(true_labels, pred_probs, sample_weight=[1.0, -1.0, 1.5, 0.5])
+            _validate_inputs(
+                true_labels, pred_probs, sample_weight=[1.0, -1.0, 1.5, 0.5]
+            )
 
         # All zeros
         with pytest.raises(ValueError, match="sample_weight cannot sum to zero"):
-            _validate_inputs(true_labels, pred_probs, sample_weight=[0.0, 0.0, 0.0, 0.0])
+            _validate_inputs(
+                true_labels, pred_probs, sample_weight=[0.0, 0.0, 0.0, 0.0]
+            )
 
     def test_validate_threshold(self):
         """Test threshold validation."""
@@ -185,7 +193,9 @@ class TestInputValidation:
             _validate_threshold(1.1)
 
         # Invalid: wrong length for multiclass
-        with pytest.raises(ValueError, match="threshold length .* must match number of classes"):
+        with pytest.raises(
+            ValueError, match="threshold length .* must match number of classes"
+        ):
             _validate_threshold([0.5, 0.7], n_classes=3)
 
         # Invalid: wrong dimension for multiclass
@@ -276,7 +286,9 @@ class TestPublicFunctionValidation:
         valid_threshold = 0.5
 
         # Should work with valid inputs
-        tp, tn, fp, fn = get_confusion_matrix(valid_labels, valid_probs, valid_threshold)
+        tp, tn, fp, fn = get_confusion_matrix(
+            valid_labels, valid_probs, valid_threshold
+        )
         assert all(isinstance(x, int) for x in [tp, tn, fp, fn])
 
         # Should fail with invalid threshold
@@ -285,7 +297,9 @@ class TestPublicFunctionValidation:
 
         # Should fail with invalid comparison
         with pytest.raises(ValueError, match="Invalid comparison operator"):
-            get_confusion_matrix(valid_labels, valid_probs, valid_threshold, comparison="<")
+            get_confusion_matrix(
+                valid_labels, valid_probs, valid_threshold, comparison="<"
+            )
 
         # Should fail with multiclass input when not allowed
         multiclass_labels = [0, 1, 2, 0, 1, 2]
@@ -309,7 +323,9 @@ class TestRobustnessAndEdgeCases:
 
         # Nested list for multiclass
         pred_probs_2d = [[0.8, 0.2], [0.3, 0.7], [0.6, 0.4], [0.1, 0.9]]
-        validated_labels, validated_probs, _ = _validate_inputs(true_labels, pred_probs_2d)
+        validated_labels, validated_probs, _ = _validate_inputs(
+            true_labels, pred_probs_2d
+        )
         assert validated_probs.ndim == 2
 
     def test_edge_case_single_sample(self):

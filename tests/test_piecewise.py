@@ -171,7 +171,7 @@ class TestVectorizedMetrics:
 
         # Manual calculation for each case
         # Case 0: precision=1/1=1, recall=1/2=0.5, f1=2*1*0.5/(1+0.5)=2/3
-        assert abs(f1_scores[0] - 2/3) < 1e-10
+        assert abs(f1_scores[0] - 2 / 3) < 1e-10
 
         # Case 1: precision=2/3, recall=2/2=1, f1=2*(2/3)*1/(2/3+1)=4/5
         assert abs(f1_scores[1] - 0.8) < 1e-10
@@ -207,7 +207,7 @@ class TestVectorizedMetrics:
         assert abs(prec_scores[1] - 0.0) < 1e-10
 
         # Case 2: 2/(2+1) = 2/3
-        assert abs(prec_scores[2] - 2/3) < 1e-10
+        assert abs(prec_scores[2] - 2 / 3) < 1e-10
 
     def test_recall_vectorized(self):
         """Test vectorized recall computation."""
@@ -335,9 +335,7 @@ class TestOptimalThresholdSortScan:
     def test_optimal_threshold_edge_cases(self):
         """Test edge cases."""
         # Single sample
-        threshold, score, k = optimal_threshold_sortscan(
-            [1], [0.7], f1_vectorized
-        )
+        threshold, score, k = optimal_threshold_sortscan([1], [0.7], f1_vectorized)
         assert threshold == 0.7
         assert k == 0
 
@@ -370,7 +368,9 @@ class TestBackwardCompatibility:
                 threshold_new = _optimal_threshold_piecewise(y_true, pred_prob, metric)
 
                 # Should be valid threshold
-                assert 0 <= threshold_new <= 1, f"Invalid threshold for {metric}: {threshold_new}"
+                assert 0 <= threshold_new <= 1, (
+                    f"Invalid threshold for {metric}: {threshold_new}"
+                )
 
     def test_piecewise_vs_smart_brute(self):
         """Test piecewise optimization matches smart_brute method."""
@@ -380,8 +380,12 @@ class TestBackwardCompatibility:
         pred_prob = [0.1, 0.3, 0.4, 0.6, 0.8, 0.9]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold_piecewise = _optimal_threshold_piecewise(y_true, pred_prob, metric)
-            threshold_smart = get_optimal_threshold(y_true, pred_prob, metric, method="smart_brute")
+            threshold_piecewise = _optimal_threshold_piecewise(
+                y_true, pred_prob, metric
+            )
+            threshold_smart = get_optimal_threshold(
+                y_true, pred_prob, metric, method="smart_brute"
+            )
 
             # Should get very close results (allowing for midpoint vs exact probability differences)
             assert 0 <= threshold_piecewise <= 1
@@ -389,7 +393,10 @@ class TestBackwardCompatibility:
 
             # Scores should be identical or very close
             from optimal_cutoffs.optimizers import _metric_score
-            score_piecewise = _metric_score(y_true, pred_prob, threshold_piecewise, metric)
+
+            score_piecewise = _metric_score(
+                y_true, pred_prob, threshold_piecewise, metric
+            )
             score_smart = _metric_score(y_true, pred_prob, threshold_smart, metric)
 
             assert abs(score_piecewise - score_smart) < 1e-6, (
@@ -454,7 +461,7 @@ class TestPropertyBasedComparison:
 
     def brute_force_midpoints(self, y, p, metric_fn):
         """Brute force reference implementation that evaluates metric at optimal thresholds.
-        
+
         This function evaluates the metric at thresholds that correspond exactly
         to the cuts tested by the sort-and-scan algorithm: midpoints between adjacent
         probabilities in the sorted array, plus boundary cases.
@@ -465,7 +472,7 @@ class TestPropertyBasedComparison:
         # Sort arrays by descending probability (same as sort-and-scan)
         sort_idx = np.argsort(-p, kind="mergesort")
         p_sorted = p[sort_idx]
-        y_sorted = y[sort_idx]
+        y_sorted = y[sort_idx]  # noqa: F841
 
         # Generate thresholds corresponding to each possible cut
         # With enhanced indexing: k=0 means predict nothing, k=1 means items 0, etc.
@@ -490,7 +497,7 @@ class TestPropertyBasedComparison:
                     thresholds.append(0.0)
             else:
                 # Normal cut: threshold between p_sorted[k-1] and p_sorted[k]
-                left = p_sorted[k-1]
+                left = p_sorted[k - 1]
                 right = p_sorted[k]
 
                 if left > right:
@@ -512,7 +519,9 @@ class TestPropertyBasedComparison:
             tn = int(np.sum((y == 0) & (pred == 0)))
 
             # Use vectorized metric function (expects arrays)
-            score = metric_fn(np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn]))[0]
+            score = metric_fn(
+                np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn])
+            )[0]
 
             if score > best_score:
                 best_score = score
@@ -523,7 +532,7 @@ class TestPropertyBasedComparison:
     @settings(deadline=None, max_examples=200)
     @given(
         n=st.integers(min_value=5, max_value=300),
-        seed=st.integers(min_value=0, max_value=2**32-1)
+        seed=st.integers(min_value=0, max_value=2**32 - 1),
     )
     def test_sortscan_matches_bruteforce_f1(self, n, seed):
         """Test that sort-and-scan F1 optimization matches brute force over midpoints."""
@@ -550,7 +559,7 @@ class TestPropertyBasedComparison:
     @settings(deadline=None, max_examples=200)
     @given(
         n=st.integers(min_value=5, max_value=300),
-        seed=st.integers(min_value=0, max_value=2**32-1)
+        seed=st.integers(min_value=0, max_value=2**32 - 1),
     )
     def test_sortscan_matches_bruteforce_accuracy(self, n, seed):
         """Test that sort-and-scan accuracy optimization matches brute force over midpoints."""

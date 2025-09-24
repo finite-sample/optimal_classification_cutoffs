@@ -22,10 +22,9 @@ from optimal_cutoffs.optimizers import (
 def valid_binary_labels(min_size=2, max_size=100):
     """Generate valid binary label arrays."""
     return arrays(
-        dtype=np.int8,
-        shape=st.integers(min_size, max_size),
-        elements=st.integers(0, 1)
+        dtype=np.int8, shape=st.integers(min_size, max_size), elements=st.integers(0, 1)
     )
+
 
 def valid_probabilities(min_size=2, max_size=100):
     """Generate valid probability arrays."""
@@ -33,18 +32,26 @@ def valid_probabilities(min_size=2, max_size=100):
         dtype=np.float64,
         shape=st.integers(min_size, max_size),
         elements=st.floats(0.0, 1.0, allow_nan=False, allow_infinity=False),
-        unique=False
+        unique=False,
     )
+
 
 def matched_labels_and_probabilities(min_size=2, max_size=50):
     """Generate matched pairs of labels and probabilities."""
+
     @st.composite
     def _strategy(draw):
         size = draw(st.integers(min_size, max_size))
         labels = draw(arrays(dtype=np.int8, shape=size, elements=st.integers(0, 1)))
-        probs = draw(arrays(dtype=np.float64, shape=size,
-                           elements=st.floats(0.0, 1.0, allow_nan=False, allow_infinity=False)))
+        probs = draw(
+            arrays(
+                dtype=np.float64,
+                shape=size,
+                elements=st.floats(0.0, 1.0, allow_nan=False, allow_infinity=False),
+            )
+        )
         return labels, probs
+
     return _strategy()
 
 
@@ -117,13 +124,17 @@ class TestCoreInvariants:
         # Test on multiple metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
             # Use piecewise optimization
-            piecewise_threshold = _optimal_threshold_piecewise(labels, probabilities, metric)
+            piecewise_threshold = _optimal_threshold_piecewise(
+                labels, probabilities, metric
+            )
 
             # Use naive brute force
             naive_threshold = naive_brute_force(labels, probabilities, metric)
 
             # Compute scores for both thresholds
-            piecewise_score = _metric_score(labels, probabilities, piecewise_threshold, metric)
+            piecewise_score = _metric_score(
+                labels, probabilities, piecewise_threshold, metric
+            )
             naive_score = _metric_score(labels, probabilities, naive_threshold, metric)
 
             # Piecewise should be at least as good as naive (allowing floating point tolerance)
@@ -134,7 +145,7 @@ class TestCoreInvariants:
 
     @given(
         data=matched_labels_and_probabilities(min_size=10, max_size=30),
-        epsilon=st.floats(0.001, 0.1)
+        epsilon=st.floats(0.001, 0.1),
     )
     @settings(max_examples=30)
     def test_threshold_shift_invariance(self, data, epsilon):
@@ -240,16 +251,24 @@ class TestCoreInvariants:
             return
 
         # Get thresholds with both comparison operators
-        threshold_gt = get_optimal_threshold(labels, probabilities, "f1", comparison=">")
-        threshold_gte = get_optimal_threshold(labels, probabilities, "f1", comparison=">=")
+        threshold_gt = get_optimal_threshold(
+            labels, probabilities, "f1", comparison=">"
+        )
+        threshold_gte = get_optimal_threshold(
+            labels, probabilities, "f1", comparison=">="
+        )
 
         # Both should be valid thresholds
         assert 0 <= threshold_gt <= 1
         assert 0 <= threshold_gte <= 1
 
         # Get confusion matrices for both
-        cm_gt = get_confusion_matrix(labels, probabilities, threshold_gt, comparison=">")
-        cm_gte = get_confusion_matrix(labels, probabilities, threshold_gte, comparison=">=")
+        cm_gt = get_confusion_matrix(
+            labels, probabilities, threshold_gt, comparison=">"
+        )
+        cm_gte = get_confusion_matrix(
+            labels, probabilities, threshold_gte, comparison=">="
+        )
 
         # Both should sum to total samples
         assert sum(cm_gt) == len(labels)
@@ -289,8 +308,12 @@ class TestStatisticalProperties:
             original_threshold = get_optimal_threshold(labels, probabilities, metric)
             perfect_threshold = get_optimal_threshold(labels, perfect_probs, metric)
 
-            original_score = _metric_score(labels, probabilities, original_threshold, metric)
-            perfect_score = _metric_score(labels, perfect_probs, perfect_threshold, metric)
+            original_score = _metric_score(
+                labels, probabilities, original_threshold, metric
+            )
+            perfect_score = _metric_score(
+                labels, perfect_probs, perfect_threshold, metric
+            )
 
             # Perfect separation should generally be better (with some tolerance for noise)
             # This is a statistical property that might not always hold due to randomness
@@ -320,13 +343,11 @@ class TestStatisticalProperties:
             score = _metric_score(labels, probabilities, threshold, metric_name)
 
             # All these metrics should be in [0, 1] range
-            assert 0 <= score <= 1, (
-                f"Metric {metric_name} out of bounds: {score}"
-            )
+            assert 0 <= score <= 1, f"Metric {metric_name} out of bounds: {score}"
 
     @given(
         data=matched_labels_and_probabilities(min_size=5, max_size=20),
-        method=st.sampled_from(["smart_brute", "minimize", "gradient"])
+        method=st.sampled_from(["smart_brute", "minimize", "gradient"]),
     )
     @settings(max_examples=20)
     def test_optimization_method_consistency(self, data, method):
@@ -338,7 +359,9 @@ class TestStatisticalProperties:
             return
 
         try:
-            threshold = get_optimal_threshold(labels, probabilities, "f1", method=method)
+            threshold = get_optimal_threshold(
+                labels, probabilities, "f1", method=method
+            )
 
             # Threshold should be valid
             assert 0 <= threshold <= 1
@@ -357,10 +380,7 @@ class TestStatisticalProperties:
 class TestNumericalStability:
     """Test numerical stability and edge cases."""
 
-    @given(
-        size=st.integers(3, 20),
-        base_prob=st.floats(0.1, 0.9)
-    )
+    @given(size=st.integers(3, 20), base_prob=st.floats(0.1, 0.9))
     @settings(max_examples=20)
     def test_near_identical_probabilities(self, size, base_prob):
         """Test handling of very similar probability values."""
@@ -406,37 +426,49 @@ class TestNumericalStability:
 
 def valid_multiclass_labels(n_classes=3, min_size=6, max_size=30):
     """Generate valid multiclass label arrays."""
+
     @st.composite
     def _strategy(draw):
         size = draw(st.integers(min_size, max_size))
-        labels = draw(arrays(dtype=np.int8, shape=size,
-                           elements=st.integers(0, n_classes - 1)))
+        labels = draw(
+            arrays(dtype=np.int8, shape=size, elements=st.integers(0, n_classes - 1))
+        )
         return labels
+
     return _strategy()
 
 
 def valid_multiclass_probabilities(n_classes=3, min_size=6, max_size=30):
     """Generate valid multiclass probability matrices."""
+
     @st.composite
     def _strategy(draw):
         size = draw(st.integers(min_size, max_size))
         # Generate probability matrix
-        probs = draw(arrays(dtype=np.float64, shape=(size, n_classes),
-                           elements=st.floats(0.1, 0.9, allow_nan=False, allow_infinity=False)))
+        probs = draw(
+            arrays(
+                dtype=np.float64,
+                shape=(size, n_classes),
+                elements=st.floats(0.1, 0.9, allow_nan=False, allow_infinity=False),
+            )
+        )
         # Normalize to sum to 1 (approximately)
         row_sums = np.sum(probs, axis=1, keepdims=True)
         probs = probs / row_sums
         return probs
+
     return _strategy()
 
 
 def matched_multiclass_data(n_classes=3, min_size=9, max_size=30):
     """Generate matched multiclass labels and probabilities."""
+
     @st.composite
     def _strategy(draw):
         size = draw(st.integers(min_size, max_size))
-        labels = draw(arrays(dtype=np.int8, shape=size,
-                           elements=st.integers(0, n_classes - 1)))
+        labels = draw(
+            arrays(dtype=np.int8, shape=size, elements=st.integers(0, n_classes - 1))
+        )
 
         # Ensure we have all classes represented (consecutive from 0)
         # by forcing at least one example of each class
@@ -445,12 +477,18 @@ def matched_multiclass_data(n_classes=3, min_size=9, max_size=30):
             for i in range(n_classes):
                 labels[i] = i
 
-        probs = draw(arrays(dtype=np.float64, shape=(size, n_classes),
-                           elements=st.floats(0.05, 0.95, allow_nan=False, allow_infinity=False)))
+        probs = draw(
+            arrays(
+                dtype=np.float64,
+                shape=(size, n_classes),
+                elements=st.floats(0.05, 0.95, allow_nan=False, allow_infinity=False),
+            )
+        )
         # Normalize probabilities
         row_sums = np.sum(probs, axis=1, keepdims=True)
         probs = probs / row_sums
         return labels, probs
+
     return _strategy()
 
 
@@ -512,7 +550,9 @@ class TestMulticlassPropertyBased:
         manual_thresholds = np.array(manual_thresholds)
 
         # Should be approximately equal (allowing for numerical differences)
-        for i, (auto, manual) in enumerate(zip(thresholds, manual_thresholds, strict=False)):
+        for i, (auto, manual) in enumerate(
+            zip(thresholds, manual_thresholds, strict=False)
+        ):
             if i in unique_labels and np.sum(labels == i) > 0:
                 assert abs(auto - manual) < 1e-6, (
                     f"Class {i} threshold mismatch: auto={auto}, manual={manual}"
@@ -520,7 +560,7 @@ class TestMulticlassPropertyBased:
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=12, max_size=20),
-        average=st.sampled_from(["macro", "micro", "weighted"])
+        average=st.sampled_from(["macro", "micro", "weighted"]),
     )
     @settings(max_examples=15)
     def test_multiclass_averaging_consistency(self, data, average):
@@ -545,7 +585,9 @@ class TestMulticlassPropertyBased:
                 assert np.all((thresholds >= 0) & (thresholds <= 1))
             else:
                 # Micro might return different format
-                assert np.all((np.asarray(thresholds) >= 0) & (np.asarray(thresholds) <= 1))
+                assert np.all(
+                    (np.asarray(thresholds) >= 0) & (np.asarray(thresholds) <= 1)
+                )
 
             # Test that confusion matrices are valid
             cms = get_multiclass_confusion_matrix(labels, probabilities, thresholds)
@@ -584,7 +626,7 @@ class TestMulticlassPropertyBased:
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=9, max_size=18),
-        metric=st.sampled_from(["f1", "precision", "recall", "accuracy"])
+        metric=st.sampled_from(["f1", "precision", "recall", "accuracy"]),
     )
     @settings(max_examples=15)
     def test_multiclass_metric_bounds(self, data, metric):
@@ -613,7 +655,9 @@ class TestMulticlassPropertyBased:
 
             # Test weighted averaging
             score_weighted = multiclass_metric(cms, metric, "weighted")
-            assert 0 <= score_weighted <= 1, f"Weighted {metric} out of bounds: {score_weighted}"
+            assert 0 <= score_weighted <= 1, (
+                f"Weighted {metric} out of bounds: {score_weighted}"
+            )
 
         except (ValueError, ZeroDivisionError):
             # Some metrics might fail on edge cases (e.g., no positives for precision)
@@ -740,7 +784,7 @@ class TestMulticlassMathematicalProperties:
             # Also add edge cases (slightly above max, slightly below min)
             if len(sorted_probs) > 0:
                 candidate_values.append(min(1.0, sorted_probs[-1] + 0.01))  # Above max
-                candidate_values.append(max(0.0, sorted_probs[0] - 0.01))   # Below min
+                candidate_values.append(max(0.0, sorted_probs[0] - 0.01))  # Below min
 
             min_distance = min(abs(threshold - p) for p in candidate_values)
             assert min_distance < 0.02, (
@@ -808,6 +852,7 @@ class TestPerformanceProperties:
             return
 
         import time
+
         methods = ["smart_brute", "minimize", "gradient"]
         times = {}
         results = {}
@@ -815,14 +860,18 @@ class TestPerformanceProperties:
         for method in methods:
             start_time = time.time()
             try:
-                threshold = get_optimal_threshold(labels, probabilities, "f1", method=method)
+                threshold = get_optimal_threshold(
+                    labels, probabilities, "f1", method=method
+                )
                 end_time = time.time()
 
                 times[method] = end_time - start_time
                 results[method] = threshold
 
                 # Should complete in reasonable time
-                assert times[method] < 5.0, f"{method} took too long: {times[method]:.2f}s"
+                assert times[method] < 5.0, (
+                    f"{method} took too long: {times[method]:.2f}s"
+                )
 
                 # Should produce valid result
                 assert 0 <= threshold <= 1
@@ -865,10 +914,7 @@ class TestPerformanceProperties:
         assert len(thresholds) == n_classes
         assert np.all((thresholds >= 0) & (thresholds <= 1))
 
-    @given(
-        size=st.integers(10, 100),
-        n_unique=st.integers(2, 20)
-    )
+    @given(size=st.integers(10, 100), n_unique=st.integers(2, 20))
     @settings(max_examples=10)
     def test_performance_vs_unique_values(self, size, n_unique):
         """Test how performance varies with number of unique probability values."""
@@ -947,11 +993,15 @@ class TestPerformanceProperties:
 
         # Time both comparison operators
         start_time = time.time()
-        threshold_gt = get_optimal_threshold(labels, probabilities, "f1", comparison=">")
+        threshold_gt = get_optimal_threshold(
+            labels, probabilities, "f1", comparison=">"
+        )
         time_gt = time.time() - start_time
 
         start_time = time.time()
-        threshold_gte = get_optimal_threshold(labels, probabilities, "f1", comparison=">=")
+        threshold_gte = get_optimal_threshold(
+            labels, probabilities, "f1", comparison=">="
+        )
         time_gte = time.time() - start_time
 
         # Both should be reasonably fast

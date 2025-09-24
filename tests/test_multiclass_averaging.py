@@ -20,17 +20,19 @@ class TestMulticlassAveragingSemantics:
 
         # Simple 3-class problem with known characteristics
         self.true_labs = np.array([0, 0, 1, 1, 2, 2, 0, 1, 2])
-        self.pred_prob = np.array([
-            [0.8, 0.1, 0.1],  # True: 0, likely correct
-            [0.7, 0.2, 0.1],  # True: 0, likely correct
-            [0.2, 0.7, 0.1],  # True: 1, likely correct
-            [0.1, 0.8, 0.1],  # True: 1, likely correct
-            [0.1, 0.2, 0.7],  # True: 2, likely correct
-            [0.1, 0.1, 0.8],  # True: 2, likely correct
-            [0.5, 0.3, 0.2],  # True: 0, uncertain
-            [0.3, 0.5, 0.2],  # True: 1, uncertain
-            [0.2, 0.3, 0.5],  # True: 2, uncertain
-        ])
+        self.pred_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],  # True: 0, likely correct
+                [0.7, 0.2, 0.1],  # True: 0, likely correct
+                [0.2, 0.7, 0.1],  # True: 1, likely correct
+                [0.1, 0.8, 0.1],  # True: 1, likely correct
+                [0.1, 0.2, 0.7],  # True: 2, likely correct
+                [0.1, 0.1, 0.8],  # True: 2, likely correct
+                [0.5, 0.3, 0.2],  # True: 0, uncertain
+                [0.3, 0.5, 0.2],  # True: 1, uncertain
+                [0.2, 0.3, 0.5],  # True: 2, uncertain
+            ]
+        )
 
         # Simple thresholds for testing
         self.thresholds = np.array([0.5, 0.5, 0.5])
@@ -81,7 +83,8 @@ class TestMulticlassAveragingSemantics:
         recall = total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
         expected_micro_f1 = (
             2 * precision * recall / (precision + recall)
-            if precision + recall > 0 else 0.0
+            if precision + recall > 0
+            else 0.0
         )
 
         # Get micro F1 from function
@@ -97,8 +100,13 @@ class TestMulticlassAveragingSemantics:
 
         total_support = sum(supports)
         expected_weighted = (
-            sum(score * support for score, support in zip(per_class_scores, supports, strict=False))
-            / total_support if total_support > 0 else 0.0
+            sum(
+                score * support
+                for score, support in zip(per_class_scores, supports, strict=False)
+            )
+            / total_support
+            if total_support > 0
+            else 0.0
         )
 
         weighted_score = multiclass_metric(self.cms, "f1", average="weighted")
@@ -126,7 +134,9 @@ class TestMulticlassAveragingSemantics:
 
     def test_invalid_average_raises_error(self):
         """Test that invalid average parameter raises appropriate error."""
-        with pytest.raises(ValueError, match="Unknown averaging method.*invalid.*Must be one of"):
+        with pytest.raises(
+            ValueError, match="Unknown averaging method.*invalid.*Must be one of"
+        ):
             multiclass_metric(self.cms, "f1", average="invalid")
 
     def test_type_annotations_work(self):
@@ -134,7 +144,9 @@ class TestMulticlassAveragingSemantics:
         # This test mainly checks that our type hints are valid
         result_float: float = multiclass_metric(self.cms, "f1", average="macro")
         result_array: np.ndarray = multiclass_metric(self.cms, "f1", average="none")
-        result_union: MulticlassMetricReturn = multiclass_metric(self.cms, "f1", average="macro")
+        result_union: MulticlassMetricReturn = multiclass_metric(
+            self.cms, "f1", average="macro"
+        )
 
         assert isinstance(result_float, (float, np.floating))
         assert isinstance(result_array, np.ndarray)
@@ -180,15 +192,15 @@ class TestMulticlassOptimizationAveraging:
         """Test that macro, none, and weighted give same results when classes balanced."""
         # Create balanced dataset
         n_per_class = 50
-        true_labs_balanced = np.concatenate([
-            np.full(n_per_class, 0),
-            np.full(n_per_class, 1),
-            np.full(n_per_class, 2)
-        ])
+        true_labs_balanced = np.concatenate(
+            [np.full(n_per_class, 0), np.full(n_per_class, 1), np.full(n_per_class, 2)]
+        )
         np.random.shuffle(true_labs_balanced)
 
         pred_prob_balanced = np.random.rand(len(true_labs_balanced), 3)
-        pred_prob_balanced = pred_prob_balanced / pred_prob_balanced.sum(axis=1, keepdims=True)
+        pred_prob_balanced = pred_prob_balanced / pred_prob_balanced.sum(
+            axis=1, keepdims=True
+        )
 
         # Get thresholds (should be identical for balanced data)
         thresholds_macro = get_optimal_multiclass_thresholds(
@@ -198,7 +210,11 @@ class TestMulticlassOptimizationAveraging:
             true_labs_balanced, pred_prob_balanced, "f1", "smart_brute", average="none"
         )
         thresholds_weighted = get_optimal_multiclass_thresholds(
-            true_labs_balanced, pred_prob_balanced, "f1", "smart_brute", average="weighted"
+            true_labs_balanced,
+            pred_prob_balanced,
+            "f1",
+            "smart_brute",
+            average="weighted",
         )
 
         # For balanced data, macro and weighted should be identical
@@ -208,10 +224,20 @@ class TestMulticlassOptimizationAveraging:
     def test_vectorized_parameter_works(self):
         """Test that vectorized parameter is accepted and produces valid results."""
         thresholds_standard = get_optimal_multiclass_thresholds(
-            self.true_labs, self.pred_prob, "f1", "smart_brute", average="macro", vectorized=False
+            self.true_labs,
+            self.pred_prob,
+            "f1",
+            "smart_brute",
+            average="macro",
+            vectorized=False,
         )
         thresholds_vectorized = get_optimal_multiclass_thresholds(
-            self.true_labs, self.pred_prob, "f1", "smart_brute", average="macro", vectorized=True
+            self.true_labs,
+            self.pred_prob,
+            "f1",
+            "smart_brute",
+            average="macro",
+            vectorized=True,
         )
 
         # Both should produce valid thresholds
@@ -221,7 +247,9 @@ class TestMulticlassOptimizationAveraging:
         assert len(thresholds_vectorized) == 3
 
         # Should produce very similar results (allowing for minor optimization differences)
-        np.testing.assert_array_almost_equal(thresholds_standard, thresholds_vectorized, decimal=3)
+        np.testing.assert_array_almost_equal(
+            thresholds_standard, thresholds_vectorized, decimal=3
+        )
 
     def test_different_averaging_strategies_documented(self):
         """Test that all averaging strategies are properly documented and work."""

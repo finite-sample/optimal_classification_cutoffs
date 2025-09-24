@@ -19,11 +19,13 @@ class TestCoordinateAscentCore:
     def test_assign_labels_shifted(self):
         """Test label assignment using argmax(P - tau)."""
         # Simple 3-class example
-        P = np.array([
-            [0.7, 0.2, 0.1],  # Sample 0
-            [0.1, 0.8, 0.1],  # Sample 1
-            [0.2, 0.1, 0.7],  # Sample 2
-        ])
+        P = np.array(
+            [
+                [0.7, 0.2, 0.1],  # Sample 0
+                [0.1, 0.8, 0.1],  # Sample 1
+                [0.2, 0.1, 0.7],  # Sample 2
+            ]
+        )
 
         # Zero thresholds -> standard argmax
         tau = np.array([0.0, 0.0, 0.0])
@@ -64,15 +66,18 @@ class TestCoordinateAscentCore:
 
         f1_metric = get_vectorized_metric("f1")
         tau, best_macro, history = optimal_multiclass_thresholds_coord_ascent(
-            y_true, P,
+            y_true,
+            P,
             sortscan_metric_fn=f1_metric,
             sortscan_kernel=optimal_threshold_sortscan,
-            max_iter=10
+            max_iter=10,
         )
 
         # Check monotone ascent in history
         for i in range(1, len(history)):
-            assert history[i] >= history[i-1] - 1e-12, f"Non-monotone at step {i}: {history[i-1]} -> {history[i]}"
+            assert history[i] >= history[i - 1] - 1e-12, (
+                f"Non-monotone at step {i}: {history[i - 1]} -> {history[i]}"
+            )
 
         # Verify final result
         assert len(tau) == C
@@ -100,11 +105,12 @@ class TestCoordinateAscentCore:
 
         # Coordinate ascent
         tau, best_macro, _ = optimal_multiclass_thresholds_coord_ascent(
-            y_true, P,
+            y_true,
+            P,
             sortscan_metric_fn=f1_metric,
             sortscan_kernel=optimal_threshold_sortscan,
             max_iter=10,
-            init="ovr_sortscan"
+            init="ovr_sortscan",
         )
 
         # Coordinate ascent should be >= OvR baseline
@@ -119,10 +125,11 @@ class TestCoordinateAscentCore:
         y_true = np.array([0, 1])
 
         tau, best_macro, history = optimal_multiclass_thresholds_coord_ascent(
-            y_true, P,
+            y_true,
+            P,
             sortscan_metric_fn=f1_metric,
             sortscan_kernel=optimal_threshold_sortscan,
-            max_iter=5
+            max_iter=5,
         )
 
         assert len(tau) == 2
@@ -141,11 +148,12 @@ class TestCoordinateAscentCore:
         # Test different initialization methods
         for init in ["ovr_sortscan", "zeros"]:
             tau, best_macro, _ = optimal_multiclass_thresholds_coord_ascent(
-                y_true, P,
+                y_true,
+                P,
                 sortscan_metric_fn=f1_metric,
                 sortscan_kernel=optimal_threshold_sortscan,
                 max_iter=5,
-                init=init
+                init=init,
             )
             assert len(tau) == C
             assert 0.0 <= best_macro <= 1.0
@@ -153,10 +161,11 @@ class TestCoordinateAscentCore:
         # Test invalid initialization
         with pytest.raises(ValueError, match="Unknown init"):
             optimal_multiclass_thresholds_coord_ascent(
-                y_true, P,
+                y_true,
+                P,
                 sortscan_metric_fn=f1_metric,
                 sortscan_kernel=optimal_threshold_sortscan,
-                init="invalid_init"
+                init="invalid_init",
             )
 
 
@@ -172,9 +181,7 @@ class TestCoordinateAscentIntegration:
 
         # Test through main API
         tau = get_optimal_multiclass_thresholds(
-            y_true, P,
-            metric="f1",
-            method="coord_ascent"
+            y_true, P, metric="f1", method="coord_ascent"
         )
 
         assert len(tau) == C
@@ -190,27 +197,19 @@ class TestCoordinateAscentIntegration:
         # Sample weights not supported
         with pytest.raises(NotImplementedError, match="sample weights"):
             get_optimal_multiclass_thresholds(
-                y_true, P,
-                metric="f1",
-                method="coord_ascent",
-                sample_weight=np.ones(n)
+                y_true, P, metric="f1", method="coord_ascent", sample_weight=np.ones(n)
             )
 
         # Only '>' comparison supported
         with pytest.raises(NotImplementedError, match="comparison"):
             get_optimal_multiclass_thresholds(
-                y_true, P,
-                metric="f1",
-                method="coord_ascent",
-                comparison=">="
+                y_true, P, metric="f1", method="coord_ascent", comparison=">="
             )
 
         # Only F1 metric supported currently
         with pytest.raises(NotImplementedError, match="F1 metric"):
             get_optimal_multiclass_thresholds(
-                y_true, P,
-                metric="accuracy",
-                method="coord_ascent"
+                y_true, P, metric="accuracy", method="coord_ascent"
             )
 
     def test_threshold_optimizer_coord_ascent(self):
@@ -243,9 +242,7 @@ class TestCoordinateAscentIntegration:
 
         # Get thresholds via coordinate ascent
         tau = get_optimal_multiclass_thresholds(
-            y_true, P,
-            metric="f1",
-            method="coord_ascent"
+            y_true, P, metric="f1", method="coord_ascent"
         )
 
         # Manual prediction using argmax(P - tau)
@@ -312,11 +309,12 @@ class TestCoordinateAscentPerformance:
         # Test with different stopping tolerances
         for tol_stops in [1, 2, 3]:
             tau, best_macro, history = optimal_multiclass_thresholds_coord_ascent(
-                y_true, P,
+                y_true,
+                P,
                 sortscan_metric_fn=f1_metric,
                 sortscan_kernel=optimal_threshold_sortscan,
                 max_iter=20,
-                tol_stops=tol_stops
+                tol_stops=tol_stops,
             )
 
             # Should terminate before max_iter due to convergence

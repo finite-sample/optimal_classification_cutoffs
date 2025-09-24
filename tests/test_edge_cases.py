@@ -54,7 +54,9 @@ class TestLabelDistributionEdgeCases:
     def test_single_positive_in_negatives(self):
         """Test extreme class imbalance - one positive in many negatives."""
         labels = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1])
-        probabilities = np.array([0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.95])
+        probabilities = np.array(
+            [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.95]
+        )
 
         # Should find a reasonable threshold
         threshold = get_optimal_threshold(labels, probabilities, "f1")
@@ -118,7 +120,11 @@ class TestLabelDistributionEdgeCases:
         elif metric == "f1":
             precision = tp / (tp + fp) if tp + fp > 0 else 0
             recall = tp / (tp + fn) if tp + fn > 0 else 0
-            return 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+            return (
+                2 * precision * recall / (precision + recall)
+                if precision + recall > 0
+                else 0
+            )
         else:
             raise ValueError(f"Unknown metric: {metric}")
 
@@ -163,15 +169,23 @@ class TestProbabilityDistributionEdgeCases:
             # For recall, optimal threshold might be very low to capture all positives
             # For precision, optimal threshold might be high to avoid false positives
             if metric == "recall":
-                assert 0.05 <= threshold <= 0.75, f"Unexpected threshold {threshold} for {metric}"
+                assert 0.05 <= threshold <= 0.75, (
+                    f"Unexpected threshold {threshold} for {metric}"
+                )
             elif metric == "precision":
-                assert 0.25 <= threshold <= 0.95, f"Unexpected threshold {threshold} for {metric}"
+                assert 0.25 <= threshold <= 0.95, (
+                    f"Unexpected threshold {threshold} for {metric}"
+                )
             else:
-                assert 0.25 <= threshold <= 0.75, f"Unexpected threshold {threshold} for {metric}"
+                assert 0.25 <= threshold <= 0.75, (
+                    f"Unexpected threshold {threshold} for {metric}"
+                )
 
             # Should achieve high performance
             score = self._compute_metric_score(labels, probabilities, threshold, metric)
-            assert score >= 0.9, f"Low score {score} for {metric} with perfect separation"
+            assert score >= 0.9, (
+                f"Low score {score} for {metric} with perfect separation"
+            )
 
     def test_boundary_probabilities(self):
         """Test with probabilities at 0.0 and 1.0."""
@@ -229,7 +243,11 @@ class TestProbabilityDistributionEdgeCases:
         elif metric == "f1":
             precision = tp / (tp + fp) if tp + fp > 0 else 0
             recall = tp / (tp + fn) if tp + fn > 0 else 0
-            return 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+            return (
+                2 * precision * recall / (precision + recall)
+                if precision + recall > 0
+                else 0
+            )
         else:
             raise ValueError(f"Unknown metric: {metric}")
 
@@ -267,6 +285,7 @@ class TestNumericalEdgeCases:
 
         # Should handle large datasets efficiently
         import time
+
         start_time = time.time()
         threshold = get_optimal_threshold(labels, probabilities, "f1")
         end_time = time.time()
@@ -284,7 +303,7 @@ class TestNumericalEdgeCases:
 
         # Probabilities near machine epsilon
         eps = np.finfo(float).eps
-        probabilities = np.array([eps, 2*eps, 1-2*eps, 1-eps])
+        probabilities = np.array([eps, 2 * eps, 1 - 2 * eps, 1 - eps])
 
         # Should handle near-zero probabilities
         threshold = get_optimal_threshold(labels, probabilities, "accuracy")
@@ -301,12 +320,9 @@ class TestNumericalEdgeCases:
 
         eps = np.finfo(float).eps
         base_prob = 0.5
-        probabilities = np.array([
-            base_prob - eps,
-            base_prob + eps,
-            base_prob - 2*eps,
-            base_prob + 2*eps
-        ])
+        probabilities = np.array(
+            [base_prob - eps, base_prob + eps, base_prob - 2 * eps, base_prob + 2 * eps]
+        )
 
         # Should handle tiny differences gracefully
         threshold = get_optimal_threshold(labels, probabilities, "f1")
@@ -321,14 +337,16 @@ class TestNumericalEdgeCases:
         labels = np.array([0, 1, 0, 1, 0, 1])
 
         # Create probabilities with varying precision
-        probabilities = np.array([
-            0.1,
-            0.1 + 1e-15,  # Near machine precision limit
-            0.5,
-            0.5 + 1e-14,
-            0.9,
-            0.9 - 1e-15
-        ])
+        probabilities = np.array(
+            [
+                0.1,
+                0.1 + 1e-15,  # Near machine precision limit
+                0.5,
+                0.5 + 1e-14,
+                0.9,
+                0.9 - 1e-15,
+            ]
+        )
 
         # Should handle precision limits gracefully
         threshold = get_optimal_threshold(labels, probabilities, "accuracy")
@@ -444,6 +462,7 @@ class TestPerformanceEdgeCases:
         probabilities = np.linspace(0, 1, n_samples)  # All unique values
 
         import time
+
         start_time = time.time()
         threshold = get_optimal_threshold(labels, probabilities, "f1")
         end_time = time.time()
