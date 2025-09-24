@@ -73,9 +73,8 @@ strict_equality = true
 target-version = "py310"
 line-length = 88
 exclude = [
-    "demo_piecewise_optimization.py",
-    "examples/",
     "docs/",
+    "*.ipynb",  # Exclude Jupyter notebooks
 ]
 
 [tool.ruff.lint]

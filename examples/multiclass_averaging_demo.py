@@ -1,4 +1,5 @@
-"""Comprehensive demonstration of multiclass averaging strategies and their differences."""
+"""Comprehensive demonstration of multiclass averaging strategies and their
+differences."""
 
 import numpy as np
 from sklearn.datasets import make_classification
@@ -36,7 +37,7 @@ def create_imbalanced_dataset():
     print(f"Dataset size: {len(y)}")
     print("Class distribution:")
     for i, count in enumerate(class_counts):
-        print(f"  Class {i}: {count:3d} samples ({count/len(y):5.1%})")
+        print(f"  Class {i}: {count:3d} samples ({count / len(y):5.1%})")
 
     return y, y_prob, class_counts
 
@@ -53,7 +54,10 @@ def demonstrate_averaging_semantics(y_true, y_prob, class_counts):
 
     print("Per-class confusion matrices (TP, TN, FP, FN):")
     for i, (tp, tn, fp, fn) in enumerate(cms):
-        print(f"  Class {i}: TP={tp:2d}, TN={tn:3d}, FP={fp:2d}, FN={fn:2d} | Support={tp+fn}")
+        print(
+            f"  Class {i}: TP={tp:2d}, TN={tn:3d}, FP={fp:2d}, FN={fn:2d} | "
+            f"Support={tp + fn}"
+        )
 
     print("\nF1 Scores by Averaging Strategy:")
 
@@ -74,8 +78,14 @@ def demonstrate_averaging_semantics(y_true, y_prob, class_counts):
     print(f"  Macro = mean(per_class): {f1_macro:.6f} = {computed_macro:.6f} ✓")
 
     total_support = sum(class_counts)
-    computed_weighted = sum(f1 * count for f1, count in zip(f1_none, class_counts, strict=False)) / total_support
-    print(f"  Weighted = Σ(f1_i × support_i) / Σ(support_i): {f1_weighted:.6f} = {computed_weighted:.6f} ✓")
+    computed_weighted = (
+        sum(f1 * count for f1, count in zip(f1_none, class_counts, strict=False))
+        / total_support
+    )
+    print(
+        f"  Weighted = Σ(f1_i × support_i) / Σ(support_i): {f1_weighted:.6f} = "
+        f"{computed_weighted:.6f} ✓"
+    )
 
     # Show micro calculation
     total_tp = sum(cm[0] for cm in cms)
@@ -83,7 +93,9 @@ def demonstrate_averaging_semantics(y_true, y_prob, class_counts):
     total_fn = sum(cm[3] for cm in cms)
     micro_precision = total_tp / (total_tp + total_fp)
     micro_recall = total_tp / (total_tp + total_fn)
-    computed_micro = 2 * micro_precision * micro_recall / (micro_precision + micro_recall)
+    computed_micro = (
+        2 * micro_precision * micro_recall / (micro_precision + micro_recall)
+    )
     print(f"  Micro = F1(Σ(TP), Σ(FP), Σ(FN)): {f1_micro:.6f} = {computed_micro:.6f} ✓")
 
 
@@ -102,7 +114,7 @@ def demonstrate_optimization_differences(y_true, y_prob):
             "macro": "Treats all classes equally",
             "micro": "Joint optimization for micro-averaged metric",
             "weighted": "Same as macro (per-class optimization)",
-            "none": "Same as macro (per-class optimization)"
+            "none": "Same as macro (per-class optimization)",
         }
 
         results = {}
@@ -153,7 +165,9 @@ def demonstrate_performance_vectorization(y_true, y_prob):
     # Verify results are similar
     diff = np.abs(thresholds_standard - thresholds_vectorized)
     print(f"Max threshold difference: {np.max(diff):.6f}")
-    print("✓ Results are nearly identical" if np.max(diff) < 1e-6 else "⚠ Results differ")
+    print(
+        "✓ Results are nearly identical" if np.max(diff) < 1e-6 else "⚠ Results differ"
+    )
 
 
 def demonstrate_practical_implications(y_true, y_prob, class_counts):
@@ -163,24 +177,29 @@ def demonstrate_practical_implications(y_true, y_prob, class_counts):
     scenarios = {
         "macro": {
             "description": "Equal importance to all classes",
-            "use_case": "When you want to perform equally well on all classes regardless of frequency",
-            "example": "Medical diagnosis where rare diseases are as important as common ones"
+            "use_case": (
+                "When you want to perform equally well on all classes "
+                "regardless of frequency"
+            ),
+            "example": (
+                "Medical diagnosis where rare diseases are as important as common ones"
+            ),
         },
         "micro": {
             "description": "Equal importance to all samples",
             "use_case": "When overall classification accuracy matters most",
-            "example": "Large-scale text classification where total accuracy is key"
+            "example": "Large-scale text classification where total accuracy is key",
         },
         "weighted": {
             "description": "Importance proportional to class frequency",
             "use_case": "When you want a balance between macro and micro averaging",
-            "example": "Customer segmentation where larger segments are more important"
+            "example": "Customer segmentation where larger segments are more important",
         },
         "none": {
             "description": "No averaging, see per-class performance",
             "use_case": "When you need to analyze each class individually",
-            "example": "Model diagnosis and debugging class-specific performance"
-        }
+            "example": "Model diagnosis and debugging class-specific performance",
+        },
     }
 
     # Get optimal thresholds for each strategy
@@ -254,12 +273,12 @@ def compare_with_sklearn_metrics(y_true, y_prob):
     print(f"  Weighted: {sklearn_f1(y_true, y_pred_optimized, average='weighted'):.4f}")
 
     # Show confusion matrices for comparison
-    cms_argmax = get_multiclass_confusion_matrix(
-        y_true, y_prob, np.full(y_prob.shape[1], 0.5)  # Argmax equivalent
+    cms_argmax = get_multiclass_confusion_matrix(  # noqa: F841
+        y_true,
+        y_prob,
+        np.full(y_prob.shape[1], 0.5),  # Argmax equivalent
     )
-    cms_optimized = get_multiclass_confusion_matrix(
-        y_true, y_prob, optimal_thresholds
-    )
+    cms_optimized = get_multiclass_confusion_matrix(y_true, y_prob, optimal_thresholds)
 
     print("\nOur library F1 scores (optimized thresholds):")
     f1_macro = multiclass_metric(cms_optimized, "f1", average="macro")

@@ -104,7 +104,8 @@ for class_idx in range(len(np.unique(y))):
     print(f"Class {class_idx}:")
     print(f"  Optimal threshold: {class_optimizer.threshold_:.3f}")
     print(
-        f"  Class frequency:   {np.sum(y_binary)}/{len(y_binary)} ({np.mean(y_binary):.1%})"
+        f"  Class frequency:   {np.sum(y_binary)}/{len(y_binary)} "
+        f"({np.mean(y_binary):.1%})"
     )
 
 # Method 4: Different optimization methods
