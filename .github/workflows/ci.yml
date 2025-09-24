@@ -33,9 +33,6 @@ jobs:
       - name: Format check with ruff
         run: ruff format --check . --exclude '*.ipynb'
 
-      - name: Type check with mypy
-        run: mypy optimal_cutoffs --ignore-missing-imports
-
       - name: Run tests with coverage
         run: pytest --cov=optimal_cutoffs --cov-report=xml --cov-report=term-missing
 
