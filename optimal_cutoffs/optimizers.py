@@ -219,8 +219,11 @@ def _optimal_threshold_piecewise(
         try:
             vectorized_metric = get_vectorized_metric(metric)
             threshold, _, _ = optimal_threshold_sortscan(
-                true_labs, pred_prob, vectorized_metric,
-                sample_weight=sample_weight, inclusive=comparison
+                true_labs,
+                pred_prob,
+                vectorized_metric,
+                sample_weight=sample_weight,
+                inclusive=comparison,
             )
             return threshold
         except Exception:
@@ -242,7 +245,8 @@ def _optimal_threshold_piecewise_fallback(
 ) -> float:
     """Fallback implementation for metrics not yet vectorized.
 
-    This is the original O(k log n) implementation that evaluates at unique probabilities.
+    This is the original O(k log n) implementation that evaluates at unique
+    probabilities.
     """
     true_labs = np.asarray(true_labs)
     pred_prob = np.asarray(pred_prob)
@@ -252,7 +256,8 @@ def _optimal_threshold_piecewise_fallback(
 
     if len(true_labs) != len(pred_prob):
         raise ValueError(
-            f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({len(pred_prob)})"
+            f"Length mismatch: true_labs ({len(true_labs)}) vs "
+            f"pred_prob ({len(pred_prob)})"
         )
 
     # Get metric function
@@ -275,7 +280,8 @@ def _optimal_threshold_piecewise_fallback(
         sample_weight = np.asarray(sample_weight)
         if len(sample_weight) != len(true_labs):
             raise ValueError(
-                f"Length mismatch: sample_weight ({len(sample_weight)}) vs true_labs ({len(true_labs)})"
+                f"Length mismatch: sample_weight ({len(sample_weight)}) vs "
+                f"true_labs ({len(true_labs)})"
             )
         # Sort weights along with labels and probabilities
         weights_sorted = sample_weight[sort_idx]
@@ -353,7 +359,8 @@ def get_optimal_threshold(
     method:
         Strategy used for optimization:
         - ``"auto"``: Automatically selects best method (default)
-        - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with vectorized implementation
+        - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with
+          vectorized implementation
         - ``"smart_brute"``: Evaluates all unique probabilities
         - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
         - ``"gradient"``: Simple gradient ascent
@@ -390,7 +397,8 @@ def get_optimal_threshold(
 
     # Binary case - implement method routing with auto detection
     if method == "auto":
-        # Auto routing: prefer sort_scan for piecewise metrics with vectorized implementation
+        # Auto routing: prefer sort_scan for piecewise metrics with vectorized
+        # implementation
         if is_piecewise_metric(metric) and has_vectorized_implementation(metric):
             method = "sort_scan"
         else:
@@ -399,12 +407,18 @@ def get_optimal_threshold(
     if method == "sort_scan":
         # Use O(n log n) sort-and-scan optimization for vectorized piecewise metrics
         if not has_vectorized_implementation(metric):
-            raise ValueError(f"sort_scan method requires vectorized implementation for metric '{metric}'")
+            raise ValueError(
+                f"sort_scan method requires vectorized implementation for "
+                f"metric '{metric}'"
+            )
 
         vectorized_metric = get_vectorized_metric(metric)
         threshold, _, _ = optimal_threshold_sortscan(
-            true_labs, pred_prob, vectorized_metric,
-            sample_weight=sample_weight, inclusive=comparison
+            true_labs,
+            pred_prob,
+            vectorized_metric,
+            sample_weight=sample_weight,
+            inclusive=comparison,
         )
         return threshold
 
@@ -418,14 +432,18 @@ def get_optimal_threshold(
             # Fall back to original brute force for non-piecewise metrics
             thresholds = np.unique(pred_prob)
             scores = [
-                _metric_score(true_labs, pred_prob, t, metric, sample_weight, comparison)
+                _metric_score(
+                    true_labs, pred_prob, t, metric, sample_weight, comparison
+                )
                 for t in thresholds
             ]
             return float(thresholds[int(np.argmax(scores))])
 
     if method == "minimize":
         res = optimize.minimize_scalar(
-            lambda t: -_metric_score(true_labs, pred_prob, t, metric, sample_weight, comparison),
+            lambda t: -_metric_score(
+                true_labs, pred_prob, t, metric, sample_weight, comparison
+            ),
             bounds=(0, 1),
             method="bounded",
         )
@@ -438,8 +456,17 @@ def get_optimal_threshold(
                 true_labs, pred_prob, metric, sample_weight, comparison
             )
             # Compare scipy result with piecewise result
-            scipy_score = _metric_score(true_labs, pred_prob, res.x, metric, sample_weight, comparison)
-            piecewise_score = _metric_score(true_labs, pred_prob, piecewise_threshold, metric, sample_weight, comparison)
+            scipy_score = _metric_score(
+                true_labs, pred_prob, res.x, metric, sample_weight, comparison
+            )
+            piecewise_score = _metric_score(
+                true_labs,
+                pred_prob,
+                piecewise_threshold,
+                metric,
+                sample_weight,
+                comparison,
+            )
 
             if piecewise_score >= scipy_score:
                 return float(piecewise_threshold)
@@ -449,7 +476,9 @@ def get_optimal_threshold(
             # Fall back to original candidate evaluation for non-piecewise metrics
             candidates = np.unique(np.append(pred_prob, res.x))
             scores = [
-                _metric_score(true_labs, pred_prob, t, metric, sample_weight, comparison)
+                _metric_score(
+                    true_labs, pred_prob, t, metric, sample_weight, comparison
+                )
                 for t in candidates
             ]
             return float(candidates[int(np.argmax(scores))])
@@ -468,7 +497,12 @@ def get_optimal_threshold(
                     true_labs, pred_prob, thresh_plus, metric, sample_weight, comparison
                 )
                 - _metric_score(
-                    true_labs, pred_prob, thresh_minus, metric, sample_weight, comparison
+                    true_labs,
+                    pred_prob,
+                    thresh_minus,
+                    metric,
+                    sample_weight,
+                    comparison,
                 )
             ) / (2 * eps)
             threshold = np.clip(threshold + lr * grad, 0.0, 1.0)
@@ -488,7 +522,8 @@ def get_optimal_multiclass_thresholds(
     vectorized: bool = False,
     comparison: ComparisonOperator = ">",
 ) -> np.ndarray | float:
-    """Find optimal per-class thresholds for multiclass classification using One-vs-Rest.
+    """Find optimal per-class thresholds for multiclass classification using
+    One-vs-Rest.
 
     Parameters
     ----------
@@ -501,11 +536,13 @@ def get_optimal_multiclass_thresholds(
     method:
         Strategy used for optimization:
         - ``"auto"``: Automatically selects best method (default)
-        - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with vectorized implementation
+        - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with
+          vectorized implementation
         - ``"smart_brute"``: Evaluates all unique probabilities
         - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
         - ``"gradient"``: Simple gradient ascent
-        - ``"coord_ascent"``: Coordinate ascent for coupled multiclass optimization (single-label consistent)
+        - ``"coord_ascent"``: Coordinate ascent for coupled multiclass
+          optimization (single-label consistent)
     average:
         Averaging strategy that affects optimization:
         - "macro"/"none": Optimize each class independently (default behavior)
@@ -536,7 +573,8 @@ def get_optimal_multiclass_thresholds(
 
     if len(true_labs) != pred_prob.shape[0]:
         raise ValueError(
-            f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({pred_prob.shape[0]})"
+            f"Length mismatch: true_labs ({len(true_labs)}) vs "
+            f"pred_prob ({pred_prob.shape[0]})"
         )
 
     if np.any(np.isnan(pred_prob)) or np.any(np.isinf(pred_prob)):
@@ -564,25 +602,34 @@ def get_optimal_multiclass_thresholds(
     elif method == "coord_ascent":
         # Coordinate ascent for coupled multiclass optimization
         if sample_weight is not None:
-            raise NotImplementedError("coord_ascent method does not yet support sample weights")
+            raise NotImplementedError(
+                "coord_ascent method does not yet support sample weights"
+            )
         if comparison != ">":
-            raise NotImplementedError("coord_ascent method currently only supports '>' comparison")
+            raise NotImplementedError(
+                "coord_ascent method currently only supports '>' comparison"
+            )
         if metric != "f1":
-            raise NotImplementedError("coord_ascent method currently only supports F1 metric")
+            raise NotImplementedError(
+                "coord_ascent method currently only supports F1 metric"
+            )
 
         # Use vectorized F1 metric for sort-scan initialization
         if has_vectorized_implementation(metric):
             vectorized_metric = get_vectorized_metric(metric)
         else:
-            raise ValueError(f"coord_ascent requires vectorized implementation for metric '{metric}'")
+            raise ValueError(
+                f"coord_ascent requires vectorized implementation for metric '{metric}'"
+            )
 
         tau, _, _ = optimal_multiclass_thresholds_coord_ascent(
-            true_labs, pred_prob,
+            true_labs,
+            pred_prob,
             sortscan_metric_fn=vectorized_metric,
             sortscan_kernel=optimal_threshold_sortscan,
             max_iter=20,
             init="ovr_sortscan",
-            tol_stops=1
+            tol_stops=1,
         )
         return tau
     else:
@@ -601,7 +648,12 @@ def get_optimal_multiclass_thresholds(
 
                 # Optimize threshold for this class
                 optimal_thresholds[class_idx] = get_optimal_threshold(
-                    true_binary, pred_binary_prob, metric, method, sample_weight, comparison
+                    true_binary,
+                    pred_binary_prob,
+                    metric,
+                    method,
+                    sample_weight,
+                    comparison,
                 )
             return optimal_thresholds
 
@@ -640,7 +692,12 @@ def _optimize_micro_averaged_thresholds(
             true_binary = (true_labs == class_idx).astype(int)
             pred_binary_prob = pred_prob[:, class_idx]
             initial_thresholds[class_idx] = get_optimal_threshold(
-                true_binary, pred_binary_prob, metric, "smart_brute", sample_weight, comparison
+                true_binary,
+                pred_binary_prob,
+                metric,
+                "smart_brute",
+                sample_weight,
+                comparison,
             )
 
         # For now, return the independent optimization result
@@ -657,7 +714,12 @@ def _optimize_micro_averaged_thresholds(
             true_binary = (true_labs == class_idx).astype(int)
             pred_binary_prob = pred_prob[:, class_idx]
             initial_guess[class_idx] = get_optimal_threshold(
-                true_binary, pred_binary_prob, metric, "minimize", sample_weight, comparison
+                true_binary,
+                pred_binary_prob,
+                metric,
+                "minimize",
+                sample_weight,
+                comparison,
             )
 
         # Joint optimization

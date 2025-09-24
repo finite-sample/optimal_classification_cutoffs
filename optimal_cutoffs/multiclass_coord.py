@@ -1,4 +1,5 @@
-"""Coordinate-ascent multiclass threshold optimization for single-label consistent predictions.
+"""Coordinate-ascent multiclass threshold optimization for single-label
+consistent predictions.
 
 This module implements a coordinate-ascent algorithm for optimizing per-class thresholds
 in multiclass classification. Unlike One-vs-Rest approaches that optimize each class
@@ -53,8 +54,10 @@ def _macro_f1_from_assignments(y_true: Array, y_pred: Array, n_classes: int) -> 
 
     fn = pos - tp
     fp = pp - tp
-    denom = 2*tp + fp + fn
-    f1 = np.divide(2*tp, denom, out=np.zeros_like(denom, dtype=float), where=denom > 0)
+    denom = 2 * tp + fp + fn
+    f1 = np.divide(
+        2 * tp, denom, out=np.zeros_like(denom, dtype=float), where=denom > 0
+    )
     return float(np.mean(f1))
 
 
@@ -79,8 +82,9 @@ def _assign_labels_shifted(P: Array, tau: Array) -> Array:
     return np.argmax(P - tau[None, :], axis=1).astype(int)
 
 
-def _init_thresholds_ovr_sortscan(y_true: Array, P: Array,
-                                  sortscan_fn: Callable[[Array, Array], float]) -> Array:
+def _init_thresholds_ovr_sortscan(
+    y_true: Array, P: Array, sortscan_fn: Callable[[Array, Array], float]
+) -> Array:
     """Initialize thresholds using One-vs-Rest sort-scan optimization.
 
     This provides a good starting point for the coordinate ascent algorithm
@@ -117,7 +121,7 @@ def optimal_multiclass_thresholds_coord_ascent(
     sortscan_kernel: Callable[[Array, Array, Callable], tuple[float, float, int]],
     max_iter: int = 20,
     init: str = "ovr_sortscan",
-    tol_stops: int = 1
+    tol_stops: int = 1,
 ) -> tuple[Array, float, list[float]]:
     """
     Coordinate ascent optimization for multiclass thresholds in single-label setting.
@@ -174,9 +178,11 @@ def optimal_multiclass_thresholds_coord_ascent(
 
     # Initialize tau
     if init == "ovr_sortscan":
+
         def _ss(y_bin, p_c):
             thr, _, _ = sortscan_kernel(y_bin, p_c, sortscan_metric_fn)
             return thr
+
         tau = _init_thresholds_ovr_sortscan(y_true, P, _ss)
     elif init == "zeros":
         tau = np.zeros(C, dtype=float)
@@ -221,15 +227,15 @@ def optimal_multiclass_thresholds_coord_ascent(
             fn = pos - tp
             fp = pp - tp
 
-            def _f1_class(k):
+            def _f1_class(k, tp_vals=tp, fp_vals=fp, fn_vals=fn):
                 """Compute F1 score for class k."""
-                denom = 2*tp[k] + fp[k] + fn[k]
-                return 0.0 if denom == 0 else (2.0*tp[k]) / denom
+                denom = 2 * tp_vals[k] + fp_vals[k] + fn_vals[k]
+                return 0.0 if denom == 0 else (2.0 * tp_vals[k]) / denom
 
             # Scan: progressively move instances into class c by decreasing tau_c
             for rank, i in enumerate(order):
                 r = y_pred[i]  # Previous class assignment (best non-c)
-                if r == c:     # Shouldn't happen in this construction
+                if r == c:  # Shouldn't happen in this construction
                     continue
 
                 # Update counts: move instance i from class r to class c

@@ -58,7 +58,8 @@ def _validate_inputs(
         # Binary case
         if len(true_labs) != len(pred_prob):
             raise ValueError(
-                f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob ({len(pred_prob)})"
+                f"Length mismatch: true_labs ({len(true_labs)}) vs "
+                f"pred_prob ({len(pred_prob)})"
             )
     elif pred_prob.ndim == 2:
         # Multiclass case
@@ -66,7 +67,8 @@ def _validate_inputs(
             raise ValueError("2D pred_prob not allowed, expected 1D array")
         if len(true_labs) != pred_prob.shape[0]:
             raise ValueError(
-                f"Length mismatch: true_labs ({len(true_labs)}) vs pred_prob rows ({pred_prob.shape[0]})"
+                f"Length mismatch: true_labs ({len(true_labs)}) vs "
+                f"pred_prob rows ({pred_prob.shape[0]})"
             )
     else:
         raise ValueError(f"pred_prob must be 1D or 2D, got {pred_prob.ndim}D")
@@ -86,7 +88,8 @@ def _validate_inputs(
             # Check if it's at least in {0, 1} (could be just 0s or just 1s)
             if not np.all(np.isin(unique_labels, [0, 1])):
                 raise ValueError(
-                    f"Binary labels must be from {{0, 1}}, got unique values: {unique_labels}"
+                    f"Binary labels must be from {{0, 1}}, got unique values: "
+                    f"{unique_labels}"
                 )
     else:
         # For multiclass, check labels are non-negative integers
@@ -118,7 +121,8 @@ def _validate_inputs(
         if np.any(pred_prob < 0) or np.any(pred_prob > 1):
             prob_min, prob_max = np.min(pred_prob), np.max(pred_prob)
             raise ValueError(
-                f"Probabilities must be in [0, 1], got range [{prob_min:.6f}, {prob_max:.6f}]"
+                f"Probabilities must be in [0, 1], got range "
+                f"[{prob_min:.6f}, {prob_max:.6f}]"
             )
 
         # For multiclass probabilities, optionally check if they sum to ~1
@@ -126,13 +130,16 @@ def _validate_inputs(
             row_sums = np.sum(pred_prob, axis=1)
             if not np.allclose(row_sums, 1.0, rtol=1e-3, atol=1e-3):
                 sum_min, sum_max = np.min(row_sums), np.max(row_sums)
-                # Issue warning but don't fail - not all use cases require normalized probabilities
+                # Issue warning but don't fail - not all use cases require
+                # normalized probabilities
                 import warnings
+
                 warnings.warn(
-                    f"Multiclass probabilities don't sum to 1.0 (range: [{sum_min:.3f}, {sum_max:.3f}]). "
+                    f"Multiclass probabilities don't sum to 1.0 (range: "
+                    f"[{sum_min:.3f}, {sum_max:.3f}]). "
                     "This may indicate unnormalized scores rather than probabilities.",
                     UserWarning,
-                    stacklevel=3
+                    stacklevel=3,
                 )
 
     # Validate sample weights
@@ -142,7 +149,9 @@ def _validate_inputs(
 
         # Check dimensionality
         if validated_sample_weight.ndim != 1:
-            raise ValueError(f"sample_weight must be 1D, got {validated_sample_weight.ndim}D")
+            raise ValueError(
+                f"sample_weight must be 1D, got {validated_sample_weight.ndim}D"
+            )
 
         # Check length
         if len(validated_sample_weight) != len(true_labs):
@@ -195,7 +204,8 @@ def _validate_threshold(
     if np.any(threshold < 0) or np.any(threshold > 1):
         thresh_min, thresh_max = np.min(threshold), np.max(threshold)
         raise ValueError(
-            f"threshold must be in [0, 1], got range [{thresh_min:.6f}, {thresh_max:.6f}]"
+            f"threshold must be in [0, 1], got range "
+            f"[{thresh_min:.6f}, {thresh_max:.6f}]"
         )
 
     # Check dimensionality and length for multiclass
@@ -204,7 +214,8 @@ def _validate_threshold(
             raise ValueError(f"multiclass threshold must be 1D, got {threshold.ndim}D")
         if len(threshold) != n_classes:
             raise ValueError(
-                f"threshold length ({len(threshold)}) must match number of classes ({n_classes})"
+                f"threshold length ({len(threshold)}) must match number of "
+                f"classes ({n_classes})"
             )
 
     return threshold
@@ -267,7 +278,14 @@ def _validate_optimization_method(method: str) -> None:
     ValueError
         If optimization method is invalid.
     """
-    valid_methods = {"auto", "smart_brute", "sort_scan", "minimize", "gradient", "coord_ascent"}
+    valid_methods = {
+        "auto",
+        "smart_brute",
+        "sort_scan",
+        "minimize",
+        "gradient",
+        "coord_ascent",
+    }
     if method not in valid_methods:
         raise ValueError(
             f"Invalid optimization method '{method}'. Must be one of: {valid_methods}"
@@ -290,5 +308,6 @@ def _validate_comparison_operator(comparison: str) -> None:
     valid_operators = {">", ">="}
     if comparison not in valid_operators:
         raise ValueError(
-            f"Invalid comparison operator '{comparison}'. Must be one of: {valid_operators}"
+            f"Invalid comparison operator '{comparison}'. Must be one of: "
+            f"{valid_operators}"
         )

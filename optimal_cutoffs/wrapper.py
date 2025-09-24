@@ -28,17 +28,20 @@ class ThresholdOptimizer:
         Parameters
         ----------
         objective:
-            Metric to optimize, e.g. ``"accuracy"``, ``"f1"``, ``"precision"``, ``"recall"``.
+            Metric to optimize, e.g. ``"accuracy"``, ``"f1"``, ``"precision"``,
+            ``"recall"``.
         verbose:
             If ``True``, print progress during threshold search.
         method:
             Optimization method:
             - ``"auto"``: Automatically selects best method (default)
-            - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with vectorized implementation
+            - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with
+              vectorized implementation
             - ``"smart_brute"``: Evaluates all unique probabilities
             - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
             - ``"gradient"``: Simple gradient ascent
-            - ``"coord_ascent"``: Coordinate ascent for coupled multiclass optimization (single-label consistent)
+            - ``"coord_ascent"``: Coordinate ascent for coupled multiclass
+              optimization (single-label consistent)
         comparison:
             Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
         """
@@ -60,9 +63,11 @@ class ThresholdOptimizer:
         Parameters
         ----------
         true_labs:
-            Array of true labels. For binary: (0, 1). For multiclass: (0, 1, 2, ..., n_classes-1).
+            Array of true labels. For binary: (0, 1). For multiclass:
+            (0, 1, 2, ..., n_classes-1).
         pred_prob:
-            Predicted probabilities from a classifier. For binary: 1D array (n_samples,).
+            Predicted probabilities from a classifier. For binary: 1D array
+            (n_samples,).
             For multiclass: 2D array (n_samples, n_classes).
         sample_weight:
             Optional array of sample weights for handling imbalanced datasets.
@@ -84,10 +89,16 @@ class ThresholdOptimizer:
         ):
             # Use the more general optimizer
             self.threshold_ = get_optimal_threshold(
-                true_labs, pred_prob, self.objective, self.method, sample_weight, self.comparison
+                true_labs,
+                pred_prob,
+                self.objective,
+                self.method,
+                sample_weight,
+                self.comparison,
             )
         else:
-            # Use legacy optimizer for backward compatibility (only when no sample weights)
+            # Use legacy optimizer for backward compatibility (only when no sample
+            # weights)
             self.threshold_ = get_probability(
                 true_labs, pred_prob, self.objective, self.verbose
             )
@@ -126,14 +137,17 @@ class ThresholdOptimizer:
                 else:  # ">="
                     binary_predictions = pred_prob >= self.threshold_
 
-                # For each sample, predict the class with highest probability among those above threshold
-                # If no classes above threshold, predict the class with highest probability
+                # For each sample, predict the class with highest probability among
+                # those above threshold
+                # If no classes above threshold, predict the class with highest
+                # probability
                 predictions = np.zeros(n_samples, dtype=int)
 
                 for i in range(n_samples):
                     above_threshold = np.where(binary_predictions[i])[0]
                     if len(above_threshold) > 0:
-                        # Among classes above threshold, pick the one with highest probability
+                        # Among classes above threshold, pick the one with highest
+                        # probability
                         predictions[i] = above_threshold[
                             np.argmax(pred_prob[i, above_threshold])
                         ]

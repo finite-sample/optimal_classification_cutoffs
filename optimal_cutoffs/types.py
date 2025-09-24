@@ -12,16 +12,24 @@ SampleWeightLike: TypeAlias = ArrayLike | None
 MetricFunc: TypeAlias = Callable[
     [int | float, int | float, int | float, int | float], float
 ]
-OptimizationMethod: TypeAlias = Literal["auto", "smart_brute", "sort_scan", "minimize", "gradient", "coord_ascent"]
+OptimizationMethod: TypeAlias = Literal[
+    "auto", "smart_brute", "sort_scan", "minimize", "gradient", "coord_ascent"
+]
 AveragingMethod: TypeAlias = Literal["macro", "micro", "weighted", "none"]
 ComparisonOperator: TypeAlias = Literal[">", ">="]
-MulticlassMetricReturn: TypeAlias = float | np.ndarray  # float for averaged, array for average="none"
+MulticlassMetricReturn: TypeAlias = (
+    float | np.ndarray
+)  # float for averaged, array for average="none"
 
 # Enhanced type aliases for validation
 BinaryLabels: TypeAlias = np.ndarray  # Shape (n_samples,) with values in {0, 1}
-MulticlassLabels: TypeAlias = np.ndarray  # Shape (n_samples,) with values in {0, 1, ..., n_classes-1}
+MulticlassLabels: TypeAlias = (
+    np.ndarray
+)  # Shape (n_samples,) with values in {0, 1, ..., n_classes-1}
 BinaryProbabilities: TypeAlias = np.ndarray  # Shape (n_samples,) with values in [0, 1]
-MulticlassProbabilities: TypeAlias = np.ndarray  # Shape (n_samples, n_classes) with values in [0, 1]
+MulticlassProbabilities: TypeAlias = (
+    np.ndarray
+)  # Shape (n_samples, n_classes) with values in [0, 1]
 Thresholds: TypeAlias = float | np.ndarray  # Single threshold or array of thresholds
 RandomState: TypeAlias = int | np.random.RandomState | np.random.Generator | None
 

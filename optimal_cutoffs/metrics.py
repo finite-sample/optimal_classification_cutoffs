@@ -214,9 +214,7 @@ def _f1_vectorized(
     precision = np.where(tp + fp > 0, tp / (tp + fp), 0.0)
     recall = np.where(tp + fn > 0, tp / (tp + fn), 0.0)
     return np.where(
-        precision + recall > 0,
-        2 * precision * recall / (precision + recall),
-        0.0
+        precision + recall > 0, 2 * precision * recall / (precision + recall), 0.0
     )
 
 
@@ -429,8 +427,8 @@ def multiclass_metric(
 
     else:
         raise ValueError(
-f"Unknown averaging method: {average}. "
-f"Must be one of: 'macro', 'micro', 'weighted', 'none'."
+            f"Unknown averaging method: {average}. "
+            f"Must be one of: 'macro', 'micro', 'weighted', 'none'."
         )
 
 
@@ -470,7 +468,7 @@ def get_confusion_matrix(
         pred_prob,
         require_binary=True,
         sample_weight=sample_weight,
-        allow_multiclass=False
+        allow_multiclass=False,
     )
     _validate_threshold(float(prob))
     _validate_comparison_operator(comparison)
@@ -491,8 +489,8 @@ def get_confusion_matrix(
         sample_weight = np.asarray(sample_weight)
         if len(sample_weight) != len(true_labs):
             raise ValueError(
-f"Length mismatch: sample_weight ({len(sample_weight)}) "
-f"vs true_labs ({len(true_labs)})"
+                f"Length mismatch: sample_weight ({len(sample_weight)}) "
+                f"vs true_labs ({len(true_labs)})"
             )
         tp = np.sum(sample_weight * np.logical_and(pred_labs == 1, true_labs == 1))
         tn = np.sum(sample_weight * np.logical_and(pred_labs == 0, true_labs == 0))
@@ -542,7 +540,9 @@ def get_multiclass_confusion_matrix(
         thresholds = np.asarray(thresholds)
         _validate_threshold(thresholds[0])
         return [
-            get_confusion_matrix(true_labs, pred_prob, thresholds[0], sample_weight, comparison)
+            get_confusion_matrix(
+                true_labs, pred_prob, thresholds[0], sample_weight, comparison
+            )
         ]
 
     # Multiclass case

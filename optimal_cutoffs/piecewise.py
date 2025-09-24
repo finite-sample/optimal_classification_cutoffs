@@ -56,9 +56,7 @@ def _validate_inputs(y_true: Array, pred_prob: Array) -> tuple[Array, Array]:
     return y.astype(np.int8, copy=False), p.astype(np.float64, copy=False)
 
 
-def _validate_sample_weights(
-    sample_weight: Array | None, n_samples: int
-) -> Array:
+def _validate_sample_weights(sample_weight: Array | None, n_samples: int) -> Array:
     """Validate and convert sample weights.
 
     Parameters
@@ -88,7 +86,8 @@ def _validate_sample_weights(
 
     if w.shape[0] != n_samples:
         raise ValueError(
-            f"sample_weight length ({w.shape[0]}) must match number of samples ({n_samples})."
+            f"sample_weight length ({w.shape[0]}) must match number of "
+            f"samples ({n_samples})."
         )
 
     if np.any(~np.isfinite(w)) or np.any(w < 0):
@@ -103,7 +102,8 @@ def _vectorized_counts(
     """Compute confusion matrix counts for all possible cuts using cumulative sums.
 
     Given labels and weights sorted in the same order as descending probabilities,
-    returns (tp, tn, fp, fn) as vectors for every cut k, including the "predict nothing" case.
+    returns (tp, tn, fp, fn) as vectors for every cut k, including the
+    "predict nothing" case.
 
     At cut k (include indices 0..k as predicted positive):
       tp[k] = sum_{j<=k} weights_sorted[j] * y_sorted[j]
@@ -154,14 +154,15 @@ def _metric_from_counts(
     tp: Array,
     tn: Array,
     fp: Array,
-    fn: Array
+    fn: Array,
 ) -> Array:
     """Apply metric function to vectorized confusion matrix counts.
 
     Parameters
     ----------
     metric_fn : Callable
-        Metric function that accepts (tp, tn, fp, fn) as arrays and returns array of scores.
+        Metric function that accepts (tp, tn, fp, fn) as arrays and returns
+        array of scores.
     tp, tn, fp, fn : Array
         Confusion matrix count arrays.
 
@@ -189,9 +190,7 @@ def _metric_from_counts(
 
 
 def _compute_threshold_midpoint(
-    p_sorted: Array,
-    k_star: int,
-    inclusive: str = ">"
+    p_sorted: Array, k_star: int, inclusive: str = ">"
 ) -> float:
     """Compute threshold as midpoint between adjacent probabilities.
 
@@ -242,19 +241,25 @@ def _compute_threshold_midpoint(
     else:
         # Normal case: k_star corresponds to including items 0..k_star-1 as positive
         # Find the probability range we need to separate
-        included_prob = float(p_sorted[k_star - 1])    # Last prob included in positive predictions
-        excluded_prob = float(p_sorted[k_star])        # First prob excluded from positive predictions
+        included_prob = float(
+            p_sorted[k_star - 1]
+        )  # Last prob included in positive predictions
+        excluded_prob = float(
+            p_sorted[k_star]
+        )  # First prob excluded from positive predictions
 
         if included_prob > excluded_prob:
             # Normal case: probabilities are different
             # Use midpoint between them
             threshold = 0.5 * (included_prob + excluded_prob)
 
-            # For inclusive comparison, nudge slightly lower to ensure proper comparison behavior
+            # For inclusive comparison, nudge slightly lower to ensure proper
+            # comparison behavior
             if inclusive == ">=":
                 threshold = float(np.nextafter(threshold, -np.inf))
         else:
-            # Edge case: adjacent probabilities are tied (included_prob == excluded_prob)
+            # Edge case: adjacent probabilities are tied
+            # (included_prob == excluded_prob)
             # For tied probabilities, the behavior depends on comparison operator
             tied_prob = excluded_prob
 
@@ -263,7 +268,8 @@ def _compute_threshold_midpoint(
                 # Set threshold slightly above the tied probability
                 threshold = float(np.nextafter(tied_prob, np.inf))
             else:  # inclusive == ">="
-                # For '>=', when we can't cleanly separate, prefer to include tied values
+                # For '>=', when we can't cleanly separate, prefer to include tied
+                # values
                 # Set threshold slightly below the tied probability
                 threshold = float(np.nextafter(tied_prob, -np.inf))
 
@@ -322,7 +328,9 @@ def optimal_threshold_sortscan(
     ...                    2 * precision * recall / (precision + recall), 0.0)
     >>> y_true = [0, 0, 1, 1]
     >>> pred_prob = [0.1, 0.4, 0.6, 0.9]
-    >>> threshold, score, k = optimal_threshold_sortscan(y_true, pred_prob, f1_vectorized)
+    >>> threshold, score, k = optimal_threshold_sortscan(
+    ...     y_true, pred_prob, f1_vectorized
+    ... )
     >>> print(f"Optimal threshold: {threshold:.3f}, F1 score: {score:.3f}")
     """
     # Validate inputs
@@ -334,15 +342,24 @@ def optimal_threshold_sortscan(
     # Handle edge case: single sample
     if n == 1:
         # For single sample, threshold doesn't matter much, use probability value
-        score = float(metric_fn(np.array([y[0]]), np.array([1-y[0]]),
-                               np.array([0]), np.array([0]))[0])
+        score = float(
+            metric_fn(
+                np.array([y[0]]), np.array([1 - y[0]]), np.array([0]), np.array([0])
+            )[0]
+        )
         return float(p[0]), score, 0
 
     # Handle edge case: all same class
     if np.all(y == 0) or np.all(y == 1):
         # Return default threshold with whatever score we get
-        score = float(metric_fn(np.array([y.sum()]), np.array([n - y.sum()]),
-                               np.array([0]), np.array([0]))[0])
+        score = float(
+            metric_fn(
+                np.array([y.sum()]),
+                np.array([n - y.sum()]),
+                np.array([0]),
+                np.array([0]),
+            )[0]
+        )
         return 0.5, score, 0
 
     # Sort by descending probability (stable sort for reproducibility)
@@ -383,10 +400,14 @@ def optimal_threshold_sortscan(
         fn_actual = float(np.sum(~pred_mask & (y == 1)))
 
     # Compute actual achievable score
-    actual_score = float(metric_fn(
-        np.array([tp_actual]), np.array([tn_actual]),
-        np.array([fp_actual]), np.array([fn_actual])
-    )[0])
+    actual_score = float(
+        metric_fn(
+            np.array([tp_actual]),
+            np.array([tn_actual]),
+            np.array([fp_actual]),
+            np.array([fn_actual]),
+        )[0]
+    )
 
     # If there's a large discrepancy due to ties, we may need to adjust the threshold
     if abs(actual_score - best_score_theoretical) > 1e-6:
@@ -397,10 +418,12 @@ def optimal_threshold_sortscan(
         unique_probs = np.unique(p)
         for prob in unique_probs:
             if 0.0 < prob < 1.0:  # Valid threshold range
-                alternative_thresholds.extend([
-                    max(0.0, min(1.0, float(np.nextafter(prob, -np.inf)))),
-                    max(0.0, min(1.0, float(np.nextafter(prob, np.inf))))
-                ])
+                alternative_thresholds.extend(
+                    [
+                        max(0.0, min(1.0, float(np.nextafter(prob, -np.inf)))),
+                        max(0.0, min(1.0, float(np.nextafter(prob, np.inf)))),
+                    ]
+                )
 
         # Evaluate alternatives and pick the best
         best_alt_score = actual_score
@@ -423,10 +446,14 @@ def optimal_threshold_sortscan(
                 alt_fp = float(np.sum(alt_pred_mask & (y == 0)))
                 alt_fn = float(np.sum(~alt_pred_mask & (y == 1)))
 
-            alt_score = float(metric_fn(
-                np.array([alt_tp]), np.array([alt_tn]),
-                np.array([alt_fp]), np.array([alt_fn])
-            )[0])
+            alt_score = float(
+                metric_fn(
+                    np.array([alt_tp]),
+                    np.array([alt_tn]),
+                    np.array([alt_fp]),
+                    np.array([alt_fn]),
+                )[0]
+            )
 
             if alt_score > best_alt_score:
                 best_alt_score = alt_score
@@ -443,9 +470,7 @@ def f1_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     precision = np.where(tp + fp > 0, tp / (tp + fp), 0.0)
     recall = np.where(tp + fn > 0, tp / (tp + fn), 0.0)
     return np.where(
-        precision + recall > 0,
-        2 * precision * recall / (precision + recall),
-        0.0
+        precision + recall > 0, 2 * precision * recall / (precision + recall), 0.0
     )
 
 
