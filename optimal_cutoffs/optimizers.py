@@ -352,32 +352,52 @@ def _dinkelbach_expected_fbeta(
 ) -> float:
     """Dinkelbach method for exact expected F-beta optimization under calibration.
 
+    **Important**: This method optimizes the *expected* F-beta score under the
+    assumption that predicted probabilities are perfectly calibrated. It may not
+    give the optimal threshold for the actual F-beta score on the given dataset
+    if the probabilities are miscalibrated.
+
     Solves max_k ((1+β²)S_k) / (β²P + k) where:
     - S_k = sum_{j<=k} p_(j) after sorting probabilities descending
     - P = sum_i y_i (total positive labels)
     - k ranges from 1 to n (number of samples)
 
-    This provides the exact optimal threshold for expected F-beta score
-    under the assumption that predicted probabilities are well-calibrated.
+    **Mathematical Assumptions**:
+    1. Predicted probabilities are well-calibrated (p_i = P(y_i = 1 | p_i))
+    2. The expected number of true positives at threshold τ is sum_{p_i > τ} p_i
+    3. This differs from actual F-beta which uses actual TP/FP/FN counts
+
+    **When to Use**:
+    - When you believe your classifier is well-calibrated
+    - When optimizing for expected performance rather than performance on this dataset
+    - As a baseline comparison against other methods
+
+    **When NOT to Use**:
+    - When probabilities are poorly calibrated (many real-world classifiers)
+    - When you need optimal performance on the specific dataset provided
+    - When sample weights are required (not supported)
 
     Parameters
     ----------
     y_true : ArrayLike
         Array of true binary labels (0 or 1).
     pred_prob : ArrayLike
-        Predicted probabilities from a classifier.
+        Predicted probabilities from a classifier. Should be well-calibrated.
     beta : float, default=1.0
         Beta parameter for F-beta score. beta=1.0 gives F1 score.
 
     Returns
     -------
     float
-        Optimal threshold that maximizes expected F-beta score.
+        Threshold that maximizes expected F-beta score under calibration.
 
     References
     ----------
     Based on Dinkelbach's algorithm for fractional programming.
-    Exact for expected F-beta under calibration assumptions.
+    Exact for expected F-beta under perfect calibration assumptions.
+
+    See: Ye, N., Chai, K. M. A., Lee, W. S., & Chieu, H. L. (2012).
+    Optimizing F-measures: a tale of two approaches. ICML.
     """
     y = np.asarray(y_true)
     p = np.asarray(pred_prob)

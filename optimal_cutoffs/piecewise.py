@@ -15,6 +15,9 @@ import numpy as np
 
 Array = np.ndarray[Any, Any]
 
+# Numerical tolerance for floating-point comparisons
+NUMERICAL_TOLERANCE = 1e-12
+
 
 def _validate_inputs(y_true: Array, pred_prob: Array) -> tuple[Array, Array]:
     """Validate and convert inputs for binary classification.
@@ -219,26 +222,25 @@ def _compute_threshold_midpoint(
 
     # Special case: predict nothing as positive (k_star == 0)
     if k_star == 0:
-        # Threshold should be above the maximum probability
+        # Threshold should be set so NO probabilities pass the comparison
         max_prob = float(p_sorted[0])
         if inclusive == ">":
-            # For '>', threshold must be >= max_prob, so use nextafter towards +inf
-            threshold = float(np.nextafter(max_prob, np.inf))
+            # For '>', we need all p > threshold to be false, so threshold >= max_prob
+            threshold = max_prob
         else:  # ">="
-            # For '>=', threshold must be > max_prob, so use nextafter towards +inf
+            # For '>=', we need all p >= threshold to be false, so threshold > max_prob
             threshold = float(np.nextafter(max_prob, np.inf))
 
     # Special case: predict all as positive (k_star == n)
     elif k_star == n:
-        # Threshold should be below the minimum probability
+        # Threshold should be set so ALL probabilities pass the comparison
         min_prob = float(p_sorted[-1])
         if inclusive == ">":
-            # For '>', threshold must be < min_prob, so use nextafter towards -inf
+            # For '>', we need all p > threshold to be true, so threshold < min_prob
             threshold = float(np.nextafter(min_prob, -np.inf))
         else:  # ">="
-            # For '>=', threshold can equal min_prob, so use min_prob directly
-            # But tests expect it to be slightly below, so also use nextafter
-            threshold = float(np.nextafter(min_prob, -np.inf))
+            # For '>=', we need all p >= threshold to be true, so threshold <= min_prob
+            threshold = min_prob
     else:
         # Normal case: k_star corresponds to including items 0..k_star-1 as positive
         # Find the probability range we need to separate
@@ -249,8 +251,8 @@ def _compute_threshold_midpoint(
             p_sorted[k_star]
         )  # First prob excluded from positive predictions
 
-        if included_prob > excluded_prob:
-            # Normal case: probabilities are different
+        if included_prob - excluded_prob > NUMERICAL_TOLERANCE:
+            # Normal case: probabilities are sufficiently different
             # Use midpoint between them
             threshold = 0.5 * (included_prob + excluded_prob)
 
@@ -259,19 +261,21 @@ def _compute_threshold_midpoint(
             if inclusive == ">=":
                 threshold = float(np.nextafter(threshold, -np.inf))
         else:
-            # Edge case: adjacent probabilities are tied
-            # (included_prob == excluded_prob)
-            # For tied probabilities, the behavior depends on comparison operator
+            # Edge case: adjacent probabilities are tied or very close
+            # (abs(included_prob - excluded_prob) <= NUMERICAL_TOLERANCE)
+            # When probabilities are tied, we cannot cleanly separate the included
+            # vs excluded items with a single threshold. We use a heuristic based
+            # on the comparison operator to decide whether to include or exclude
+            # all tied values.
             tied_prob = excluded_prob
 
             if inclusive == ">":
-                # For '>', when we can't cleanly separate, prefer to exclude tied values
-                # Set threshold slightly above the tied probability
+                # For '>', set threshold slightly above tied_prob
+                # This means tied_prob > threshold is false, excluding tied values
                 threshold = float(np.nextafter(tied_prob, np.inf))
             else:  # inclusive == ">="
-                # For '>=', when we can't cleanly separate, prefer to include tied
-                # values
-                # Set threshold slightly below the tied probability
+                # For '>=', set threshold slightly below tied_prob
+                # This means tied_prob >= threshold is true, including tied values
                 threshold = float(np.nextafter(tied_prob, -np.inf))
 
     # Ensure threshold stays within valid bounds [0, 1]
@@ -410,8 +414,11 @@ def optimal_threshold_sortscan(
         )[0]
     )
 
-    # If there's a large discrepancy due to ties, we may need to adjust the threshold
-    if abs(actual_score - best_score_theoretical) > 1e-6:
+    # If there's a large discrepancy due to ties, adjust the threshold
+    # Use a tolerance larger than numerical precision
+    if abs(actual_score - best_score_theoretical) > max(
+        1e-6, NUMERICAL_TOLERANCE * 100
+    ):
         # Try alternative threshold strategies for better tie handling
         alternative_thresholds = []
 

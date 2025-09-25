@@ -29,13 +29,13 @@ MulticlassMetricReturn: TypeAlias = (
 
 # Enhanced type aliases for validation
 BinaryLabels: TypeAlias = np.ndarray[Any, Any]  # Shape (n_samples,), values {0, 1}
-MulticlassLabels: TypeAlias = (
-    np.ndarray[Any, Any]
-)  # Shape (n_samples,) with values in {0, 1, ..., n_classes-1}
+MulticlassLabels: TypeAlias = np.ndarray[
+    Any, Any
+]  # Shape (n_samples,) with values in {0, 1, ..., n_classes-1}
 BinaryProbabilities: TypeAlias = np.ndarray[Any, Any]  # Shape (n_samples,), [0, 1]
-MulticlassProbabilities: TypeAlias = (
-    np.ndarray[Any, Any]
-)  # Shape (n_samples, n_classes) with values in [0, 1]
+MulticlassProbabilities: TypeAlias = np.ndarray[
+    Any, Any
+]  # Shape (n_samples, n_classes) with values in [0, 1]
 Thresholds: TypeAlias = float | np.ndarray[Any, Any]  # Single or array
 RandomState: TypeAlias = int | np.random.RandomState | np.random.Generator | None
 
