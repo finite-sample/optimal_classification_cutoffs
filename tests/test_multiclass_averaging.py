@@ -124,13 +124,18 @@ class TestMulticlassAveragingSemantics:
             assert metric_name in METRIC_REGISTRY
 
             for average in averages:
-                result = multiclass_metric(self.cms, metric_name, average=average)
-
-                if average == "none":
-                    assert isinstance(result, np.ndarray)
-                    assert len(result) == 3
+                # Special handling for micro accuracy which now correctly raises error
+                if metric_name == "accuracy" and average == "micro":
+                    with pytest.raises(ValueError, match="Micro-averaged accuracy requires"):
+                        multiclass_metric(self.cms, metric_name, average=average)
                 else:
-                    assert isinstance(result, (float, np.floating))
+                    result = multiclass_metric(self.cms, metric_name, average=average)
+
+                    if average == "none":
+                        assert isinstance(result, np.ndarray)
+                        assert len(result) == 3
+                    else:
+                        assert isinstance(result, (float, np.floating))
 
     def test_invalid_average_raises_error(self):
         """Test that invalid average parameter raises appropriate error."""

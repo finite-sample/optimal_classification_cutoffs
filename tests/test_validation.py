@@ -88,11 +88,11 @@ class TestInputValidation:
         pred_probs = np.random.rand(6, 3)
         _validate_inputs(true_labels, pred_probs)
 
-        # Invalid: non-consecutive labels (missing class 1, has class 3)
+        # Invalid: labels outside valid range (has label 3 for 3-class problem)
         with pytest.raises(
-            ValueError, match="must be consecutive integers starting from 0"
+            ValueError, match="must be within \\[0, 2\\]"
         ):
-            _validate_inputs([0, 2, 3], np.random.rand(3, 3))  # Has 0,2,3 but missing 1
+            _validate_inputs([0, 2, 3], np.random.rand(3, 3))  # Label 3 invalid for 3 classes
 
         # Invalid: negative labels
         with pytest.raises(ValueError, match="Labels must be non-negative"):

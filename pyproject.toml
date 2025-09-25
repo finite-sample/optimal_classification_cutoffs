@@ -9,7 +9,7 @@ description = "Utilities for computing optimal classification cutoffs for binary
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
-    "numpy",
+    "numpy>=1.20.0",
     "scipy",
     "scikit-learn"
 ]

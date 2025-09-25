@@ -217,11 +217,11 @@ def _f1_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized F1 score computation."""
-    precision = np.where(tp + fp > 0, tp / (tp + fp), 0.0)
-    recall = np.where(tp + fn > 0, tp / (tp + fn), 0.0)
-    return np.where(
-        precision + recall > 0, 2 * precision * recall / (precision + recall), 0.0
-    )
+    precision = np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0)
+    recall = np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0)
+    f1_numerator = 2 * precision * recall
+    f1_denominator = precision + recall
+    return np.divide(f1_numerator, f1_denominator, out=np.zeros_like(tp, dtype=float), where=f1_denominator > 0)
 
 
 def _accuracy_vectorized(
@@ -232,7 +232,7 @@ def _accuracy_vectorized(
 ) -> np.ndarray[Any, Any]:
     """Vectorized accuracy computation."""
     total = tp + tn + fp + fn
-    return np.where(total > 0, (tp + tn) / total, 0.0)
+    return np.divide(tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0)
 
 
 def _precision_vectorized(
@@ -242,7 +242,7 @@ def _precision_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized precision computation."""
-    return np.where(tp + fp > 0, tp / (tp + fp), 0.0)
+    return np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0)
 
 
 def _recall_vectorized(
@@ -252,7 +252,7 @@ def _recall_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized recall computation."""
-    return np.where(tp + fn > 0, tp / (tp + fn), 0.0)
+    return np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0)
 
 
 def f1_score(
@@ -342,8 +342,21 @@ def _compute_exclusive_predictions(
 ) -> np.ndarray[Any, Any]:
     """Compute exclusive single-label predictions using margin-based decision rule.
 
-    For each sample, predicts the class with the highest margin (p_j - tau_j).
-    If all margins are negative, falls back to argmax probability.
+    **Decision Rule**:
+    1. Compute margins: margin_j = p_j - tau_j for each class j
+    2. Among classes with margin > 0 (or >= 0), predict the one with highest margin
+    3. If no class has positive margin, predict the class with highest probability (argmax)
+
+    **Important**: This margin-based rule can sometimes select a class with lower
+    absolute probability but higher margin. For example, if p_1=0.49, tau_1=0.3
+    (margin=0.19) and p_3=0.41, tau_3=0.2 (margin=0.21), it will predict class 3
+    despite class 1 having higher probability. This behavior is intentional for
+    threshold-optimized classification but differs from standard argmax predictions.
+
+    **When This Matters**:
+    - Accuracy computations using this rule may differ from standard multiclass accuracy
+    - Users comparing with argmax-based predictions may see different results
+    - This is the correct behavior for optimized per-class thresholds
 
     Parameters
     ----------
@@ -525,11 +538,14 @@ def multiclass_metric(
                 else 0.0
             )
         elif metric_name == "accuracy":
-            # For accuracy in One-vs-Rest, compute as correct predictions
-            # / total predictions
-            # This is equivalent to (total_tp) / (total_tp + total_fp + total_fn)
-            total_predictions = total_tp + total_fp + total_fn
-            return float(total_tp / total_predictions if total_predictions > 0 else 0.0)
+            # For accuracy in multiclass, we need exclusive single-label predictions
+            # The OvR aggregation gives Jaccard/IoU, not accuracy
+            # We should compute accuracy using exclusive predictions instead
+            raise ValueError(
+                "Micro-averaged accuracy requires exclusive single-label predictions. "
+                "Use multiclass_metric_exclusive() instead, or use 'macro' averaging "
+                "which computes per-class accuracies independently."
+            )
         else:
             # Fallback: try using the metric function with computed values
             # Note: TN is not meaningful in One-vs-Rest micro averaging

@@ -304,9 +304,17 @@ def _optimal_threshold_piecewise_fallback(
 
     # Handle edge case: all same class
     if P == 0.0:  # All negatives - optimal threshold should predict all negative
-        return 1.0 if comparison == ">" else float(np.nextafter(1.0, np.inf))
+        max_prob = float(np.max(sorted_probs))
+        return max_prob if comparison == ">" else float(np.nextafter(max_prob, np.inf))
     if N == 0.0:  # All positives - optimal threshold should predict all positive
-        return 0.0 if comparison == ">=" else float(np.nextafter(0.0, -np.inf))
+        min_prob = float(np.min(sorted_probs))
+        if comparison == ">":
+            # For exclusive comparison, need threshold < min_prob, but ensure >= 0
+            threshold = max(0.0, float(np.nextafter(min_prob, -np.inf)))
+        else:
+            # For inclusive comparison, threshold = min_prob works
+            threshold = min_prob
+        return threshold
 
     # Find unique probabilities to use as threshold candidates
     unique_probs = np.unique(pred_prob)
@@ -320,18 +328,19 @@ def _optimal_threshold_piecewise_fallback(
 
     # Evaluate at each unique threshold
     for threshold in unique_probs:
-        # Find position where we switch from positive to negative predictions
-        # Apply comparison operator for thresholding
+        # Use binary search to find cutoff position (more efficient than O(n) mask)
+        # Since sorted_probs is in descending order, use negative values for searchsorted
         if comparison == ">":
-            pos_mask = sorted_probs > threshold
+            # Count of probabilities > threshold
+            k = int(np.searchsorted(-sorted_probs, -threshold, side="left"))
         else:  # ">="
-            pos_mask = sorted_probs >= threshold
+            # Count of probabilities >= threshold
+            k = int(np.searchsorted(-sorted_probs, -threshold, side="right"))
 
-        if np.any(pos_mask):
-            # Find last position where condition is satisfied
-            last_pos = np.where(pos_mask)[0][-1]
-            tp = float(cum_tp[last_pos])
-            fp = float(cum_fp[last_pos])
+        if k > 0:
+            # k samples predicted as positive
+            tp = float(cum_tp[k - 1])
+            fp = float(cum_fp[k - 1])
         else:
             # No predictions above threshold -> all negative
             tp = fp = 0.0
@@ -350,7 +359,7 @@ def _optimal_threshold_piecewise_fallback(
 
 
 def _dinkelbach_expected_fbeta(
-    y_true: ArrayLike, pred_prob: ArrayLike, beta: float = 1.0
+    y_true: ArrayLike, pred_prob: ArrayLike, beta: float = 1.0, comparison: ComparisonOperator = ">"
 ) -> float:
     """Dinkelbach method for exact expected F-beta optimization under calibration.
 
@@ -387,6 +396,8 @@ def _dinkelbach_expected_fbeta(
         Predicted probabilities from a classifier. Should be well-calibrated.
     beta : float, default=1.0
         Beta parameter for F-beta score. beta=1.0 gives F1 score.
+    comparison : ComparisonOperator, default=">"
+        Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
 
     Returns
     -------
@@ -424,15 +435,24 @@ def _dinkelbach_expected_fbeta(
     # Find k that maximizes the objective
     k = int(np.argmax(f))
 
-    # Return midpoint threshold between k-th and (k+1)-th sorted probabilities
+    # Return threshold between k-th and (k+1)-th sorted probabilities
     left = p_sorted[k]
     right = p_sorted[k + 1] if k + 1 < p_sorted.size else left
 
-    if right != left:
+    if abs(right - left) > 1e-12:  # Not tied
+        # Use midpoint when probabilities are different
         thr = float(0.5 * (left + right))
     else:
-        # Handle case where left == right (tied probabilities)
-        thr = float(np.nextafter(left, 1.0))
+        # Handle tied probabilities based on comparison operator
+        # For ties, set threshold to the tied value and let comparison determine inclusion
+        if comparison == ">":
+            # With ">", threshold = tied_value excludes all tied elements
+            # (since tied_value > tied_value is false)
+            thr = float(left)
+        else:  # ">="
+            # With ">=", threshold = tied_value includes all tied elements
+            # (since tied_value >= tied_value is true)
+            thr = float(left)
 
     return thr
 
@@ -622,7 +642,7 @@ def get_optimal_threshold(
         if sample_weight is not None:
             raise ValueError("dinkelbach method does not support sample weights")
 
-        return _dinkelbach_expected_fbeta(true_labs, pred_prob, beta)
+        return _dinkelbach_expected_fbeta(true_labs, pred_prob, beta, comparison)
 
     raise ValueError(f"Unknown method: {method}")
 
@@ -695,16 +715,15 @@ def get_optimal_multiclass_thresholds(
     if np.any(np.isnan(pred_prob)) or np.any(np.isinf(pred_prob)):
         raise ValueError("pred_prob contains NaN or infinite values")
 
-    # Check class labels are valid for One-vs-Rest
-    unique_labels = np.unique(true_labs)
-    expected_labels = np.arange(len(unique_labels))
-    if not np.array_equal(np.sort(unique_labels), expected_labels):
-        raise ValueError(
-            f"Class labels must be consecutive integers starting from 0. "
-            f"Got {unique_labels}, expected {expected_labels}"
-        )
-
     n_classes = pred_prob.shape[1]
+
+    # Check class labels are valid for the prediction probability matrix
+    unique_labels = np.unique(true_labs)
+    if np.any((unique_labels < 0) | (unique_labels >= n_classes)):
+        raise ValueError(
+            f"Labels {unique_labels} must be within [0, {n_classes-1}] to match "
+            f"pred_prob shape {pred_prob.shape}"
+        )
 
     if average == "micro":
         # For micro-averaging, we can either:
@@ -718,15 +737,22 @@ def get_optimal_multiclass_thresholds(
         # Coordinate ascent for coupled multiclass optimization
         if sample_weight is not None:
             raise NotImplementedError(
-                "coord_ascent method does not yet support sample weights"
+                "coord_ascent method does not yet support sample weights. "
+                "This limitation could be lifted by extending the per-class "
+                "sort-scan kernel to handle weighted confusion matrices."
             )
         if comparison != ">":
             raise NotImplementedError(
-                "coord_ascent method currently only supports '>' comparison"
+                "coord_ascent method currently only supports '>' comparison. "
+                "Support for '>=' could be added by passing the comparison "
+                "parameter through to the per-class optimization kernel."
             )
         if metric != "f1":
             raise NotImplementedError(
-                "coord_ascent method currently only supports F1 metric"
+                f"coord_ascent method currently only supports 'f1' metric, got '{metric}'. "
+                "Support for other piecewise metrics (precision, recall, accuracy) "
+                "could be added by extending the coordinate ascent implementation "
+                "to use different vectorized metric functions."
             )
 
         # Use vectorized F1 metric for sort-scan initialization
@@ -827,8 +853,19 @@ def _optimize_micro_averaged_thresholds(
                 comparison,
             )
 
-        # For now, return the independent optimization result
-        # TODO: Implement joint optimization for micro-averaging
+        # LIMITATION: For smart_brute with micro averaging, we currently return
+        # independent per-class optimization results (OvR initialization).
+        # True joint optimization would require searching over threshold combinations,
+        # which is computationally expensive. For joint optimization, use
+        # method="minimize" which implements multi-dimensional optimization.
+        import warnings
+        warnings.warn(
+            "smart_brute with micro averaging uses independent per-class optimization "
+            "(OvR initialization), not true joint optimization. For joint optimization "
+            "of micro-averaged metrics, use method='minimize'.",
+            UserWarning,
+            stacklevel=3
+        )
         return initial_thresholds
 
     elif method in ["minimize", "gradient"]:

@@ -216,21 +216,29 @@ class TestAveragingMathematicalIdentities:
         assert micro_recall == pytest.approx(expected_micro_recall, abs=1e-10)
 
     def test_micro_accuracy_identity(self, known_confusion_matrices):
-        """Test micro-averaging identity for accuracy in OvR setting."""
+        """Test that OvR micro accuracy correctly raises error (it computes Jaccard/IoU, not accuracy)."""
         cms = known_confusion_matrices
 
-        # For accuracy in OvR, micro = total_correct / total_predictions
+        # OvR micro accuracy is problematic - it computes Jaccard/IoU, not true accuracy
+        # The formula total_tp / (total_tp + total_fp + total_fn) ignores TN,
+        # which is incorrect for accuracy computation.
+        # True multiclass accuracy requires exclusive single-label predictions.
+        
+        with pytest.raises(ValueError, match="Micro-averaged accuracy requires exclusive"):
+            multiclass_metric(cms, "accuracy", average="micro")
+            
+        # The old formula computed Jaccard/IoU, not accuracy:
         total_tp = sum(cm[0] for cm in cms)
         total_fp = sum(cm[2] for cm in cms)
         total_fn = sum(cm[3] for cm in cms)
         total_predictions = total_tp + total_fp + total_fn
-
-        expected_micro_accuracy = (
+        
+        jaccard_score = (
             total_tp / total_predictions if total_predictions > 0 else 0.0
         )
-        micro_accuracy = multiclass_metric(cms, "accuracy", average="micro")
-
-        assert micro_accuracy == pytest.approx(expected_micro_accuracy, abs=1e-10)
+        
+        # This is what the old implementation computed (Jaccard/IoU, not accuracy)
+        assert 0 <= jaccard_score <= 1, "Jaccard score should be in [0, 1]"
 
     def test_edge_case_all_zeros(self):
         """Test averaging identities with edge case of all-zero confusion matrices."""

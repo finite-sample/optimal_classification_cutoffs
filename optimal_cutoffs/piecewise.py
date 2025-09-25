@@ -356,7 +356,8 @@ def optimal_threshold_sortscan(
 
     # Handle edge case: all same class
     if np.all(y == 0):  # All negatives - optimal threshold should predict all negative
-        threshold = 1.0 if not inclusive else float(np.nextafter(1.0, np.inf))
+        max_prob = float(np.max(p))
+        threshold = max_prob if not inclusive else float(np.nextafter(max_prob, np.inf))
         score = float(
             metric_fn(
                 np.array([0.0]),
@@ -367,7 +368,13 @@ def optimal_threshold_sortscan(
         )
         return threshold, score, 0
     elif np.all(y == 1):  # All positives - optimal threshold predicts all positive
-        threshold = 0.0 if inclusive else float(np.nextafter(0.0, -np.inf))
+        min_prob = float(np.min(p))
+        if not inclusive:  # exclusive ">"
+            # For exclusive comparison, need threshold < min_prob, but ensure >= 0
+            threshold = max(0.0, float(np.nextafter(min_prob, -np.inf)))
+        else:  # inclusive ">="
+            # For inclusive comparison, threshold = min_prob works
+            threshold = min_prob
         score = float(
             metric_fn(
                 np.array([float(n)]),
@@ -486,27 +493,27 @@ def optimal_threshold_sortscan(
 # Vectorized metric functions for common metrics
 def f1_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized F1 score computation."""
-    precision = np.where(tp + fp > 0, tp / (tp + fp), 0.0)
-    recall = np.where(tp + fn > 0, tp / (tp + fn), 0.0)
-    return np.where(
-        precision + recall > 0, 2 * precision * recall / (precision + recall), 0.0
-    )
+    precision = np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0)
+    recall = np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0)
+    f1_numerator = 2 * precision * recall
+    f1_denominator = precision + recall
+    return np.divide(f1_numerator, f1_denominator, out=np.zeros_like(tp, dtype=float), where=f1_denominator > 0)
 
 
 def accuracy_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized accuracy computation."""
     total = tp + tn + fp + fn
-    return np.where(total > 0, (tp + tn) / total, 0.0)
+    return np.divide(tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0)
 
 
 def precision_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized precision computation."""
-    return np.where(tp + fp > 0, tp / (tp + fp), 0.0)
+    return np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0)
 
 
 def recall_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized recall computation."""
-    return np.where(tp + fn > 0, tp / (tp + fn), 0.0)
+    return np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0)
 
 
 # Mapping from metric names to vectorized functions

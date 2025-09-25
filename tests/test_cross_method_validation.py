@@ -139,7 +139,7 @@ class TestPerformanceCharacteristics:
     def test_method_scaling_behavior(self, n_samples):
         """Test that methods scale appropriately with dataset size."""
         # Create balanced dataset
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         methods_to_test = ["smart_brute", "sort_scan", "minimize"]
@@ -175,7 +175,7 @@ class TestPerformanceCharacteristics:
         """Test that methods don't consume excessive memory."""
         # Large dataset
         n_samples = 5000
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         # Should complete without memory issues
@@ -192,7 +192,7 @@ class TestPerformanceCharacteristics:
         """Test performance on worst-case scenarios."""
         # Many unique probability values (worst case for brute force)
         n_samples = 1000
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.linspace(0.001, 0.999, n_samples)  # All unique values
 
         start_time = time.time()

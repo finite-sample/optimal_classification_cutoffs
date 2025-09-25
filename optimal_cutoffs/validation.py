@@ -100,22 +100,16 @@ def _validate_inputs(
         if not np.all(true_labs == true_labs.astype(int)):
             raise ValueError("Labels must be integers")
 
-        # Check labels are consecutive starting from 0 for multiclass
+        # Check labels are valid for multiclass
         if pred_prob.ndim == 2:
             unique_labels = np.unique(true_labs)
-            expected_labels = np.arange(len(unique_labels))
-            if not np.array_equal(np.sort(unique_labels), expected_labels):
-                raise ValueError(
-                    f"Multiclass labels must be consecutive integers starting from 0. "
-                    f"Got {unique_labels}, expected {expected_labels}"
-                )
+            n_classes = pred_prob.shape[1]
 
-            # Check number of classes matches probability matrix
-            n_classes = len(unique_labels)
-            if pred_prob.shape[1] != n_classes:
+            # Labels must be within valid range for the probability matrix
+            if np.any((unique_labels < 0) | (unique_labels >= n_classes)):
                 raise ValueError(
-                    f"Number of probability columns ({pred_prob.shape[1]}) must match "
-                    f"number of classes ({n_classes})"
+                    f"Labels {unique_labels} must be within [0, {n_classes-1}] to match "
+                    f"pred_prob shape {pred_prob.shape}"
                 )
 
     # Validate probabilities

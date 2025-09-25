@@ -205,7 +205,7 @@ class TestWorstCasePerformance:
         n_samples = 1000
 
         # Worst case: all unique probabilities
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.linspace(0.001, 0.999, n_samples)  # All unique
 
         methods = ["smart_brute", "minimize"]
@@ -249,7 +249,7 @@ class TestWorstCasePerformance:
 
         # Many ties: only 5 unique probability values
         unique_probs = [0.2, 0.4, 0.5, 0.6, 0.8]
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.random.RandomState(42).choice(unique_probs, n_samples)
 
         start_time = time.time()
@@ -273,7 +273,7 @@ class TestNumericalStabilityPerformance:
         # Probabilities clustered very close together
         base = 0.5
         epsilon = 1e-10
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = base + np.random.RandomState(42).uniform(
             -epsilon, epsilon, n_samples
         )
@@ -292,7 +292,7 @@ class TestNumericalStabilityPerformance:
         n_samples = 500
 
         eps = np.finfo(float).eps
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
 
         # Mix of extreme values
         pred_prob = np.random.RandomState(42).choice(
@@ -338,7 +338,7 @@ class TestConcurrentPerformance:
     def test_different_metrics_performance_consistency(self):
         """Test that performance is consistent across different metrics."""
         n_samples = 1000
-        y_true = np.random.RandomState(42).randint(0, 2, n_samples)
+        y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         metrics = ["f1", "accuracy", "precision", "recall"]

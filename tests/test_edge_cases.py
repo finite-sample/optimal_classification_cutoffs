@@ -63,9 +63,10 @@ class TestLabelDistributionEdgeCases:
         labels = np.array([0, 0, 0, 0, 0])
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
-        # Should handle gracefully - return default threshold
+        # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
         threshold = _optimal_threshold_piecewise(labels, probabilities, "f1")
-        assert threshold == 0.5  # Default for degenerate case
+        # All negatives -> threshold should predict all negative for optimal accuracy
+        assert threshold >= 0.9  # Should be >= max probability to predict all negative
 
         # Test with get_optimal_threshold
         threshold = get_optimal_threshold(labels, probabilities, "accuracy")
@@ -82,9 +83,10 @@ class TestLabelDistributionEdgeCases:
         labels = np.array([1, 1, 1, 1, 1])
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
-        # Should handle gracefully - return default threshold
+        # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
         threshold = _optimal_threshold_piecewise(labels, probabilities, "f1")
-        assert threshold == 0.5  # Default for degenerate case
+        # All positives -> threshold should predict all positive for optimal accuracy
+        assert threshold <= 0.1  # Should be <= min probability to predict all positive
 
         # Test with get_optimal_threshold
         threshold = get_optimal_threshold(labels, probabilities, "recall")
