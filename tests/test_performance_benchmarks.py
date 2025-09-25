@@ -124,7 +124,7 @@ class TestAlgorithmicComplexity:
 
         # Execution time should scale roughly with number of unique values
         # This is more of a characterization than a hard requirement
-        expected_max_time = n_unique * 1e-4  # Generous bound
+        expected_max_time = n_unique * 3e-4  # Generous bound for CI environments
         assert execution_time < expected_max_time, (
             f"Brute force too slow: {execution_time:.4f}s for {n_unique} unique values"
         )
