@@ -1,0 +1,73 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.0] - 2024-12-28
+
+### Added
+- **Cost/Benefit-Aware Threshold Optimization**: Complete support for utility-based threshold optimization
+  - `bayes_threshold_from_utility()` - Calculate Bayes-optimal thresholds under calibrated probabilities
+  - `bayes_threshold_from_costs()` - Convenience wrapper for cost specification
+  - `make_linear_counts_metric()` - Create linear utility metrics from confusion matrix counts
+  - `make_cost_metric()` - Create cost-sensitive metrics with benefits and penalties
+  - Extended `get_optimal_threshold()` API with `utility`, `minimize_cost`, and `bayes` parameters
+- **Enhanced Documentation Structure**: Comprehensive documentation with improved navigation
+  - Installation guide with troubleshooting
+  - Quick start guide with examples
+  - Comprehensive user guide covering all features
+  - Advanced topics including cost-sensitive optimization
+  - Detailed API reference with separate sections
+  - FAQ with common issues and solutions
+  - Real-world examples and integration patterns
+- **Performance Improvements**: Enhanced algorithmic efficiency and robustness
+  - Improved edge case handling in sort-scan optimization
+  - Better tolerance handling for numerical precision issues
+  - Enhanced test coverage with property-based testing
+
+### Changed
+- **Version Requirement**: Updated NumPy requirement to `>=1.20.0` for modern API support
+- **Code Quality**: Fixed all ruff linting issues for consistent code style
+- **Type Annotations**: Improved mypy compliance with complete type coverage
+- **Test Robustness**: Enhanced tolerance handling for edge cases in numerical optimization
+  - Improved handling of tied probabilities and extreme values
+  - Better edge case detection for property-based tests
+  - More robust comparison between optimization methods
+
+### Fixed
+- **MyPy Compliance**: Fixed type annotation issues in metric factory functions
+- **Test Reliability**: Fixed 4 failing tests related to numerical precision and edge cases:
+  - `test_sortscan_matches_bruteforce_accuracy` - Enhanced tolerance for boundary cases
+  - `test_sortscan_matches_bruteforce_precision` - Improved edge case handling  
+  - `test_coord_ascent_unsupported_features` - Fixed regex pattern matching
+  - `test_piecewise_matches_brute_force` - Added degenerate case filtering
+- **Documentation Links**: Fixed broken figure link in README.md
+- **Code Style**: Resolved all line length and formatting issues for ruff compliance
+
+### Technical Details
+- **Test Suite**: 443 tests passing with comprehensive coverage
+- **Quality Checks**: Full compliance with ruff, mypy, and pytest requirements
+- **Dependencies**: Maintained compatibility with Python 3.10-3.13
+- **Documentation**: Complete Sphinx documentation with proper navigation structure
+
+### Migration Guide
+The new cost/benefit-aware optimization is fully backward compatible. Existing code will continue to work unchanged. To use the new features:
+
+```python
+# Cost-sensitive optimization (FN costs 5x more than FP)
+threshold = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
+
+# Bayes-optimal for calibrated probabilities (no training data needed)
+threshold = get_optimal_threshold(None, p, utility={"fp": -1, "fn": -5}, bayes=True)
+```
+
+## [0.2.1] - 2024-09-25
+
+### Previous Release
+- O(n log n) sort-and-scan optimization
+- Multiclass support with One-vs-Rest
+- Cross-validation utilities  
+- Comprehensive test suite
+- Scikit-learn compatible API

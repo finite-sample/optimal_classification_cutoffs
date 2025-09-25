@@ -493,27 +493,42 @@ def optimal_threshold_sortscan(
 # Vectorized metric functions for common metrics
 def f1_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized F1 score computation."""
-    precision = np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0)
-    recall = np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0)
+    precision = np.divide(
+        tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0
+    )
+    recall = np.divide(
+        tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0
+    )
     f1_numerator = 2 * precision * recall
     f1_denominator = precision + recall
-    return np.divide(f1_numerator, f1_denominator, out=np.zeros_like(tp, dtype=float), where=f1_denominator > 0)
+    return np.divide(
+        f1_numerator,
+        f1_denominator,
+        out=np.zeros_like(tp, dtype=float),
+        where=f1_denominator > 0,
+    )
 
 
 def accuracy_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized accuracy computation."""
     total = tp + tn + fp + fn
-    return np.divide(tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0)
+    return np.divide(
+        tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0
+    )
 
 
 def precision_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized precision computation."""
-    return np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0)
+    return np.divide(
+        tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0
+    )
 
 
 def recall_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized recall computation."""
-    return np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0)
+    return np.divide(
+        tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0
+    )
 
 
 # Mapping from metric names to vectorized functions

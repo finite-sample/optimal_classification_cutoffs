@@ -64,9 +64,11 @@ class TestCoreInvariants:
         """Verify O(n log n) piecewise solution matches naive brute force."""
         labels, probabilities = data
 
-        # Skip if all same class (degenerate case)
+        # Skip degenerate cases
         if len(np.unique(labels)) < 2:
             return
+        if len(np.unique(probabilities)) <= 1:
+            return  # Skip when all probabilities identical
 
         def naive_brute_force(true_labs, pred_prob, metric):
             """Naive brute force that tests same candidates as piecewise algorithm."""

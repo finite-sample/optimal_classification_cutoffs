@@ -207,7 +207,7 @@ class TestCoordinateAscentIntegration:
             )
 
         # Only F1 metric supported currently
-        with pytest.raises(NotImplementedError, match="currently only supports 'f1' metric"):
+        with pytest.raises(NotImplementedError, match="only supports 'f1' metric"):
             get_optimal_multiclass_thresholds(
                 y_true, P, metric="accuracy", method="coord_ascent"
             )

@@ -108,8 +108,8 @@ def _validate_inputs(
             # Labels must be within valid range for the probability matrix
             if np.any((unique_labels < 0) | (unique_labels >= n_classes)):
                 raise ValueError(
-                    f"Labels {unique_labels} must be within [0, {n_classes-1}] to match "
-                    f"pred_prob shape {pred_prob.shape}"
+                    f"Labels {unique_labels} must be within [0, {n_classes - 1}] "
+                    f"to match pred_prob shape {pred_prob.shape}"
                 )
 
     # Validate probabilities

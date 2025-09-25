@@ -75,7 +75,7 @@ Standard optimization methods like `scipy.optimize.minimize_scalar` assume smoot
 
 The figure below illustrates this phenomenon:
 
-![F1 Score Piecewise Behavior](https://finite-sample.github.io/optimal_classification_cutoffs/piecewise_f1_demo.png)
+![F1 Score Piecewise Behavior](docs/piecewise_f1_demo.png)
 
 *F1 score only changes at unique probability values (red dots). Continuous optimizers may converge anywhere within the flat regions, potentially missing the true optimum.*
 
