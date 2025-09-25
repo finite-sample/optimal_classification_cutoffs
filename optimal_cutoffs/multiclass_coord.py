@@ -20,10 +20,11 @@ Key benefits:
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
-Array = np.ndarray
+Array = np.ndarray[Any, Any]
 
 
 def _macro_f1_from_assignments(y_true: Array, y_pred: Array, n_classes: int) -> float:
@@ -79,7 +80,7 @@ def _assign_labels_shifted(P: Array, tau: Array) -> Array:
     Array
         Predicted class labels of shape (n_samples,).
     """
-    return np.argmax(P - tau[None, :], axis=1).astype(int)
+    return np.argmax(P - tau[None, :], axis=1).astype(int)  # type: ignore[no-any-return]
 
 
 def _init_thresholds_ovr_sortscan(
@@ -118,7 +119,10 @@ def optimal_multiclass_thresholds_coord_ascent(
     P: Array,
     *,
     sortscan_metric_fn: Callable[[Array, Array, Array, Array], Array],
-    sortscan_kernel: Callable[[Array, Array, Callable], tuple[float, float, int]],
+    sortscan_kernel: Callable[
+        [Array, Array, Callable[[Array, Array, Array, Array], Array]],
+        tuple[float, float, int],
+    ],
     max_iter: int = 20,
     init: str = "ovr_sortscan",
     tol_stops: int = 1,
@@ -179,7 +183,7 @@ def optimal_multiclass_thresholds_coord_ascent(
     # Initialize tau
     if init == "ovr_sortscan":
 
-        def _ss(y_bin, p_c):
+        def _ss(y_bin: Array, p_c: Array) -> float:
             thr, _, _ = sortscan_kernel(y_bin, p_c, sortscan_metric_fn)
             return thr
 
@@ -227,7 +231,12 @@ def optimal_multiclass_thresholds_coord_ascent(
             fn = pos - tp
             fp = pp - tp
 
-            def _f1_class(k, tp_vals=tp, fp_vals=fp, fn_vals=fn):
+            def _f1_class(
+                k: int,
+                tp_vals: Array = tp,
+                fp_vals: Array = fp,
+                fn_vals: Array = fn,
+            ) -> float:
                 """Compute F1 score for class k."""
                 denom = 2 * tp_vals[k] + fp_vals[k] + fn_vals[k]
                 return 0.0 if denom == 0 else (2.0 * tp_vals[k]) / denom

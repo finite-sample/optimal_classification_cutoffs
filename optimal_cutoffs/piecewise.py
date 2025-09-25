@@ -9,10 +9,11 @@ complexity with vectorized operations.
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
-Array = np.ndarray
+Array = np.ndarray[Any, Any]
 
 
 def _validate_inputs(y_true: Array, pred_prob: Array) -> tuple[Array, Array]:
@@ -499,7 +500,9 @@ VECTORIZED_METRICS = {
 }
 
 
-def get_vectorized_metric(metric_name: str) -> Callable:
+def get_vectorized_metric(
+    metric_name: str,
+) -> Callable[[Array, Array, Array, Array], Array]:
     """Get vectorized version of a metric function.
 
     Parameters

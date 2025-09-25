@@ -1,8 +1,9 @@
 """High-level wrapper for threshold optimization."""
 
-from typing import Self
+from typing import Any, Literal, cast
 
 import numpy as np
+from typing_extensions import Self
 
 from .multiclass_coord import _assign_labels_shifted
 from .optimizers import get_optimal_threshold, get_probability
@@ -49,7 +50,7 @@ class ThresholdOptimizer:
         self.verbose = verbose
         self.method = method
         self.comparison = comparison
-        self.threshold_: float | np.ndarray | None = None
+        self.threshold_: float | np.ndarray[Any, Any] | None = None
         self.is_multiclass_: bool = False
 
     def fit(
@@ -100,12 +101,15 @@ class ThresholdOptimizer:
             # Use legacy optimizer for backward compatibility (only when no sample
             # weights)
             self.threshold_ = get_probability(
-                true_labs, pred_prob, self.objective, self.verbose
+                true_labs,
+                pred_prob,
+                cast(Literal["accuracy", "f1"], self.objective),
+                self.verbose,
             )
 
         return self
 
-    def predict(self, pred_prob: ArrayLike) -> np.ndarray:
+    def predict(self, pred_prob: ArrayLike) -> np.ndarray[Any, Any]:
         """Convert probabilities to class predictions using the learned threshold(s).
 
         Parameters
@@ -115,7 +119,7 @@ class ThresholdOptimizer:
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[Any, Any]
             For binary: Boolean array of predicted class labels.
             For multiclass: Integer array of predicted class labels.
         """
@@ -128,7 +132,9 @@ class ThresholdOptimizer:
             # Multiclass prediction strategy depends on optimization method
             if self.method == "coord_ascent":
                 # Coordinate ascent uses argmax(P - tau) for single-label consistency
-                return _assign_labels_shifted(pred_prob, self.threshold_)
+                return _assign_labels_shifted(
+                    pred_prob, cast(np.ndarray[Any, Any], self.threshold_)
+                )
             else:
                 # One-vs-Rest prediction using per-class thresholds
                 n_samples, n_classes = pred_prob.shape

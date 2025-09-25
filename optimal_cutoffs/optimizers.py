@@ -1,6 +1,6 @@
 """Threshold search strategies for optimizing classification metrics."""
 
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 from scipy import optimize
@@ -27,7 +27,10 @@ from .validation import (
 
 
 def _accuracy(
-    prob: np.ndarray, true_labs: ArrayLike, pred_prob: ArrayLike, verbose: bool = False
+    prob: np.ndarray[Any, Any],
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    verbose: bool = False,
 ) -> float:
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, prob[0])
     accuracy = (tp + tn) / (tp + tn + fp + fn)
@@ -37,7 +40,10 @@ def _accuracy(
 
 
 def _f1(
-    prob: np.ndarray, true_labs: ArrayLike, pred_prob: ArrayLike, verbose: bool = False
+    prob: np.ndarray[Any, Any],
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    verbose: bool = False,
 ) -> float:
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, prob[0])
     precision = tp / (tp + fp) if tp + fp > 0 else 0.0
@@ -182,7 +188,8 @@ def _multiclass_metric_score(
     confusion_matrices = get_multiclass_confusion_matrix(
         true_labs, pred_prob, thresholds, sample_weight
     )
-    return multiclass_metric(confusion_matrices, metric, average)
+    result = multiclass_metric(confusion_matrices, metric, average)
+    return float(result) if isinstance(result, np.ndarray) else result
 
 
 def _optimal_threshold_piecewise(
@@ -220,10 +227,12 @@ def _optimal_threshold_piecewise(
         try:
             vectorized_metric = get_vectorized_metric(metric)
             threshold, _, _ = optimal_threshold_sortscan(
-                true_labs,
-                pred_prob,
+                np.asarray(true_labs),
+                np.asarray(pred_prob),
                 vectorized_metric,
-                sample_weight=sample_weight,
+                sample_weight=(
+                    np.asarray(sample_weight) if sample_weight is not None else None
+                ),
                 inclusive=comparison,
             )
             return threshold
@@ -410,7 +419,7 @@ def get_optimal_threshold(
     method: OptimizationMethod = "auto",
     sample_weight: ArrayLike | None = None,
     comparison: ComparisonOperator = ">",
-) -> float | np.ndarray:
+) -> float | np.ndarray[Any, Any]:
     """Find the threshold that optimizes a metric.
 
     Parameters
@@ -602,7 +611,7 @@ def get_optimal_multiclass_thresholds(
     sample_weight: ArrayLike | None = None,
     vectorized: bool = False,
     comparison: ComparisonOperator = ">",
-) -> np.ndarray | float:
+) -> np.ndarray[Any, Any] | float:
     """Find optimal per-class thresholds for multiclass classification using
     One-vs-Rest.
 
@@ -747,7 +756,7 @@ def _optimize_micro_averaged_thresholds(
     sample_weight: ArrayLike | None,
     vectorized: bool,
     comparison: ComparisonOperator = ">",
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Optimize thresholds to maximize micro-averaged metric.
 
     For micro-averaging, we optimize per-class thresholds jointly to maximize
@@ -757,7 +766,7 @@ def _optimize_micro_averaged_thresholds(
     pred_prob = np.asarray(pred_prob)
     n_classes = pred_prob.shape[1]
 
-    def objective(thresholds):
+    def objective(thresholds: np.ndarray[Any, Any]) -> float:
         """Objective function: negative micro-averaged metric."""
         if metric == "accuracy":
             # For accuracy, use exclusive single-label metric instead of OvR micro
@@ -769,7 +778,12 @@ def _optimize_micro_averaged_thresholds(
             cms = get_multiclass_confusion_matrix(
                 true_labs, pred_prob, thresholds, sample_weight, comparison
             )
-            score = multiclass_metric(cms, metric, "micro")
+            score_result = multiclass_metric(cms, metric, "micro")
+            score = (
+                float(score_result)
+                if isinstance(score_result, np.ndarray)
+                else score_result
+            )
         return -float(score)
 
     if method == "smart_brute":
@@ -818,7 +832,7 @@ def _optimize_micro_averaged_thresholds(
             bounds=[(0, 1) for _ in range(n_classes)],
         )
 
-        return result.x
+        return np.asarray(result.x)
 
     else:
         raise ValueError(f"Unknown method: {method}")
@@ -830,7 +844,7 @@ def _optimize_thresholds_vectorized(
     metric: str,
     sample_weight: ArrayLike | None,
     comparison: ComparisonOperator = ">",
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Vectorized optimization for piecewise metrics.
 
     This function vectorizes the piecewise threshold optimization

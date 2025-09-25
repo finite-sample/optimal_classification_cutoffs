@@ -1,5 +1,7 @@
 """Comprehensive input validation utilities for robust API behavior."""
 
+from typing import Any
+
 import numpy as np
 
 from .types import ArrayLike
@@ -12,7 +14,7 @@ def _validate_inputs(
     require_proba: bool = True,
     sample_weight: ArrayLike | None = None,
     allow_multiclass: bool = True,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any] | None]:
     """Validate and convert inputs with comprehensive checks.
 
     Parameters
@@ -172,9 +174,9 @@ def _validate_inputs(
 
 
 def _validate_threshold(
-    threshold: float | np.ndarray,
+    threshold: float | np.ndarray[Any, Any],
     n_classes: int | None = None,
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Validate threshold values.
 
     Parameters

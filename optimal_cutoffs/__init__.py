@@ -9,7 +9,10 @@ except Exception:
     # Fallback for development: read from pyproject.toml
     import pathlib
 
-    import tomllib
+    try:
+        import tomllib  # Python 3.11+
+    except ImportError:
+        import tomli as tomllib
 
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
     if pyproject_path.exists():

@@ -1,6 +1,7 @@
 """Metric registry, confusion matrix utilities, and built-in metrics."""
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -12,14 +13,14 @@ from .validation import (
 )
 
 METRIC_REGISTRY: dict[str, MetricFunc] = {}
-VECTORIZED_REGISTRY: dict[str, Callable] = {}  # For vectorized metric functions
+VECTORIZED_REGISTRY: dict[str, Callable[..., Any]] = {}  # Vectorized metrics
 METRIC_PROPERTIES: dict[str, dict[str, bool | float]] = {}
 
 
 def register_metric(
     name: str | None = None,
     func: MetricFunc | None = None,
-    vectorized_func: Callable | None = None,
+    vectorized_func: Callable[..., Any] | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
@@ -126,7 +127,8 @@ def is_piecewise_metric(metric_name: str) -> bool:
         True if the metric is piecewise-constant, False otherwise.
         Defaults to True for unknown metrics.
     """
-    return METRIC_PROPERTIES.get(metric_name, {"is_piecewise": True})["is_piecewise"]
+    properties = METRIC_PROPERTIES.get(metric_name, {"is_piecewise": True})
+    return bool(properties["is_piecewise"])
 
 
 def should_maximize_metric(metric_name: str) -> bool:
@@ -143,7 +145,7 @@ def should_maximize_metric(metric_name: str) -> bool:
         True if the metric should be maximized, False if minimized.
         Defaults to True for unknown metrics.
     """
-    return METRIC_PROPERTIES.get(metric_name, {"maximize": True})["maximize"]
+    return bool(METRIC_PROPERTIES.get(metric_name, {"maximize": True})["maximize"])
 
 
 def needs_probability_scores(metric_name: str) -> bool:
@@ -160,7 +162,8 @@ def needs_probability_scores(metric_name: str) -> bool:
         True if the metric needs probability scores, False otherwise.
         Defaults to False for unknown metrics.
     """
-    return METRIC_PROPERTIES.get(metric_name, {"needs_proba": False})["needs_proba"]
+    properties = METRIC_PROPERTIES.get(metric_name, {"needs_proba": False})
+    return bool(properties["needs_proba"])
 
 
 def has_vectorized_implementation(metric_name: str) -> bool:
@@ -179,7 +182,7 @@ def has_vectorized_implementation(metric_name: str) -> bool:
     return metric_name in VECTORIZED_REGISTRY
 
 
-def get_vectorized_metric(metric_name: str) -> Callable:
+def get_vectorized_metric(metric_name: str) -> Callable[..., Any]:
     """Get vectorized version of a metric function.
 
     Parameters
@@ -189,7 +192,7 @@ def get_vectorized_metric(metric_name: str) -> Callable:
 
     Returns
     -------
-    Callable
+    Callable[..., Any]
         Vectorized metric function that accepts arrays.
 
     Raises
@@ -208,8 +211,11 @@ def get_vectorized_metric(metric_name: str) -> Callable:
 
 # Vectorized metric implementations for O(n log n) optimization
 def _f1_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
+    tp: np.ndarray[Any, Any],
+    tn: np.ndarray[Any, Any],
+    fp: np.ndarray[Any, Any],
+    fn: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     """Vectorized F1 score computation."""
     precision = np.where(tp + fp > 0, tp / (tp + fp), 0.0)
     recall = np.where(tp + fn > 0, tp / (tp + fn), 0.0)
@@ -219,28 +225,36 @@ def _f1_vectorized(
 
 
 def _accuracy_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
+    tp: np.ndarray[Any, Any],
+    tn: np.ndarray[Any, Any],
+    fp: np.ndarray[Any, Any],
+    fn: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     """Vectorized accuracy computation."""
     total = tp + tn + fp + fn
     return np.where(total > 0, (tp + tn) / total, 0.0)
 
 
 def _precision_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
+    tp: np.ndarray[Any, Any],
+    tn: np.ndarray[Any, Any],
+    fp: np.ndarray[Any, Any],
+    fn: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     """Vectorized precision computation."""
     return np.where(tp + fp > 0, tp / (tp + fp), 0.0)
 
 
 def _recall_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
+    tp: np.ndarray[Any, Any],
+    tn: np.ndarray[Any, Any],
+    fp: np.ndarray[Any, Any],
+    fn: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
     """Vectorized recall computation."""
     return np.where(tp + fn > 0, tp / (tp + fn), 0.0)
 
 
-@register_metric("f1", vectorized_func=_f1_vectorized)
 def f1_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -265,7 +279,6 @@ def f1_score(
     )
 
 
-@register_metric("accuracy", vectorized_func=_accuracy_vectorized)
 def accuracy_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -285,7 +298,6 @@ def accuracy_score(
     return (tp + tn) / total if total > 0 else 0.0
 
 
-@register_metric("precision", vectorized_func=_precision_vectorized)
 def precision_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -304,7 +316,6 @@ def precision_score(
     return tp / (tp + fp) if tp + fp > 0 else 0.0
 
 
-@register_metric("recall", vectorized_func=_recall_vectorized)
 def recall_score(
     tp: int | float, tn: int | float, fp: int | float, fn: int | float
 ) -> float:
@@ -324,11 +335,11 @@ def recall_score(
 
 
 def _compute_exclusive_predictions(
-    true_labs: np.ndarray,
-    pred_prob: np.ndarray,
-    thresholds: np.ndarray,
+    true_labs: np.ndarray[Any, Any],
+    pred_prob: np.ndarray[Any, Any],
+    thresholds: np.ndarray[Any, Any],
     comparison: str = ">",
-) -> np.ndarray:
+) -> np.ndarray[Any, Any]:
     """Compute exclusive single-label predictions using margin-based decision rule.
 
     For each sample, predicts the class with the highest margin (p_j - tau_j).
@@ -447,7 +458,7 @@ def multiclass_metric(
     confusion_matrices: list[tuple[int | float, int | float, int | float, int | float]],
     metric_name: str,
     average: str = "macro",
-) -> float | np.ndarray:
+) -> float | np.ndarray[Any, Any]:
     """Compute multiclass metrics from per-class confusion matrices.
 
     Parameters
@@ -686,3 +697,10 @@ def get_multiclass_confusion_matrix(
         confusion_matrices.append(cm)
 
     return confusion_matrices
+
+
+# Register built-in metrics manually to avoid decorator type issues
+register_metric("f1", f1_score, _f1_vectorized)
+register_metric("accuracy", accuracy_score, _accuracy_vectorized)
+register_metric("precision", precision_score, _precision_vectorized)
+register_metric("recall", recall_score, _recall_vectorized)

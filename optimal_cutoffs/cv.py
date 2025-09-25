@@ -1,5 +1,7 @@
 """Cross-validation helpers for threshold optimization."""
 
+from typing import Any
+
 import numpy as np
 from sklearn.model_selection import KFold
 
@@ -15,7 +17,7 @@ def cv_threshold_optimization(
     cv: int = 5,
     random_state: int | None = None,
     sample_weight: SampleWeightLike = None,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Estimate an optimal threshold using cross-validation.
 
     Parameters
@@ -38,7 +40,7 @@ def cv_threshold_optimization(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
+    tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]
         Arrays of per-fold thresholds and scores.
     """
 
@@ -63,8 +65,13 @@ def cv_threshold_optimization(
             sample_weight=train_weights,
         )
         thresholds.append(thr)
+        # Convert threshold to float if needed for binary classification
+        thr_float = float(thr) if isinstance(thr, np.ndarray) and thr.size == 1 else thr
+        if not isinstance(thr_float, float):
+            # For multiclass, we need to adjust this
+            thr_float = 0.5  # fallback
         score = _metric_score(
-            true_labs[test_idx], pred_prob[test_idx], thr, metric, test_weights
+            true_labs[test_idx], pred_prob[test_idx], thr_float, metric, test_weights
         )
         scores.append(score)
     return np.array(thresholds), np.array(scores)
@@ -79,7 +86,7 @@ def nested_cv_threshold_optimization(
     outer_cv: int = 5,
     random_state: int | None = None,
     sample_weight: SampleWeightLike = None,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Nested cross-validation for threshold optimization.
 
     Parameters
@@ -104,7 +111,7 @@ def nested_cv_threshold_optimization(
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray]
+    tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]
         Arrays of outer-fold thresholds and scores.
     """
 

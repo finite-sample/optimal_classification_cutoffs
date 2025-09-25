@@ -3,11 +3,11 @@
 from collections.abc import Callable
 
 # Type aliases for better readability and consistency
-from typing import Literal, Protocol, TypeAlias
+from typing import Any, Literal, Protocol, TypeAlias
 
 import numpy as np
 
-ArrayLike: TypeAlias = np.ndarray | list[float] | list[int]
+ArrayLike: TypeAlias = np.ndarray[Any, Any] | list[float] | list[int]
 SampleWeightLike: TypeAlias = ArrayLike | None
 MetricFunc: TypeAlias = Callable[
     [int | float, int | float, int | float, int | float], float
@@ -24,19 +24,19 @@ OptimizationMethod: TypeAlias = Literal[
 AveragingMethod: TypeAlias = Literal["macro", "micro", "weighted", "none"]
 ComparisonOperator: TypeAlias = Literal[">", ">="]
 MulticlassMetricReturn: TypeAlias = (
-    float | np.ndarray
+    float | np.ndarray[Any, Any]
 )  # float for averaged, array for average="none"
 
 # Enhanced type aliases for validation
-BinaryLabels: TypeAlias = np.ndarray  # Shape (n_samples,) with values in {0, 1}
+BinaryLabels: TypeAlias = np.ndarray[Any, Any]  # Shape (n_samples,), values {0, 1}
 MulticlassLabels: TypeAlias = (
-    np.ndarray
+    np.ndarray[Any, Any]
 )  # Shape (n_samples,) with values in {0, 1, ..., n_classes-1}
-BinaryProbabilities: TypeAlias = np.ndarray  # Shape (n_samples,) with values in [0, 1]
+BinaryProbabilities: TypeAlias = np.ndarray[Any, Any]  # Shape (n_samples,), [0, 1]
 MulticlassProbabilities: TypeAlias = (
-    np.ndarray
+    np.ndarray[Any, Any]
 )  # Shape (n_samples, n_classes) with values in [0, 1]
-Thresholds: TypeAlias = float | np.ndarray  # Single threshold or array of thresholds
+Thresholds: TypeAlias = float | np.ndarray[Any, Any]  # Single or array
 RandomState: TypeAlias = int | np.random.RandomState | np.random.Generator | None
 
 
@@ -44,7 +44,7 @@ RandomState: TypeAlias = int | np.random.RandomState | np.random.Generator | Non
 class ProbabilisticClassifier(Protocol):
     """Protocol for classifiers that can output prediction probabilities."""
 
-    def predict_proba(self, X: ArrayLike) -> np.ndarray:
+    def predict_proba(self, X: ArrayLike) -> np.ndarray[Any, Any]:
         """Predict class probabilities.
 
         Parameters
@@ -83,7 +83,7 @@ class CrossValidator(Protocol):
 
     def split(
         self, X: ArrayLike, y: ArrayLike | None = None
-    ) -> list[tuple[np.ndarray, np.ndarray]]:
+    ) -> list[tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]]:
         """Generate train/test splits.
 
         Parameters
@@ -95,7 +95,7 @@ class CrossValidator(Protocol):
 
         Yields
         ------
-        tuple[np.ndarray, np.ndarray]
+        tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]
             Train and test indices.
         """
         ...
