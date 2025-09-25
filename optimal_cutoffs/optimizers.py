@@ -3,7 +3,7 @@
 from typing import Any, Literal
 
 import numpy as np
-from scipy import optimize
+from scipy import optimize  # type: ignore[import-untyped]
 
 from .metrics import (
     METRIC_REGISTRY,
@@ -828,7 +828,7 @@ def _optimize_micro_averaged_thresholds(
 
     elif method in ["minimize", "gradient"]:
         # Use scipy optimization for joint threshold optimization
-        from scipy.optimize import minimize
+        from scipy.optimize import minimize  # type: ignore[import-untyped]
 
         # Initial guess: independent optimization per class
         initial_guess = np.zeros(n_classes)

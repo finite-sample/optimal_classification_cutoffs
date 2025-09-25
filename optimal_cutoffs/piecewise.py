@@ -182,8 +182,8 @@ def _metric_from_counts(
     """
     scores = metric_fn(tp, tn, fp, fn)
 
-    if not isinstance(scores, np.ndarray):
-        scores = np.asarray(scores)
+    # Ensure scores is a numpy array
+    scores = np.asarray(scores)
 
     if scores.shape != tp.shape:
         raise ValueError(

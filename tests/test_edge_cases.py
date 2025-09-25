@@ -1,4 +1,49 @@
-"""Comprehensive edge case testing for boundary conditions and extreme scenarios."""
+"""Comprehensive edge case testing for boundary conditions and extreme scenarios.
+
+This module provides extensive testing for edge cases and boundary conditions that
+could cause threshold optimization algorithms to fail or produce suboptimal results.
+The tests cover extreme data distributions, numerical precision limits, error conditions,
+and performance characteristics.
+
+Test Categories:
+================
+
+1. **Label Distribution Edge Cases**
+   - All positive or all negative labels (degenerate cases)
+   - Extreme class imbalance (99:1 ratios)
+   - Single samples of minority classes
+   - Perfectly balanced datasets
+
+2. **Probability Distribution Edge Cases**
+   - Perfectly separated classes (no overlap)
+   - Narrow probability ranges (clustered values)
+   - Extreme probability skew
+   - Boundary probabilities (0.0, 1.0)
+
+3. **Numerical Edge Cases**
+   - Very small and large datasets
+   - Probabilities at machine epsilon
+   - Floating-point precision limits
+   - Values differing by tiny amounts
+
+4. **Error Condition Testing**
+   - NaN and infinity handling
+   - Empty arrays
+   - Mismatched array lengths
+   - Invalid data types and ranges
+
+5. **Performance Edge Cases**
+   - Worst-case performance scenarios
+   - Memory usage with large datasets
+   - Scaling behavior verification
+
+6. **Wrapper Integration**
+   - ThresholdOptimizer with edge cases
+   - Multiclass degenerate scenarios
+
+The test suite ensures robust behavior across all boundary conditions while
+maintaining performance guarantees and clear error reporting.
+"""
 
 import warnings
 
@@ -132,29 +177,6 @@ class TestLabelDistributionEdgeCases:
 class TestProbabilityDistributionEdgeCases:
     """Test extreme probability distributions."""
 
-    def test_all_identical_probabilities(self):
-        """Test when all probabilities are identical."""
-        labels = np.array([0, 1, 0, 1, 0, 1])
-        probabilities = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
-
-        # Should handle gracefully - any threshold in the vicinity should work
-        threshold = get_optimal_threshold(labels, probabilities, "f1")
-        assert 0 <= threshold <= 1
-
-        # Test confusion matrix
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
-        assert tp + tn + fp + fn == len(labels)
-
-        # Test with comparison operators - should show differences
-        tp_gt, tn_gt, fp_gt, fn_gt = get_confusion_matrix(
-            labels, probabilities, 0.5, comparison=">"
-        )
-        tp_gte, tn_gte, fp_gte, fn_gte = get_confusion_matrix(
-            labels, probabilities, 0.5, comparison=">="
-        )
-
-        # Results should be different due to tie-breaking
-        assert (tp_gt, tn_gt, fp_gt, fn_gt) != (tp_gte, tn_gte, fp_gte, fn_gte)
 
     def test_perfectly_separated_classes(self):
         """Test with no overlap between class probability distributions."""
@@ -484,3 +506,124 @@ class TestPerformanceEdgeCases:
         # Test confusion matrix doesn't explode memory
         tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
         assert tp + tn + fp + fn == n_samples
+
+
+class TestMinimalDatasets:
+    """Test with minimal viable datasets that weren't covered above."""
+
+    def test_single_positive_sample(self):
+        """Test with just one positive sample."""
+        y_true = [1]
+        pred_prob = [0.7]
+
+        for metric in ["f1", "accuracy", "precision", "recall"]:
+            threshold = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            assert 0.0 <= threshold <= 1.0
+
+    def test_single_negative_sample(self):
+        """Test with just one negative sample."""
+        y_true = [0]
+        pred_prob = [0.3]
+
+        for metric in ["f1", "accuracy", "precision", "recall"]:
+            threshold = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            assert 0.0 <= threshold <= 1.0
+
+
+class TestExtremeProbabilityValues:
+    """Test with probability values at extremes that weren't covered above."""
+
+    def test_all_zero_probabilities(self):
+        """Test when all predicted probabilities are 0."""
+        y_true = [0, 1, 0, 1, 1]
+        pred_prob = [0.0, 0.0, 0.0, 0.0, 0.0]
+
+        for metric in ["f1", "accuracy", "precision", "recall"]:
+            threshold = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            assert 0.0 <= threshold <= 1.0
+
+            # With all probabilities at 0, optimal strategy depends on comparison operator
+            tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+            assert tp + tn + fp + fn == len(y_true)
+
+    def test_all_one_probabilities(self):
+        """Test when all predicted probabilities are 1."""
+        y_true = [0, 1, 0, 1, 1]
+        pred_prob = [1.0, 1.0, 1.0, 1.0, 1.0]
+
+        for metric in ["f1", "accuracy", "precision", "recall"]:
+            threshold = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            assert 0.0 <= threshold <= 1.0
+
+            # With all probabilities at 1, optimal strategy depends on comparison operator
+            tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+            assert tp + tn + fp + fn == len(y_true)
+
+    def test_very_small_probabilities(self):
+        """Test with very small but non-zero probabilities."""
+        y_true = [0, 1, 0, 1, 1]
+        pred_prob = [1e-10, 2e-10, 3e-10, 4e-10, 5e-10]
+
+        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        assert 0.0 <= threshold <= 1.0
+
+        # Should handle small probabilities without numerical issues
+        tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+        assert tp + tn + fp + fn == len(y_true)
+
+    def test_very_large_probabilities_near_one(self):
+        """Test with probabilities very close to 1."""
+        y_true = [0, 1, 0, 1, 1]
+        pred_prob = [1 - 1e-10, 1 - 2e-10, 1 - 3e-10, 1 - 4e-10, 1 - 5e-10]
+
+        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        assert 0.0 <= threshold <= 1.0
+
+        # Should handle probabilities near 1 without numerical issues
+        tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+        assert tp + tn + fp + fn == len(y_true)
+
+
+class TestMulticlassExtremeScenarios:
+    """Test extreme cases in multiclass scenarios."""
+
+    def test_single_class_multiclass(self):
+        """Test multiclass optimization with highly imbalanced classes."""
+        # Use 2 classes but heavily imbalanced (95% class 0, 5% class 1)
+        y_true = [0] * 19 + [1] * 1  # Only 1 sample of class 1
+        pred_prob = np.random.RandomState(42).uniform(0, 1, (20, 2))
+        pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)  # Normalize
+
+        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        assert len(thresholds) == 2
+        assert all(0.0 <= t <= 1.0 for t in thresholds)
+
+    def test_extreme_multiclass_imbalance(self):
+        """Test multiclass with extreme class imbalance."""
+        # 98% class 0, 1% class 1, 1% class 2
+        y_true = [0] * 98 + [1] + [2]
+        np.random.seed(42)
+        pred_prob = np.random.uniform(0, 1, (100, 3))
+        pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)  # Normalize
+
+        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        assert len(thresholds) == 3
+        assert all(0.0 <= t <= 1.0 for t in thresholds)
+
+    def test_multiclass_with_zero_probabilities(self):
+        """Test multiclass with some zero probability columns."""
+        y_true = [0, 1, 2, 0, 1, 2]
+        pred_prob = np.array(
+            [
+                [1.0, 0.0, 0.0],  # Only class 0 has probability
+                [0.0, 1.0, 0.0],  # Only class 1 has probability
+                [0.0, 0.0, 1.0],  # Only class 2 has probability
+                [0.5, 0.5, 0.0],  # Classes 0,1 split probability
+                [0.0, 0.5, 0.5],  # Classes 1,2 split probability
+                [0.3, 0.3, 0.4],  # All classes have some probability
+            ]
+        )
+
+        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        assert len(thresholds) == 3
+        assert all(0.0 <= t <= 1.0 for t in thresholds)

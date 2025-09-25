@@ -1,4 +1,25 @@
-"""Tests for tied probability scenarios and edge cases."""
+"""Tests for tied probability scenarios and edge cases.
+
+This module tests the library's handling of tied probability values, which present
+unique challenges for threshold optimization algorithms. Tied probabilities occur
+when multiple samples have identical predicted probabilities, requiring careful
+handling to ensure consistent and optimal threshold selection.
+
+Key test categories:
+- All identical probabilities (extreme tie case)
+- Partially tied probabilities (some ties)
+- Comparison operator effects with ties (">" vs ">=")
+- Sort-scan algorithm with tied values
+- Sample weight handling with ties
+- Numerical precision near ties
+- Cross-method consistency with tied data
+
+The tests ensure that:
+1. Tied probabilities don't break optimization algorithms
+2. Comparison operators are handled consistently
+3. Different optimization methods produce reasonable results
+4. Edge cases like all-zero or all-one probabilities work correctly
+"""
 
 import numpy as np
 import pytest

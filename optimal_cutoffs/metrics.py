@@ -438,7 +438,11 @@ def multiclass_metric_exclusive(
             return float(np.mean(correct))
     else:
         # For other metrics, compute macro-averaged over classes
-        from sklearn.metrics import f1_score, precision_score, recall_score
+        from sklearn.metrics import (  # type: ignore[import-untyped]
+            f1_score,
+            precision_score,
+            recall_score,
+        )
 
         kwargs = {"average": "macro", "zero_division": 0}
         if sample_weight is not None:
