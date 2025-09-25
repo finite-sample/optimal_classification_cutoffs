@@ -8,11 +8,7 @@ try:
 except Exception:
     # Fallback for development: read from pyproject.toml
     import pathlib
-
-    try:
-        import tomllib  # type: ignore[import-not-found]  # Python 3.11+
-    except ImportError:
-        import tomli as tomllib  # type: ignore[import-not-found,unused-ignore]
+    import tomllib  # Python 3.11+ stdlib
 
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
     if pyproject_path.exists():

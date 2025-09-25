@@ -1,9 +1,8 @@
 """High-level wrapper for threshold optimization."""
 
-from typing import Any, Literal, cast
+from typing import Any, Literal, Self, cast
 
 import numpy as np
-from typing_extensions import Self
 
 from .multiclass_coord import _assign_labels_shifted
 from .optimizers import get_optimal_threshold, get_probability
