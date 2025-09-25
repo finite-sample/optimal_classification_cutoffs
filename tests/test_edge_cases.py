@@ -177,7 +177,6 @@ class TestLabelDistributionEdgeCases:
 class TestProbabilityDistributionEdgeCases:
     """Test extreme probability distributions."""
 
-
     def test_perfectly_separated_classes(self):
         """Test with no overlap between class probability distributions."""
         labels = np.array([0, 0, 0, 1, 1, 1])
