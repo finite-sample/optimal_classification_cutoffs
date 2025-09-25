@@ -26,6 +26,8 @@ from .metrics import (
     get_vectorized_metric,
     has_vectorized_implementation,
     is_piecewise_metric,
+    make_cost_metric,
+    make_linear_counts_metric,
     multiclass_metric,
     multiclass_metric_exclusive,
     needs_probability_scores,
@@ -34,6 +36,8 @@ from .metrics import (
     should_maximize_metric,
 )
 from .optimizers import (
+    bayes_threshold_from_costs,
+    bayes_threshold_from_utility,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
     get_probability,
@@ -43,8 +47,12 @@ from .wrapper import ThresholdOptimizer
 
 __all__ = [
     "__version__",
+    "bayes_threshold_from_costs",
+    "bayes_threshold_from_utility",
     "get_confusion_matrix",
     "get_multiclass_confusion_matrix",
+    "make_cost_metric",
+    "make_linear_counts_metric",
     "multiclass_metric",
     "multiclass_metric_exclusive",
     "METRIC_REGISTRY",

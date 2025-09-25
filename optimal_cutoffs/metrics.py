@@ -719,6 +719,98 @@ def get_multiclass_confusion_matrix(
     return confusion_matrices
 
 
+# Linear utility/cost metric factories for economic optimization
+def make_linear_counts_metric(
+    w_tp: float = 0.0, w_tn: float = 0.0, w_fp: float = 0.0, w_fn: float = 0.0,
+    name: str = "linear_utility"
+) -> Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
+    """
+    Create a vectorized metric that computes linear utility from confusion matrix counts.
+    
+    Returns metric(tp, tn, fp, fn) = w_tp*tp + w_tn*tn + w_fp*fp + w_fn*fn.
+    Intended for expected utility maximization (benefits positive) or expected cost 
+    minimization (costs negative).
+    
+    Parameters
+    ----------
+    w_tp : float, default=0.0
+        Weight/utility for true positives
+    w_tn : float, default=0.0
+        Weight/utility for true negatives
+    w_fp : float, default=0.0
+        Weight/utility for false positives (typically negative for costs)
+    w_fn : float, default=0.0
+        Weight/utility for false negatives (typically negative for costs)
+    name : str, default="linear_utility"
+        Name for the metric function
+        
+    Returns
+    -------
+    Callable
+        Vectorized metric function compatible with sort-and-scan optimization
+        
+    Examples
+    --------
+    >>> # Cost-sensitive: penalize FN more than FP
+    >>> metric = make_linear_counts_metric(w_fp=-1.0, w_fn=-5.0)
+    >>> 
+    >>> # With benefits for correct predictions
+    >>> metric = make_linear_counts_metric(w_tp=2.0, w_tn=0.5, w_fp=-1.0, w_fn=-5.0)
+    """
+    def _metric(tp, tn, fp, fn):
+        """Vectorized linear combination of confusion matrix counts."""
+        return (
+            w_tp * np.asarray(tp, dtype=float)
+            + w_tn * np.asarray(tn, dtype=float)
+            + w_fp * np.asarray(fp, dtype=float)
+            + w_fn * np.asarray(fn, dtype=float)
+        )
+    _metric.__name__ = name
+    return _metric
+
+
+def make_cost_metric(
+    fp_cost: float, fn_cost: float, tp_benefit: float = 0.0, tn_benefit: float = 0.0,
+    name: str = "expected_utility"
+) -> Callable[[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]], np.ndarray[Any, Any]]:
+    """
+    Create a vectorized cost-sensitive metric for utility maximization.
+    
+    Returns metric = tp_benefit*TP + tn_benefit*TN - fp_cost*FP - fn_cost*FN.
+    This is a convenience wrapper around make_linear_counts_metric that handles
+    the sign conversion from costs to utilities.
+    
+    Parameters
+    ----------
+    fp_cost : float
+        Cost of false positive errors (positive value)
+    fn_cost : float
+        Cost of false negative errors (positive value)
+    tp_benefit : float, default=0.0
+        Benefit/reward for true positives (positive value)
+    tn_benefit : float, default=0.0
+        Benefit/reward for true negatives (positive value)
+    name : str, default="expected_utility"
+        Name for the metric function
+        
+    Returns
+    -------
+    Callable
+        Vectorized metric function for expected utility maximization
+        
+    Examples
+    --------
+    >>> # Classic cost-sensitive: FN costs 5x more than FP
+    >>> metric = make_cost_metric(fp_cost=1.0, fn_cost=5.0)
+    >>>
+    >>> # Include rewards for correct predictions
+    >>> metric = make_cost_metric(fp_cost=1.0, fn_cost=5.0, tp_benefit=2.0, tn_benefit=0.5)
+    """
+    return make_linear_counts_metric(
+        w_tp=tp_benefit, w_tn=tn_benefit, w_fp=-fp_cost, w_fn=-fn_cost, name=name
+    )
+
+
 # Register built-in metrics manually to avoid decorator type issues
 register_metric("f1", f1_score, _f1_vectorized)
 register_metric("accuracy", accuracy_score, _accuracy_vectorized)

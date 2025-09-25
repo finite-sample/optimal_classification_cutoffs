@@ -12,6 +12,7 @@ from .metrics import (
     get_vectorized_metric,
     has_vectorized_implementation,
     is_piecewise_metric,
+    make_linear_counts_metric,
     multiclass_metric,
     multiclass_metric_exclusive,
 )
@@ -464,18 +465,24 @@ def get_optimal_threshold(
     method: OptimizationMethod = "auto",
     sample_weight: ArrayLike | None = None,
     comparison: ComparisonOperator = ">",
+    *,
+    utility: dict[str, float] | None = None,
+    minimize_cost: bool | None = None,
+    bayes: bool = False,
 ) -> float | np.ndarray[Any, Any]:
-    """Find the threshold that optimizes a metric.
+    """Find the threshold that optimizes a metric or utility function.
 
     Parameters
     ----------
     true_labs:
         Array of true binary labels or multiclass labels (0, 1, 2, ..., n_classes-1).
+        Not required when bayes=True.
     pred_prob:
         Predicted probabilities from a classifier. For binary: 1D array (n_samples,).
         For multiclass: 2D array (n_samples, n_classes).
     metric:
         Name of a metric registered in :data:`~optimal_cutoffs.metrics.METRIC_REGISTRY`.
+        Ignored if utility or minimize_cost is provided.
     method:
         Strategy used for optimization:
         - ``"auto"``: Automatically selects best method (default)
@@ -489,14 +496,77 @@ def get_optimal_threshold(
         Optional array of sample weights for handling imbalanced datasets.
     comparison:
         Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
+    utility:
+        Optional utility specification for cost/benefit-aware optimization.
+        Dict with keys "tp", "tn", "fp", "fn" specifying utilities/costs for each outcome.
+        Positive values are benefits, negative values are costs.
+        Example: ``{"tp": 0, "tn": 0, "fp": -1, "fn": -5}`` for cost-sensitive classification.
+    minimize_cost:
+        If True, interpret utility values as costs and minimize total cost. This 
+        automatically negates fp/fn values if they're positive.
+    bayes:
+        If True, return the Bayes-optimal threshold under calibrated probabilities
+        instead of empirical optimization. Does not require true_labs.
 
     Returns
     -------
     float | np.ndarray
-        For binary: The threshold that maximizes the chosen metric.
+        For binary: The threshold that maximizes the chosen metric or utility.
         For multiclass: Array of per-class thresholds.
+        
+    Examples
+    --------
+    >>> # Standard metric optimization
+    >>> threshold = get_optimal_threshold(y, p, metric="f1")
+    
+    >>> # Cost-sensitive: FN costs 5x more than FP
+    >>> threshold = get_optimal_threshold(y, p, utility={"fp": -1, "fn": -5})
+    
+    >>> # Bayes-optimal for cost scenario (calibrated)
+    >>> threshold = get_optimal_threshold(None, p, 
+    ...     utility={"fp": -1, "fn": -5}, bayes=True)
     """
-    # Validate inputs
+    # Handle utility/cost-based optimization first
+    if utility is not None or minimize_cost:
+        # Convert probabilities to numpy array
+        pred_prob = np.asarray(pred_prob, dtype=float)
+        
+        # Parse utility dict: accept costs-only for convenience
+        u = {"tp": 0.0, "tn": 0.0, "fp": 0.0, "fn": 0.0}
+        if utility is not None:
+            u.update({k: float(v) for k, v in utility.items()})
+        if minimize_cost:
+            # Treat provided numbers as costs unless explicitly signed; keep tp/tn as benefits if given
+            u["fp"] = -abs(u["fp"])
+            u["fn"] = -abs(u["fn"])
+            # leave tp/tn as-is (benefits), often 0
+        
+        # Handle multiclass case
+        if pred_prob.ndim == 2:
+            raise NotImplementedError(
+                "Utility/cost-based optimization not yet implemented for multiclass. "
+                "Binary classification only for now."
+            )
+        
+        # Bayes closed-form if requested (does not need y)
+        if bayes:
+            return bayes_threshold_from_utility(u["tp"], u["tn"], u["fp"], u["fn"], comparison=comparison)
+
+        # Empirical optimum via sort-scan on linear counts objective
+        if true_labs is None:
+            raise ValueError("true_labs is required for empirical utility optimization")
+        
+        true_labs = np.asarray(true_labs)
+        sample_weight_array = np.asarray(sample_weight) if sample_weight is not None else None
+        
+        metric_fn = make_linear_counts_metric(u["tp"], u["tn"], u["fp"], u["fn"], name="user_utility")
+        # Use exact kernel (vectorized, weighted, inclusive/exclusive honored)
+        thr, best, _ = optimal_threshold_sortscan(
+            true_labs, pred_prob, metric_fn, inclusive=(comparison == ">="), sample_weight=sample_weight_array
+        )
+        return float(thr)
+    
+    # Validate inputs for standard metric-based optimization
     true_labs, pred_prob, sample_weight = _validate_inputs(
         true_labs, pred_prob, sample_weight=sample_weight
     )
@@ -935,7 +1005,131 @@ def _optimize_thresholds_vectorized(
     return optimal_thresholds
 
 
+# Bayes-optimal threshold calculation for cost/benefit scenarios
+def bayes_threshold_from_utility(
+    U_tp: float, U_tn: float, U_fp: float, U_fn: float, comparison: str = ">"
+) -> float:
+    """
+    Calculate the Bayes-optimal threshold under calibrated probabilities.
+    
+    For an instance with probability p = P(y=1|x), choose positive prediction iff
+    p >= t*, where t* = (U_tn - U_fp) / [(U_tn - U_fp) + (U_tp - U_fn)]
+    
+    This assumes perfect calibration. For finite samples or miscalibration, 
+    use empirical optimization instead.
+    
+    Parameters
+    ----------
+    U_tp : float
+        Utility/benefit for true positives
+    U_tn : float  
+        Utility/benefit for true negatives
+    U_fp : float
+        Utility/cost for false positives (typically negative)
+    U_fn : float
+        Utility/cost for false negatives (typically negative)
+    comparison : str, default=">"
+        Comparison operator: ">" (exclusive) or ">=" (inclusive)
+        
+    Returns
+    -------
+    float
+        Optimal threshold in [0, 1] range, adjusted for comparison operator
+        
+    Examples
+    --------
+    >>> # Classic cost case: FP costs 1, FN costs 5
+    >>> threshold = bayes_threshold_from_utility(0, 0, -1, -5)
+    >>> print(f"{threshold:.3f}")  # Should be ~0.167 = 1/(1+5)
+    
+    >>> # With benefits for correct predictions  
+    >>> threshold = bayes_threshold_from_utility(2, 1, -1, -5)
+    >>> print(f"{threshold:.3f}")
+    
+    Notes
+    -----
+    If the denominator is <= 0 (degenerate case where one action dominates),
+    returns an extreme threshold that implements the dominant action.
+    """
+    a = float(U_tn - U_fp)
+    b = float((U_tn - U_fp) + (U_tp - U_fn))
+    
+    if b > 0:
+        t = a / b
+        # Clip to [0,1] and handle boundary cases consistent with comparison operator
+        if t <= 0.0:
+            return np.nextafter(0.0, -np.inf) if comparison == ">" else 0.0
+        if t >= 1.0:
+            return 1.0 if comparison == ">" else np.nextafter(1.0, +np.inf)
+        return float(t)
+    
+    # Degenerate case: one action dominates for all p
+    # Compare utilities at p=0 and p=1 to decide which action is always better
+    u_pos_p0 = U_fp  # Expected utility of positive prediction at p=0
+    u_neg_p0 = U_tn  # Expected utility of negative prediction at p=0
+    u_pos_p1 = U_tp  # Expected utility of positive prediction at p=1
+    u_neg_p1 = U_fn  # Expected utility of negative prediction at p=1
+    
+    # If positive prediction is never worse at both extremes, make everyone positive
+    pos_dominates = (u_pos_p0 >= u_neg_p0) and (u_pos_p1 >= u_neg_p1)
+    
+    if pos_dominates:
+        # Set threshold below min possible probability to predict all as positive
+        return np.nextafter(0.0, -np.inf) if comparison == ">" else 0.0
+    else:
+        # Set threshold above max possible probability to predict all as negative  
+        return 1.0 if comparison == ">" else np.nextafter(1.0, +np.inf)
+
+
+def bayes_threshold_from_costs(
+    fp_cost: float, fn_cost: float,
+    tp_benefit: float = 0.0, tn_benefit: float = 0.0,
+    comparison: str = ">"
+) -> float:
+    """
+    Calculate Bayes-optimal threshold from cost/benefit specification.
+    
+    Convenience wrapper around bayes_threshold_from_utility() that converts
+    costs to utilities (cost -> negative utility).
+    
+    Parameters
+    ----------
+    fp_cost : float
+        Cost of false positive errors (positive value)
+    fn_cost : float
+        Cost of false negative errors (positive value)
+    tp_benefit : float, default=0.0
+        Benefit/reward for true positives (positive value)  
+    tn_benefit : float, default=0.0
+        Benefit/reward for true negatives (positive value)
+    comparison : str, default=">"
+        Comparison operator: ">" (exclusive) or ">=" (inclusive)
+        
+    Returns
+    -------
+    float
+        Optimal threshold for cost-sensitive classification
+        
+    Examples
+    --------
+    >>> # Standard case: FN costs 5x more than FP
+    >>> threshold = bayes_threshold_from_costs(fp_cost=1.0, fn_cost=5.0)
+    >>> print(f"{threshold:.3f}")  # Should be ~0.167
+    
+    >>> # With rewards for correct predictions
+    >>> threshold = bayes_threshold_from_costs(
+    ...     fp_cost=1.0, fn_cost=5.0, tp_benefit=2.0, tn_benefit=0.5
+    ... )
+    """
+    return bayes_threshold_from_utility(
+        U_tp=tp_benefit, U_tn=tn_benefit, U_fp=-fp_cost, U_fn=-fn_cost, 
+        comparison=comparison
+    )
+
+
 __all__ = [
+    "bayes_threshold_from_costs",
+    "bayes_threshold_from_utility", 
     "get_probability",
     "get_optimal_threshold",
     "get_optimal_multiclass_thresholds",
