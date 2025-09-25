@@ -78,12 +78,12 @@ def test_piecewise_edge_cases():
     result = _optimal_threshold_piecewise([1], [0.7], "f1")
     assert result == 0.7
 
-    # All same class
+    # All same class - should return optimal threshold, not arbitrary 0.5
     result = _optimal_threshold_piecewise([0, 0, 0], [0.1, 0.5, 0.9], "f1")
-    assert result == 0.5  # Default for degenerate case
+    assert result > 0.5  # Should predict all negative (threshold > max prob)
 
     result = _optimal_threshold_piecewise([1, 1, 1], [0.1, 0.5, 0.9], "f1")
-    assert result == 0.5  # Default for degenerate case
+    assert result < 0.5  # Should predict all positive (threshold <= min prob)
 
     # All same predictions
     result = _optimal_threshold_piecewise([0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5], "f1")

@@ -233,7 +233,7 @@ def _optimal_threshold_piecewise(
                 sample_weight=(
                     np.asarray(sample_weight) if sample_weight is not None else None
                 ),
-                inclusive=comparison,
+                inclusive=(comparison == ">="),
             )
             return threshold
         except Exception:
@@ -280,8 +280,8 @@ def _optimal_threshold_piecewise_fallback(
     if len(pred_prob) == 1:
         return float(pred_prob[0])
 
-    # Sort by predicted probability in descending order for efficiency
-    sort_idx = np.argsort(-pred_prob)
+    # Sort by predicted probability in descending order for efficiency (stable sort)
+    sort_idx = np.argsort(-pred_prob, kind="mergesort")
     sorted_probs = pred_prob[sort_idx]
     sorted_labels = true_labs[sort_idx]
 
@@ -303,8 +303,10 @@ def _optimal_threshold_piecewise_fallback(
     N = float(np.sum(weights_sorted * (1 - sorted_labels)))
 
     # Handle edge case: all same class
-    if P == 0 or N == 0:
-        return 0.5
+    if P == 0.0:  # All negatives - optimal threshold should predict all negative
+        return 1.0 if comparison == ">" else float(np.nextafter(1.0, np.inf))
+    if N == 0.0:  # All positives - optimal threshold should predict all positive
+        return 0.0 if comparison == ">=" else float(np.nextafter(0.0, -np.inf))
 
     # Find unique probabilities to use as threshold candidates
     unique_probs = np.unique(pred_prob)
@@ -337,8 +339,8 @@ def _optimal_threshold_piecewise_fallback(
         fn = P - tp
         tn = N - fp
 
-        # Compute metric score
-        score = float(metric_func(int(tp), int(tn), int(fp), int(fn)))
+        # Compute metric score (keep floating-point precision for weighted metrics)
+        score = float(metric_func(tp, tn, fp, fn))
 
         if score > best_score:
             best_score = score
@@ -359,7 +361,7 @@ def _dinkelbach_expected_fbeta(
 
     Solves max_k ((1+β²)S_k) / (β²P + k) where:
     - S_k = sum_{j<=k} p_(j) after sorting probabilities descending
-    - P = sum_i y_i (total positive labels)
+    - P = sum_i p_i (expected total positive labels)
     - k ranges from 1 to n (number of samples)
 
     **Mathematical Assumptions**:
@@ -390,6 +392,10 @@ def _dinkelbach_expected_fbeta(
     -------
     float
         Threshold that maximizes expected F-beta score under calibration.
+    Notes
+    -----
+    This routine optimizes the expected Fβ under perfect calibration, and thus
+    depends only on the predicted probabilities, not on the realized labels.
 
     References
     ----------
@@ -399,7 +405,6 @@ def _dinkelbach_expected_fbeta(
     See: Ye, N., Chai, K. M. A., Lee, W. S., & Chieu, H. L. (2012).
     Optimizing F-measures: a tale of two approaches. ICML.
     """
-    y = np.asarray(y_true)
     p = np.asarray(pred_prob)
 
     # Sort probabilities in descending order
@@ -408,7 +413,7 @@ def _dinkelbach_expected_fbeta(
 
     # Cumulative sum of sorted probabilities
     S = np.cumsum(p_sorted)
-    P = y.sum()  # Total positive labels
+    P = p.sum()  # Expected total positive labels (sum of probabilities)
 
     # Compute F-beta objective: (1+β²)S_k / (β²P + k)
     beta2 = beta * beta
@@ -514,7 +519,7 @@ def get_optimal_threshold(
             pred_prob,
             vectorized_metric,
             sample_weight=sample_weight,
-            inclusive=comparison,
+            inclusive=(comparison == ">="),
         )
         return threshold
 

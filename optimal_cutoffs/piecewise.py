@@ -194,7 +194,7 @@ def _metric_from_counts(
 
 
 def _compute_threshold_midpoint(
-    p_sorted: Array, k_star: int, inclusive: str = ">"
+    p_sorted: Array, k_star: int, inclusive: bool = False
 ) -> float:
     """Compute threshold as midpoint between adjacent probabilities.
 
@@ -210,8 +210,8 @@ def _compute_threshold_midpoint(
         Probabilities sorted in descending order.
     k_star : int
         Optimal cut position with new indexing.
-    inclusive : str
-        Comparison operator: ">" (exclusive) or ">=" (inclusive).
+    inclusive : bool
+        Comparison operator: False for ">" (exclusive), True for ">=" (inclusive).
 
     Returns
     -------
@@ -224,10 +224,10 @@ def _compute_threshold_midpoint(
     if k_star == 0:
         # Threshold should be set so NO probabilities pass the comparison
         max_prob = float(p_sorted[0])
-        if inclusive == ">":
+        if not inclusive:  # exclusive ">"
             # For '>', we need all p > threshold to be false, so threshold >= max_prob
             threshold = max_prob
-        else:  # ">="
+        else:  # inclusive ">="
             # For '>=', we need all p >= threshold to be false, so threshold > max_prob
             threshold = float(np.nextafter(max_prob, np.inf))
 
@@ -235,10 +235,10 @@ def _compute_threshold_midpoint(
     elif k_star == n:
         # Threshold should be set so ALL probabilities pass the comparison
         min_prob = float(p_sorted[-1])
-        if inclusive == ">":
+        if not inclusive:  # exclusive ">"
             # For '>', we need all p > threshold to be true, so threshold < min_prob
             threshold = float(np.nextafter(min_prob, -np.inf))
-        else:  # ">="
+        else:  # inclusive ">="
             # For '>=', we need all p >= threshold to be true, so threshold <= min_prob
             threshold = min_prob
     else:
@@ -258,7 +258,7 @@ def _compute_threshold_midpoint(
 
             # For inclusive comparison, nudge slightly lower to ensure proper
             # comparison behavior
-            if inclusive == ">=":
+            if inclusive:
                 threshold = float(np.nextafter(threshold, -np.inf))
         else:
             # Edge case: adjacent probabilities are tied or very close
@@ -269,11 +269,11 @@ def _compute_threshold_midpoint(
             # all tied values.
             tied_prob = excluded_prob
 
-            if inclusive == ">":
+            if not inclusive:  # exclusive ">"
                 # For '>', set threshold slightly above tied_prob
                 # This means tied_prob > threshold is false, excluding tied values
                 threshold = float(np.nextafter(tied_prob, np.inf))
-            else:  # inclusive == ">="
+            else:  # inclusive ">="
                 # For '>=', set threshold slightly below tied_prob
                 # This means tied_prob >= threshold is true, including tied values
                 threshold = float(np.nextafter(tied_prob, -np.inf))
@@ -288,7 +288,7 @@ def optimal_threshold_sortscan(
     metric_fn: Callable[[Array, Array, Array, Array], Array],
     *,
     sample_weight: Array | None = None,
-    inclusive: str = ">",  # ">" or ">="
+    inclusive: bool = False,  # True for ">=" (inclusive), False for ">" (exclusive)
 ) -> tuple[float, float, int]:
     """Exact optimizer for piecewise-constant metrics using O(n log n) sort-and-scan.
 
@@ -309,8 +309,8 @@ def optimal_threshold_sortscan(
         Metric function that accepts (tp, tn, fp, fn) arrays and returns score array.
     sample_weight : Array, optional
         Sample weights for imbalanced datasets.
-    inclusive : str, default=">"
-        Comparison operator: ">" (exclusive) or ">=" (inclusive).
+    inclusive : bool, default=False
+        Comparison operator: False for ">" (exclusive), True for ">=" (inclusive).
 
     Returns
     -------
@@ -355,17 +355,28 @@ def optimal_threshold_sortscan(
         return float(p[0]), score, 0
 
     # Handle edge case: all same class
-    if np.all(y == 0) or np.all(y == 1):
-        # Return default threshold with whatever score we get
+    if np.all(y == 0):  # All negatives - optimal threshold should predict all negative
+        threshold = 1.0 if not inclusive else float(np.nextafter(1.0, np.inf))
         score = float(
             metric_fn(
-                np.array([y.sum()]),
-                np.array([n - y.sum()]),
-                np.array([0]),
-                np.array([0]),
+                np.array([0.0]),
+                np.array([float(n)]),
+                np.array([0.0]),
+                np.array([0.0]),
             )[0]
         )
-        return 0.5, score, 0
+        return threshold, score, 0
+    elif np.all(y == 1):  # All positives - optimal threshold predicts all positive
+        threshold = 0.0 if inclusive else float(np.nextafter(0.0, -np.inf))
+        score = float(
+            metric_fn(
+                np.array([float(n)]),
+                np.array([0.0]),
+                np.array([0.0]),
+                np.array([0.0]),
+            )[0]
+        )
+        return threshold, score, n
 
     # Sort by descending probability (stable sort for reproducibility)
     sort_idx = np.argsort(-p, kind="mergesort")
@@ -387,9 +398,9 @@ def optimal_threshold_sortscan(
     threshold = _compute_threshold_midpoint(p_sorted, k_star, inclusive)
 
     # For cases with tied probabilities, verify the achievable score
-    if inclusive == ">":
+    if not inclusive:  # exclusive ">"
         pred_mask = p > threshold
-    else:  # inclusive == ">="
+    else:  # inclusive ">="
         pred_mask = p >= threshold
 
     # Compute actual confusion matrix with this threshold
@@ -438,9 +449,9 @@ def optimal_threshold_sortscan(
         best_alt_threshold = threshold
 
         for alt_thresh in alternative_thresholds:
-            if inclusive == ">":
+            if not inclusive:  # exclusive ">"
                 alt_pred_mask = p > alt_thresh
-            else:
+            else:  # inclusive ">="
                 alt_pred_mask = p >= alt_thresh
 
             if sample_weight is not None:
