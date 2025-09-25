@@ -12,7 +12,7 @@ except Exception:
     try:
         import tomllib  # type: ignore[import-not-found]  # Python 3.11+
     except ImportError:
-        import tomli as tomllib
+        import tomli as tomllib  # type: ignore[import-not-found,unused-ignore]
 
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
     if pyproject_path.exists():
