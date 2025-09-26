@@ -126,7 +126,9 @@ class TestMulticlassAveragingSemantics:
             for average in averages:
                 # Special handling for micro accuracy which now correctly raises error
                 if metric_name == "accuracy" and average == "micro":
-                    with pytest.raises(ValueError, match="Micro-averaged accuracy requires"):
+                    with pytest.raises(
+                        ValueError, match="Micro-averaged accuracy requires"
+                    ):
                         multiclass_metric(self.cms, metric_name, average=average)
                 else:
                     result = multiclass_metric(self.cms, metric_name, average=average)

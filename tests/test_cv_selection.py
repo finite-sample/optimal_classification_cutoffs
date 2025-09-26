@@ -62,8 +62,7 @@ class TestBasicCrossValidation:
 
         try:
             thresholds, scores = cv_threshold_optimization(
-                labels, probs, metric="f1", method="sort_scan",
-                cv=3, random_state=42
+                labels, probs, metric="f1", method="sort_scan", cv=3, random_state=42
             )
 
             # Should return one score per fold
@@ -103,8 +102,13 @@ class TestBasicCrossValidation:
         for metric in metrics_to_test:
             try:
                 scores = cross_val_score_threshold(
-                    labels, probs, metric=metric, method="sort_scan",
-                    cv=3, comparison='>', random_state=789
+                    labels,
+                    probs,
+                    metric=metric,
+                    method="sort_scan",
+                    cv=3,
+                    comparison=">",
+                    random_state=789,
                 )
 
                 assert len(scores) == 3, f"Expected 3 scores for {metric}"
@@ -135,13 +139,23 @@ class TestBasicCrossValidation:
         try:
             # Run CV twice with same random state
             scores1 = cross_val_score_threshold(
-                labels, probs, metric="f1", method="sort_scan",
-                cv=3, comparison='>', random_state=555
+                labels,
+                probs,
+                metric="f1",
+                method="sort_scan",
+                cv=3,
+                comparison=">",
+                random_state=555,
             )
 
             scores2 = cross_val_score_threshold(
-                labels, probs, metric="f1", method="sort_scan",
-                cv=3, comparison='>', random_state=555
+                labels,
+                probs,
+                metric="f1",
+                method="sort_scan",
+                cv=3,
+                comparison=">",
+                random_state=555,
             )
 
             # Should be identical
@@ -172,30 +186,43 @@ class TestNestedCrossValidation:
 
         try:
             result = nested_cv_threshold_selection(
-                labels, probs, metric="f1", method="sort_scan",
-                outer_cv=3, inner_cv=2, comparison='>', random_state=333
+                labels,
+                probs,
+                metric="f1",
+                method="sort_scan",
+                outer_cv=3,
+                inner_cv=2,
+                comparison=">",
+                random_state=333,
             )
 
             # Should return a structured result
-            assert hasattr(result, 'outer_scores') or 'outer_scores' in result
-            assert hasattr(result, 'selected_thresholds') or 'selected_thresholds' in result
+            assert hasattr(result, "outer_scores") or "outer_scores" in result
+            assert (
+                hasattr(result, "selected_thresholds")
+                or "selected_thresholds" in result
+            )
 
             # Extract scores and thresholds
-            if hasattr(result, 'outer_scores'):
+            if hasattr(result, "outer_scores"):
                 outer_scores = result.outer_scores
                 selected_thresholds = result.selected_thresholds
             else:
-                outer_scores = result['outer_scores']
-                selected_thresholds = result['selected_thresholds']
+                outer_scores = result["outer_scores"]
+                selected_thresholds = result["selected_thresholds"]
 
             # Should have one outer score per outer fold
-            assert len(outer_scores) == 3, f"Expected 3 outer scores, got {len(outer_scores)}"
+            assert len(outer_scores) == 3, (
+                f"Expected 3 outer scores, got {len(outer_scores)}"
+            )
             assert all(0 <= score <= 1 for score in outer_scores), (
                 f"Outer scores should be in [0,1]: {outer_scores}"
             )
 
             # Should have one threshold per outer fold
-            assert len(selected_thresholds) == 3, f"Expected 3 thresholds, got {len(selected_thresholds)}"
+            assert len(selected_thresholds) == 3, (
+                f"Expected 3 thresholds, got {len(selected_thresholds)}"
+            )
             assert all(0 <= thresh <= 1 for thresh in selected_thresholds), (
                 f"Thresholds should be in [0,1]: {selected_thresholds}"
             )
@@ -231,11 +258,17 @@ class TestNestedCrossValidation:
 
                 # Get optimal threshold on training data
                 train_threshold = get_optimal_threshold(
-                    train_labels, train_probs, metric="f1", method="sort_scan", comparison='>'
+                    train_labels,
+                    train_probs,
+                    metric="f1",
+                    method="sort_scan",
+                    comparison=">",
                 )
 
                 # This threshold should be reasonable
-                assert 0 <= train_threshold <= 1, f"Training threshold {train_threshold} out of range"
+                assert 0 <= train_threshold <= 1, (
+                    f"Training threshold {train_threshold} out of range"
+                )
 
                 # Apply to test data
                 test_pred = test_probs > train_threshold
@@ -244,7 +277,10 @@ class TestNestedCrossValidation:
                 assert len(test_pred) == len(test_labels)
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not implemented", "not supported"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not implemented", "not supported"]
+            ):
                 pytest.skip(f"Manual nested CV verification failed: {e}")
             raise
 
@@ -258,19 +294,27 @@ class TestNestedCrossValidation:
         # Create data with clear pattern that could be leaked
         n = 60
         labels = np.array([i % 2 for i in range(n)])  # Alternating pattern
-        probs = np.array([0.2 if i % 2 == 0 else 0.8 for i in range(n)])  # Clear separation
+        probs = np.array(
+            [0.2 if i % 2 == 0 else 0.8 for i in range(n)]
+        )  # Clear separation
 
         try:
             result = nested_cv_threshold_selection(
-                labels, probs, metric="accuracy", method="sort_scan",
-                outer_cv=3, inner_cv=2, comparison='>', random_state=666
+                labels,
+                probs,
+                metric="accuracy",
+                method="sort_scan",
+                outer_cv=3,
+                inner_cv=2,
+                comparison=">",
+                random_state=666,
             )
 
             # Extract outer scores
-            if hasattr(result, 'outer_scores'):
+            if hasattr(result, "outer_scores"):
                 outer_scores = result.outer_scores
             else:
-                outer_scores = result['outer_scores']
+                outer_scores = result["outer_scores"]
 
             # With proper CV, should not achieve perfect scores (due to generalization)
             # unless the pattern is truly perfect and generalizable
@@ -344,7 +388,9 @@ class TestNestedCrossValidation:
                 threshold_scores[threshold] = np.mean(cv_scores)
 
             # Find best threshold by inner CV
-            best_threshold = max(threshold_scores.keys(), key=lambda t: threshold_scores[t])
+            best_threshold = max(
+                threshold_scores.keys(), key=lambda t: threshold_scores[t]
+            )
             best_score = threshold_scores[best_threshold]
 
             # Verify this is actually the maximum
@@ -359,7 +405,10 @@ class TestNestedCrossValidation:
 
         except Exception as e:
             # This test is complex and might fail for various reasons
-            if any(phrase in str(e).lower() for phrase in ["degenerate", "empty", "single class"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["degenerate", "empty", "single class"]
+            ):
                 pytest.skip(f"Degenerate case in manual CV: {e}")
             raise
 
@@ -380,8 +429,13 @@ class TestCVEdgeCases:
 
         try:
             scores = cross_val_score_threshold(
-                labels, probs, metric="f1", method="sort_scan",
-                cv=2, comparison='>', random_state=999  # Small CV to avoid empty folds
+                labels,
+                probs,
+                metric="f1",
+                method="sort_scan",
+                cv=2,
+                comparison=">",
+                random_state=999,  # Small CV to avoid empty folds
             )
 
             # Should handle small dataset gracefully
@@ -390,7 +444,10 @@ class TestCVEdgeCases:
 
         except ValueError as e:
             # Might reject datasets that are too small for CV
-            if any(phrase in str(e).lower() for phrase in ["too small", "empty", "single class"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["too small", "empty", "single class"]
+            ):
                 pytest.skip(f"Small dataset rejected: {e}")
             raise
 
@@ -408,7 +465,10 @@ class TestCVEdgeCases:
 
         # Generate probabilities somewhat aligned with imbalance
         rng = np.random.default_rng(1111)
-        probs = rng.uniform(0, 0.3, size=n - n_positive).tolist() + rng.uniform(0.4, 1.0, size=n_positive).tolist()
+        probs = (
+            rng.uniform(0, 0.3, size=n - n_positive).tolist()
+            + rng.uniform(0.4, 1.0, size=n_positive).tolist()
+        )
         probs = np.array(probs)
 
         # Shuffle
@@ -419,16 +479,23 @@ class TestCVEdgeCases:
         try:
             # Use stratified CV to handle imbalance
             scores = cross_val_score_threshold(
-                labels, probs, metric="f1", method="sort_scan",
+                labels,
+                probs,
+                metric="f1",
+                method="sort_scan",
                 cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=1212),
-                comparison='>', random_state=1313
+                comparison=">",
+                random_state=1313,
             )
 
             assert len(scores) == 3
             assert all(0 <= score <= 1 for score in scores)
 
         except (ValueError, ImportError) as e:
-            if any(phrase in str(e).lower() for phrase in ["stratified", "imbalanced", "single class"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["stratified", "imbalanced", "single class"]
+            ):
                 pytest.skip(f"Imbalanced case not supported: {e}")
             raise
 
@@ -452,8 +519,13 @@ class TestCVEdgeCases:
         for method in methods_to_test:
             try:
                 scores = cross_val_score_threshold(
-                    labels, probs, metric="f1", method=method,
-                    cv=3, comparison='>', random_state=1515
+                    labels,
+                    probs,
+                    metric="f1",
+                    method=method,
+                    cv=3,
+                    comparison=">",
+                    random_state=1515,
                 )
                 method_scores[method] = scores
 
@@ -465,11 +537,15 @@ class TestCVEdgeCases:
         # If multiple methods worked, their mean scores should be similar
         # (since they should all find the optimal threshold)
         if len(method_scores) >= 2:
-            method_means = {method: np.mean(scores) for method, scores in method_scores.items()}
+            method_means = {
+                method: np.mean(scores) for method, scores in method_scores.items()
+            }
 
             # All methods should produce reasonable scores
             for method, mean_score in method_means.items():
-                assert 0 <= mean_score <= 1, f"{method} mean score {mean_score} out of range"
+                assert 0 <= mean_score <= 1, (
+                    f"{method} mean score {mean_score} out of range"
+                )
 
             # Methods should produce similar results (allowing for small numerical differences)
             score_values = list(method_means.values())
@@ -479,10 +555,7 @@ class TestCVEdgeCases:
             # but they should be in the same ballpark
             assert max_diff < 0.5, f"Methods differ too much: {method_means}"
 
-    @given(
-        n_samples=st.integers(20, 60),
-        cv_folds=st.integers(2, 5)
-    )
+    @given(n_samples=st.integers(20, 60), cv_folds=st.integers(2, 5))
     @settings(deadline=None, max_examples=10)
     def test_cv_property_based(self, n_samples, cv_folds):
         """Property-based test for CV consistency."""
@@ -505,16 +578,25 @@ class TestCVEdgeCases:
 
         try:
             scores = cross_val_score_threshold(
-                labels, probs, metric="accuracy", method="sort_scan",
-                cv=cv_folds, comparison='>', random_state=1616
+                labels,
+                probs,
+                metric="accuracy",
+                method="sort_scan",
+                cv=cv_folds,
+                comparison=">",
+                random_state=1616,
             )
 
             # Basic properties
-            assert len(scores) == cv_folds, f"Expected {cv_folds} scores, got {len(scores)}"
-            assert all(0 <= score <= 1 for score in scores), f"Scores out of range: {scores}"
-            assert all(not np.isnan(score) and not np.isinf(score) for score in scores), (
-                f"Invalid scores: {scores}"
+            assert len(scores) == cv_folds, (
+                f"Expected {cv_folds} scores, got {len(scores)}"
             )
+            assert all(0 <= score <= 1 for score in scores), (
+                f"Scores out of range: {scores}"
+            )
+            assert all(
+                not np.isnan(score) and not np.isinf(score) for score in scores
+            ), f"Invalid scores: {scores}"
 
             # Statistical properties
             if len(scores) > 1:
@@ -525,6 +607,9 @@ class TestCVEdgeCases:
                 assert 0 <= std_score <= 1, f"Std score {std_score} out of range"
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented", "degenerate"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented", "degenerate"]
+            ):
                 pytest.skip(f"Configuration not supported: {e}")
             raise

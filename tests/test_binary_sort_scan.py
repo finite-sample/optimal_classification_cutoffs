@@ -57,35 +57,49 @@ def brute_midpoints_score(y, p, metric_fn, comparison: str):
         prob_val = uniq[0]
 
         # Option 1: Predict all negative (threshold excludes all)
-        if comparison == '>':
+        if comparison == ">":
             thresh_exclude = float(np.nextafter(prob_val, np.inf))
         else:  # '>='
             thresh_exclude = float(np.nextafter(prob_val, np.inf))
 
-        pred_exclude = (p > thresh_exclude) if comparison == '>' else (p >= thresh_exclude)
+        pred_exclude = (
+            (p > thresh_exclude) if comparison == ">" else (p >= thresh_exclude)
+        )
         tp_excl = int(np.sum((y == 1) & pred_exclude))
         fp_excl = int(np.sum((y == 0) & pred_exclude))
         fn_excl = int(np.sum((y == 1) & ~pred_exclude))
         tn_excl = int(np.sum((y == 0) & ~pred_exclude))
-        score_exclude = float(metric_fn(
-            np.array([tp_excl]), np.array([tn_excl]), np.array([fp_excl]), np.array([fn_excl])
-        )[0])
+        score_exclude = float(
+            metric_fn(
+                np.array([tp_excl]),
+                np.array([tn_excl]),
+                np.array([fp_excl]),
+                np.array([fn_excl]),
+            )[0]
+        )
 
         # Option 2: Predict all positive (threshold includes all)
-        if comparison == '>':
+        if comparison == ">":
             # Need threshold < prob_val, but constrained to >= 0
             thresh_include = max(0.0, float(np.nextafter(prob_val, -np.inf)))
         else:  # '>='
             thresh_include = prob_val
 
-        pred_include = (p > thresh_include) if comparison == '>' else (p >= thresh_include)
+        pred_include = (
+            (p > thresh_include) if comparison == ">" else (p >= thresh_include)
+        )
         tp_incl = int(np.sum((y == 1) & pred_include))
         fp_incl = int(np.sum((y == 0) & pred_include))
         fn_incl = int(np.sum((y == 1) & ~pred_include))
         tn_incl = int(np.sum((y == 0) & ~pred_include))
-        score_include = float(metric_fn(
-            np.array([tp_incl]), np.array([tn_incl]), np.array([fp_incl]), np.array([fn_incl])
-        )[0])
+        score_include = float(
+            metric_fn(
+                np.array([tp_incl]),
+                np.array([tn_incl]),
+                np.array([fp_incl]),
+                np.array([fn_incl]),
+            )[0]
+        )
 
         # Note: Due to how sort-scan handles identical probabilities, it may not
         # always choose the globally optimal option between these two. This is
@@ -96,7 +110,7 @@ def brute_midpoints_score(y, p, metric_fn, comparison: str):
         # When all probs are 0.0 with '>=': sort-scan predicts all positive
         # When all probs are 1.0 with '>=': sort-scan predicts all positive
         # This may not always be globally optimal, but we match for consistency
-        if comparison == '>=' and (prob_val == 0.0 or prob_val == 1.0):
+        if comparison == ">=" and (prob_val == 0.0 or prob_val == 1.0):
             return thresh_include, score_include
         else:
             # For other cases, return the better option
@@ -106,7 +120,7 @@ def brute_midpoints_score(y, p, metric_fn, comparison: str):
                 return thresh_exclude, score_exclude
 
     # Generate midpoints between adjacent unique probabilities
-    midpoints = [(uniq[i] + uniq[i+1]) / 2.0 for i in range(uniq.size - 1)]
+    midpoints = [(uniq[i] + uniq[i + 1]) / 2.0 for i in range(uniq.size - 1)]
 
     # Also test at boundaries (constrained to [0, 1])
     epsilon = 1e-12
@@ -123,7 +137,7 @@ def brute_midpoints_score(y, p, metric_fn, comparison: str):
 
     for threshold in candidates:
         # Apply threshold with specified comparison
-        pred = (p > threshold) if comparison == '>' else (p >= threshold)
+        pred = (p > threshold) if comparison == ">" else (p >= threshold)
 
         # Compute confusion matrix
         tp = int(np.sum((y == 1) & pred))
@@ -132,9 +146,9 @@ def brute_midpoints_score(y, p, metric_fn, comparison: str):
         tn = int(np.sum((y == 0) & ~pred))
 
         # Compute metric score
-        score = float(metric_fn(
-            np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn])
-        )[0])
+        score = float(
+            metric_fn(np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn]))[0]
+        )
 
         if score > best_score:
             best_score = score
@@ -150,9 +164,9 @@ class TestSortScanMatchesBruteForce:
         p=arrays(
             float,
             st.integers(5, 250),
-            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False)
+            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False),
         ),
-        comparison=st.sampled_from(['>', '>='])
+        comparison=st.sampled_from([">", ">="]),
     )
     @settings(deadline=None, max_examples=100)
     def test_sortscan_matches_bruteforce_f1(self, p, comparison):
@@ -173,11 +187,13 @@ class TestSortScanMatchesBruteForce:
 
         # Sort-scan optimization
         threshold_scan, score_scan, _ = optimal_threshold_sortscan(
-            y, p, _f1_vectorized, inclusive=(comparison == '>=')
+            y, p, _f1_vectorized, inclusive=(comparison == ">=")
         )
 
         # Brute force optimization
-        threshold_brute, score_brute = brute_midpoints_score(y, p, _f1_vectorized, comparison)
+        threshold_brute, score_brute = brute_midpoints_score(
+            y, p, _f1_vectorized, comparison
+        )
 
         # Scores must match exactly (sort_scan is exact for piecewise metrics)
         assert abs(score_scan - score_brute) < 1e-12, (
@@ -186,8 +202,10 @@ class TestSortScanMatchesBruteForce:
         )
 
         # Verify both thresholds achieve the same score when applied
-        pred_scan = (p > threshold_scan) if comparison == '>' else (p >= threshold_scan)
-        pred_brute = (p > threshold_brute) if comparison == '>' else (p >= threshold_brute)
+        pred_scan = (p > threshold_scan) if comparison == ">" else (p >= threshold_scan)
+        pred_brute = (
+            (p > threshold_brute) if comparison == ">" else (p >= threshold_brute)
+        )
 
         tp_scan = np.sum((y == 1) & pred_scan)
         fp_scan = np.sum((y == 0) & pred_scan)
@@ -199,15 +217,23 @@ class TestSortScanMatchesBruteForce:
         fn_brute = np.sum((y == 1) & ~pred_brute)
         tn_brute = np.sum((y == 0) & ~pred_brute)
 
-        f1_scan = float(_f1_vectorized(
-            np.array([tp_scan]), np.array([tn_scan]),
-            np.array([fp_scan]), np.array([fn_scan])
-        )[0])
+        f1_scan = float(
+            _f1_vectorized(
+                np.array([tp_scan]),
+                np.array([tn_scan]),
+                np.array([fp_scan]),
+                np.array([fn_scan]),
+            )[0]
+        )
 
-        f1_brute = float(_f1_vectorized(
-            np.array([tp_brute]), np.array([tn_brute]),
-            np.array([fp_brute]), np.array([fn_brute])
-        )[0])
+        f1_brute = float(
+            _f1_vectorized(
+                np.array([tp_brute]),
+                np.array([tn_brute]),
+                np.array([fp_brute]),
+                np.array([fn_brute]),
+            )[0]
+        )
 
         assert abs(f1_scan - f1_brute) < 1e-12, (
             f"Applied F1 scores don't match: scan={f1_scan:.15f}, brute={f1_brute:.15f}"
@@ -217,9 +243,9 @@ class TestSortScanMatchesBruteForce:
         p=arrays(
             float,
             st.integers(5, 250),
-            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False)
+            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False),
         ),
-        comparison=st.sampled_from(['>', '>='])
+        comparison=st.sampled_from([">", ">="]),
     )
     @settings(deadline=None, max_examples=100)
     def test_sortscan_matches_bruteforce_accuracy(self, p, comparison):
@@ -236,18 +262,20 @@ class TestSortScanMatchesBruteForce:
 
         # Sort-scan optimization
         threshold_scan, score_scan, _ = optimal_threshold_sortscan(
-            y, p, _accuracy_vectorized, inclusive=(comparison == '>=')
+            y, p, _accuracy_vectorized, inclusive=(comparison == ">=")
         )
 
         # Brute force optimization
-        threshold_brute, score_brute = brute_midpoints_score(y, p, _accuracy_vectorized, comparison)
+        threshold_brute, score_brute = brute_midpoints_score(
+            y, p, _accuracy_vectorized, comparison
+        )
 
         # Scores should match for most cases (sort_scan is exact for piecewise metrics)
         # However, some edge cases with extreme or identical probabilities may have
         # slight differences due to algorithmic implementation details
         tolerance = 1e-12
         unique_p = np.unique(p)
-        has_extremes = (0.0 in unique_p or 1.0 in unique_p)
+        has_extremes = 0.0 in unique_p or 1.0 in unique_p
         has_many_ties = (len(p) - len(unique_p)) / len(p) > 0.7  # More than 70% ties
         has_few_unique = len(unique_p) <= 5  # 5 or fewer unique values
 
@@ -263,9 +291,9 @@ class TestSortScanMatchesBruteForce:
         p=arrays(
             float,
             st.integers(8, 150),
-            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False)
+            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False),
         ),
-        comparison=st.sampled_from(['>', '>='])
+        comparison=st.sampled_from([">", ">="]),
     )
     @settings(deadline=None, max_examples=80)
     def test_sortscan_matches_bruteforce_precision(self, p, comparison):
@@ -283,15 +311,17 @@ class TestSortScanMatchesBruteForce:
             y[0] = 0
 
         threshold_scan, score_scan, _ = optimal_threshold_sortscan(
-            y, p, _precision_vectorized, inclusive=(comparison == '>=')
+            y, p, _precision_vectorized, inclusive=(comparison == ">=")
         )
 
-        threshold_brute, score_brute = brute_midpoints_score(y, p, _precision_vectorized, comparison)
+        threshold_brute, score_brute = brute_midpoints_score(
+            y, p, _precision_vectorized, comparison
+        )
 
         # Apply same tolerance logic as accuracy test
         tolerance = 1e-12
         unique_p = np.unique(p)
-        has_extremes = (0.0 in unique_p or 1.0 in unique_p)
+        has_extremes = 0.0 in unique_p or 1.0 in unique_p
         has_many_ties = (len(p) - len(unique_p)) / len(p) > 0.7
         has_few_unique = len(unique_p) <= 5
 
@@ -307,9 +337,9 @@ class TestSortScanMatchesBruteForce:
         p=arrays(
             float,
             st.integers(8, 150),
-            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False)
+            elements=st.floats(0, 1, allow_nan=False, allow_infinity=False),
         ),
-        comparison=st.sampled_from(['>', '>='])
+        comparison=st.sampled_from([">", ">="]),
     )
     @settings(deadline=None, max_examples=80)
     def test_sortscan_matches_bruteforce_recall(self, p, comparison):
@@ -327,15 +357,17 @@ class TestSortScanMatchesBruteForce:
             y[0] = 0
 
         threshold_scan, score_scan, _ = optimal_threshold_sortscan(
-            y, p, _recall_vectorized, inclusive=(comparison == '>=')
+            y, p, _recall_vectorized, inclusive=(comparison == ">=")
         )
 
-        threshold_brute, score_brute = brute_midpoints_score(y, p, _recall_vectorized, comparison)
+        threshold_brute, score_brute = brute_midpoints_score(
+            y, p, _recall_vectorized, comparison
+        )
 
         # Apply same tolerance logic as other metrics for edge cases
         tolerance = 1e-12
         unique_p = np.unique(p)
-        has_extremes = (0.0 in unique_p or 1.0 in unique_p)
+        has_extremes = 0.0 in unique_p or 1.0 in unique_p
         has_many_ties = (len(p) - len(unique_p)) / len(p) > 0.7
         has_few_unique = len(unique_p) <= 5
 
@@ -363,9 +395,9 @@ class TestSortScanTieHandling:
         if y.sum() == y.size:
             y[0] = 0
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold, score, _ = optimal_threshold_sortscan(
-                y, p, _f1_vectorized, inclusive=(comparison == '>=')
+                y, p, _f1_vectorized, inclusive=(comparison == ">=")
             )
 
             # Should produce valid threshold and score
@@ -373,20 +405,22 @@ class TestSortScanTieHandling:
             assert 0 <= score <= 1
 
             # Verify predictions make sense
-            pred = (p > threshold) if comparison == '>' else (p >= threshold)
+            pred = (p > threshold) if comparison == ">" else (p >= threshold)
 
             # All probabilities are tied, so predictions should be all same
-            assert len(np.unique(pred)) == 1, "All predictions should be identical for tied probabilities"
+            assert len(np.unique(pred)) == 1, (
+                "All predictions should be identical for tied probabilities"
+            )
 
     def test_plateau_sensitivity(self):
         """Test behavior when optimal score is achieved across a plateau."""
         # Create data where multiple thresholds achieve the same optimal score
         p = np.array([0.1, 0.3, 0.3, 0.3, 0.7, 0.9])
-        y = np.array([0,   1,   1,   0,   1,   1])  # Crafted for plateau
+        y = np.array([0, 1, 1, 0, 1, 1])  # Crafted for plateau
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold, score, _ = optimal_threshold_sortscan(
-                y, p, _f1_vectorized, inclusive=(comparison == '>=')
+                y, p, _f1_vectorized, inclusive=(comparison == ">=")
             )
 
             # Should find a valid threshold
@@ -394,15 +428,17 @@ class TestSortScanTieHandling:
             assert 0 <= score <= 1
 
             # Verify the threshold actually achieves the reported score
-            pred = (p > threshold) if comparison == '>' else (p >= threshold)
+            pred = (p > threshold) if comparison == ">" else (p >= threshold)
             tp = np.sum((y == 1) & pred)
             fp = np.sum((y == 0) & pred)
             fn = np.sum((y == 1) & ~pred)
             tn = np.sum((y == 0) & ~pred)
 
-            actual_score = float(_f1_vectorized(
-                np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn])
-            )[0])
+            actual_score = float(
+                _f1_vectorized(
+                    np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn])
+                )[0]
+            )
 
             assert abs(actual_score - score) < 1e-12, (
                 f"Reported score {score} doesn't match actual {actual_score}"
@@ -416,9 +452,9 @@ class TestSortScanWithWeights:
         p=arrays(
             float,
             st.integers(10, 80),
-            elements=st.floats(0.01, 0.99, allow_nan=False, allow_infinity=False)
+            elements=st.floats(0.01, 0.99, allow_nan=False, allow_infinity=False),
         ),
-        comparison=st.sampled_from(['>', '>='])
+        comparison=st.sampled_from([">", ">="]),
     )
     @settings(deadline=None, max_examples=50)
     def test_sortscan_with_fractional_weights(self, p, comparison):
@@ -436,7 +472,7 @@ class TestSortScanWithWeights:
 
         # This should not raise an error and should preserve fractional precision
         threshold, score, _ = optimal_threshold_sortscan(
-            y, p, _f1_vectorized, sample_weight=weights, inclusive=(comparison == '>=')
+            y, p, _f1_vectorized, sample_weight=weights, inclusive=(comparison == ">=")
         )
 
         assert 0 <= threshold <= 1
@@ -446,7 +482,7 @@ class TestSortScanWithWeights:
         # (unless weights are all equal)
         if not np.allclose(weights, weights[0]):
             threshold_unweighted, score_unweighted, _ = optimal_threshold_sortscan(
-                y, p, _f1_vectorized, inclusive=(comparison == '>=')
+                y, p, _f1_vectorized, inclusive=(comparison == ">=")
             )
 
             # Should generally be different (not a strict requirement due to edge cases)

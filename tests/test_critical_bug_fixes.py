@@ -40,8 +40,9 @@ class TestInclusiveExclusiveBugFix:
 
         # When probabilities equal the threshold, predictions should differ
         if np.any(np.array(pred_prob) == thresh_exclusive):
-            assert not np.array_equal(pred_exclusive, pred_inclusive), \
+            assert not np.array_equal(pred_exclusive, pred_inclusive), (
                 "Predictions should differ when probabilities equal threshold"
+            )
 
         # Verify both produce valid confusion matrices
         tp_excl, tn_excl, fp_excl, fn_excl = get_confusion_matrix(
@@ -63,7 +64,11 @@ class TestInclusiveExclusiveBugFix:
             # Get threshold from sort_scan
             try:
                 thresh_sort = get_optimal_threshold(
-                    y_true, pred_prob, metric="f1", method="sort_scan", comparison=comparison
+                    y_true,
+                    pred_prob,
+                    metric="f1",
+                    method="sort_scan",
+                    comparison=comparison,
                 )
                 sort_available = True
             except Exception:
@@ -71,7 +76,11 @@ class TestInclusiveExclusiveBugFix:
 
             # Get threshold from fallback (smart_brute)
             thresh_fallback = get_optimal_threshold(
-                y_true, pred_prob, metric="f1", method="smart_brute", comparison=comparison
+                y_true,
+                pred_prob,
+                metric="f1",
+                method="smart_brute",
+                comparison=comparison,
             )
 
             if sort_available:
@@ -99,10 +108,11 @@ class TestWeightedMetricsBugFix:
 
         # Get optimal threshold with fractional weights
         threshold = get_optimal_threshold(
-            y_true, pred_prob,
+            y_true,
+            pred_prob,
             metric="f1",
             method="smart_brute",
-            sample_weight=sample_weight
+            sample_weight=sample_weight,
         )
 
         # Compute weighted confusion matrix
@@ -113,8 +123,9 @@ class TestWeightedMetricsBugFix:
         # With fractional weights, these should not be integers
         # The bug would make all fractional weights become 0
         total_weight = sum(sample_weight)
-        assert abs(tp + tn + fp + fn - total_weight) < 1e-10, \
+        assert abs(tp + tn + fp + fn - total_weight) < 1e-10, (
             "Total weighted counts should equal sum of weights"
+        )
 
         # Verify F1 score can be computed with fractional counts
         if tp + fp > 0:
@@ -137,20 +148,20 @@ class TestWeightedMetricsBugFix:
 
         # Get thresholds (should be similar if weights work correctly)
         thresh_weighted = get_optimal_threshold(
-            y_true, pred_prob,
+            y_true,
+            pred_prob,
             metric="accuracy",
             method="smart_brute",
-            sample_weight=sample_weight
+            sample_weight=sample_weight,
         )
         thresh_expanded = get_optimal_threshold(
-            y_expanded, pred_expanded,
-            metric="accuracy",
-            method="smart_brute"
+            y_expanded, pred_expanded, metric="accuracy", method="smart_brute"
         )
 
         # Thresholds should be reasonably close
-        assert abs(thresh_weighted - thresh_expanded) < 0.2, \
+        assert abs(thresh_weighted - thresh_expanded) < 0.2, (
             "Weighted and expanded approaches should give similar thresholds"
+        )
 
 
 class TestDegenerateClassesBugFix:
@@ -163,10 +174,11 @@ class TestDegenerateClassesBugFix:
 
         for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, pred_prob,
+                y_true,
+                pred_prob,
                 metric="accuracy",
                 method="smart_brute",
-                comparison=comparison
+                comparison=comparison,
             )
 
             # Apply threshold
@@ -176,8 +188,9 @@ class TestDegenerateClassesBugFix:
                 predictions = np.array(pred_prob) >= threshold
 
             # All predictions should be negative for optimal accuracy
-            assert np.all(~predictions), \
+            assert np.all(~predictions), (
                 f"With all negative labels and {comparison}, all predictions should be negative"
+            )
 
             # Accuracy should be 1.0
             accuracy = np.mean(predictions == y_true)
@@ -190,10 +203,11 @@ class TestDegenerateClassesBugFix:
 
         for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, pred_prob,
+                y_true,
+                pred_prob,
                 metric="accuracy",
                 method="smart_brute",
-                comparison=comparison
+                comparison=comparison,
             )
 
             # Apply threshold
@@ -203,8 +217,9 @@ class TestDegenerateClassesBugFix:
                 predictions = np.array(pred_prob) >= threshold
 
             # All predictions should be positive for optimal accuracy
-            assert np.all(predictions), \
+            assert np.all(predictions), (
                 f"With all positive labels and {comparison}, all predictions should be positive"
+            )
 
             # Accuracy should be 1.0
             accuracy = np.mean(predictions == y_true)
@@ -217,9 +232,7 @@ class TestDegenerateClassesBugFix:
         pred_prob_neg = [0.2, 0.7, 0.8]
 
         thresh_neg = get_optimal_threshold(
-            y_true_neg, pred_prob_neg,
-            metric="f1",
-            method="smart_brute"
+            y_true_neg, pred_prob_neg, metric="f1", method="smart_brute"
         )
 
         # Should NOT be 0.5 (the old bug)
@@ -230,9 +243,7 @@ class TestDegenerateClassesBugFix:
         pred_prob_pos = [0.2, 0.7, 0.8]
 
         thresh_pos = get_optimal_threshold(
-            y_true_pos, pred_prob_pos,
-            metric="f1",
-            method="smart_brute"
+            y_true_pos, pred_prob_pos, metric="f1", method="smart_brute"
         )
 
         # Should NOT be 0.5 (the old bug)
@@ -255,15 +266,17 @@ class TestDinkelbachExpectedFBetaBugFix:
         thresh_2 = _dinkelbach_expected_fbeta(y_true_2, pred_prob, beta=1.0)
 
         # Thresholds should be identical (expected Fβ depends only on probabilities)
-        assert abs(thresh_1 - thresh_2) < 1e-10, \
+        assert abs(thresh_1 - thresh_2) < 1e-10, (
             "Dinkelbach threshold should be independent of label permutation"
+        )
 
         # Try another permutation
         y_true_3 = [0, 0, 1, 1]
         thresh_3 = _dinkelbach_expected_fbeta(y_true_3, pred_prob, beta=1.0)
 
-        assert abs(thresh_1 - thresh_3) < 1e-10, \
+        assert abs(thresh_1 - thresh_3) < 1e-10, (
             "Dinkelbach threshold should be independent of any label permutation"
+        )
 
     def test_dinkelbach_depends_only_on_probabilities(self):
         """Test that Dinkelbach depends only on probabilities, not labels."""
@@ -276,7 +289,7 @@ class TestDinkelbachExpectedFBetaBugFix:
             [0, 1, 0, 1],
             [1, 0, 1, 0],
             [0, 0, 0, 1],
-            [1, 1, 1, 0]
+            [1, 1, 1, 0],
         ]
 
         thresholds = []
@@ -286,8 +299,9 @@ class TestDinkelbachExpectedFBetaBugFix:
 
         # All thresholds should be identical
         for i in range(1, len(thresholds)):
-            assert abs(thresholds[0] - thresholds[i]) < 1e-10, \
+            assert abs(thresholds[0] - thresholds[i]) < 1e-10, (
                 f"All Dinkelbach thresholds should be identical, got {thresholds}"
+            )
 
     def test_dinkelbach_sum_probabilities_not_labels(self):
         """Test that Dinkelbach uses sum of probabilities, not labels."""
@@ -322,16 +336,15 @@ class TestStabilityEnhancements:
         thresholds = []
         for _ in range(5):
             thresh = get_optimal_threshold(
-                y_true, pred_prob,
-                metric="f1",
-                method="smart_brute"
+                y_true, pred_prob, metric="f1", method="smart_brute"
             )
             thresholds.append(thresh)
 
         # All thresholds should be identical (deterministic)
         for i in range(1, len(thresholds)):
-            assert abs(thresholds[0] - thresholds[i]) < 1e-12, \
+            assert abs(thresholds[0] - thresholds[i]) < 1e-12, (
                 "Results should be deterministic with tied probabilities"
+            )
 
     def test_tied_probabilities_at_threshold(self):
         """Test handling of tied probabilities at the optimal threshold."""
@@ -341,10 +354,11 @@ class TestStabilityEnhancements:
 
         for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, pred_prob,
+                y_true,
+                pred_prob,
                 metric="f1",
                 method="smart_brute",
-                comparison=comparison
+                comparison=comparison,
             )
 
             # Should produce valid confusion matrix
@@ -369,11 +383,12 @@ class TestCriticalBugFixesIntegration:
 
         for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, pred_prob,
+                y_true,
+                pred_prob,
                 metric="f1",
                 method="smart_brute",
                 comparison=comparison,
-                sample_weight=sample_weight
+                sample_weight=sample_weight,
             )
 
             # Should not crash and produce valid threshold
@@ -381,9 +396,11 @@ class TestCriticalBugFixesIntegration:
 
             # Should produce valid weighted confusion matrix
             tp, tn, fp, fn = get_confusion_matrix(
-                y_true, pred_prob, threshold,
+                y_true,
+                pred_prob,
+                threshold,
                 sample_weight=sample_weight,
-                comparison=comparison
+                comparison=comparison,
             )
 
             total_weight = sum(sample_weight)
@@ -416,4 +433,3 @@ class TestCriticalBugFixesIntegration:
             threshold_values = list(thresholds.values())
             max_diff = max(threshold_values) - min(threshold_values)
             assert max_diff < 0.5, f"Methods should agree reasonably: {thresholds}"
-

@@ -20,7 +20,7 @@ from tests.strategies import extreme_probabilities
 
 def _compute_accuracy(y, p, threshold, comparison):
     """Helper to compute accuracy for given threshold and comparison."""
-    pred = (p > threshold) if comparison == '>' else (p >= threshold)
+    pred = (p > threshold) if comparison == ">" else (p >= threshold)
     return float(np.mean(pred == y))
 
 
@@ -59,13 +59,19 @@ class TestAllNegativeLabels:
         for probs in prob_arrays:
             y = np.zeros_like(probs, dtype=int)  # All negative labels
 
-            for comparison in ['>', '>=']:
+            for comparison in [">", ">="]:
                 threshold = get_optimal_threshold(
-                    y, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                    y,
+                    probs,
+                    metric="accuracy",
+                    method="sort_scan",
+                    comparison=comparison,
                 )
 
                 # Verify threshold produces all-negative predictions
-                pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+                pred = (
+                    (probs > threshold) if comparison == ">" else (probs >= threshold)
+                )
 
                 assert not pred.any(), (
                     f"All-negative case should predict all negative with {comparison}, "
@@ -80,7 +86,7 @@ class TestAllNegativeLabels:
                 )
 
                 # Verify threshold bounds make mathematical sense
-                if comparison == '>':
+                if comparison == ">":
                     # For '>', threshold should be >= max(probs) to exclude all
                     assert threshold >= np.max(probs) - 1e-10, (
                         f"Threshold {threshold} should be >= max prob {np.max(probs)} for '>'"
@@ -96,13 +102,13 @@ class TestAllNegativeLabels:
         probs = np.array([0.2, 0.7, 0.1, 0.8, 0.5])
         y = np.zeros_like(probs, dtype=int)
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
                 y, probs, metric="f1", method="sort_scan", comparison=comparison
             )
 
             # Should predict all negative (F1 is undefined/0 for all-negative case)
-            pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+            pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
             assert not pred.any(), (
                 f"All-negative case should predict all negative for F1 with {comparison}"
@@ -128,18 +134,24 @@ class TestAllPositiveLabels:
         for probs in prob_arrays:
             y = np.ones_like(probs, dtype=int)  # All positive labels
 
-            for comparison in ['>', '>=']:
+            for comparison in [">", ">="]:
                 threshold = get_optimal_threshold(
-                    y, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                    y,
+                    probs,
+                    metric="accuracy",
+                    method="sort_scan",
+                    comparison=comparison,
                 )
 
                 # Verify threshold produces all-positive predictions (where possible)
-                pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+                pred = (
+                    (probs > threshold) if comparison == ">" else (probs >= threshold)
+                )
 
                 # Special case: if min_prob = 0 and comparison = '>', we cannot predict
                 # the item with prob=0 as positive due to constraint threshold >= 0
                 min_prob = np.min(probs)
-                if comparison == '>' and min_prob == 0.0:
+                if comparison == ">" and min_prob == 0.0:
                     # This is a constraint limitation - cannot achieve perfect accuracy
                     # The algorithm should still optimize as best as possible
                     accuracy = _compute_accuracy(y, probs, threshold, comparison)
@@ -167,7 +179,7 @@ class TestAllPositiveLabels:
                     )
 
                 # Verify threshold bounds make mathematical sense
-                if comparison == '>':
+                if comparison == ">":
                     # For '>', threshold should be < min(probs) to include all
                     assert threshold < np.min(probs) + 1e-10, (
                         f"Threshold {threshold} should be < min prob {np.min(probs)} for '>'"
@@ -183,13 +195,13 @@ class TestAllPositiveLabels:
         probs = np.array([0.3, 0.8, 0.1, 0.9, 0.6])
         y = np.ones_like(probs, dtype=int)
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
                 y, probs, metric="f1", method="sort_scan", comparison=comparison
             )
 
             # Should predict all positive
-            pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+            pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
             assert pred.all(), (
                 f"All-positive case should predict all positive for F1 with {comparison}"
@@ -206,10 +218,12 @@ class TestAllEqualProbabilities:
     @given(
         prob_value=st.floats(0.01, 0.99),
         n_samples=st.integers(5, 50),
-        comparison=st.sampled_from(['>', '>='])
+        comparison=st.sampled_from([">", ">="]),
     )
     @settings(deadline=None, max_examples=50)
-    def test_all_equal_probabilities_consistency(self, prob_value, n_samples, comparison):
+    def test_all_equal_probabilities_consistency(
+        self, prob_value, n_samples, comparison
+    ):
         """When all probabilities are equal, optimization should be consistent."""
         probs = np.full(n_samples, prob_value)
 
@@ -231,7 +245,7 @@ class TestAllEqualProbabilities:
         assert 0 <= threshold <= 1, f"Threshold {threshold} out of valid range"
 
         # Predictions should be consistent (all same since all probs equal)
-        pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+        pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
         # All predictions should be identical
         assert len(np.unique(pred)) == 1, (
@@ -245,26 +259,38 @@ class TestAllEqualProbabilities:
         probs = np.full(10, prob_val)
         labels = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])  # Alternating
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                labels,
+                probs,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=comparison,
             )
 
-            pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+            pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
             # Since all probs are equal, decision should be consistent
-            if comparison == '>' and threshold >= prob_val:
+            if comparison == ">" and threshold >= prob_val:
                 # All probs <= threshold, so no predictions positive
-                assert not pred.any(), "With '>' and threshold >= prob, should predict all negative"
-            elif comparison == '>=' and threshold > prob_val:
+                assert not pred.any(), (
+                    "With '>' and threshold >= prob, should predict all negative"
+                )
+            elif comparison == ">=" and threshold > prob_val:
                 # All probs < threshold, so no predictions positive
-                assert not pred.any(), "With '>=' and threshold > prob, should predict all negative"
-            elif comparison == '>' and threshold < prob_val:
+                assert not pred.any(), (
+                    "With '>=' and threshold > prob, should predict all negative"
+                )
+            elif comparison == ">" and threshold < prob_val:
                 # All probs > threshold, so all predictions positive
-                assert pred.all(), "With '>' and threshold < prob, should predict all positive"
-            elif comparison == '>=' and threshold <= prob_val:
+                assert pred.all(), (
+                    "With '>' and threshold < prob, should predict all positive"
+                )
+            elif comparison == ">=" and threshold <= prob_val:
                 # All probs >= threshold, so all predictions positive
-                assert pred.all(), "With '>=' and threshold <= prob, should predict all positive"
+                assert pred.all(), (
+                    "With '>=' and threshold <= prob, should predict all positive"
+                )
 
 
 class TestExtremeProbabilities:
@@ -281,10 +307,14 @@ class TestExtremeProbabilities:
         ]
 
         for probs, labels in test_cases:
-            for comparison in ['>', '>=']:
+            for comparison in [">", ">="]:
                 for metric in ["accuracy", "f1"]:
                     threshold = get_optimal_threshold(
-                        labels, probs, metric=metric, method="sort_scan", comparison=comparison
+                        labels,
+                        probs,
+                        metric=metric,
+                        method="sort_scan",
+                        comparison=comparison,
                     )
 
                     # Should produce valid threshold
@@ -307,45 +337,63 @@ class TestExtremeProbabilities:
         probs = np.zeros(5)
         labels = np.array([0, 1, 0, 1, 1])
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                labels,
+                probs,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=comparison,
             )
 
             # With all probs = 0, predictions depend on threshold and comparison
-            pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+            pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
-            if comparison == '>':
+            if comparison == ">":
                 # 0 > threshold is false for any valid threshold >= 0
-                assert not pred.any(), "All probs = 0, so '> threshold' should be all false"
+                assert not pred.any(), (
+                    "All probs = 0, so '> threshold' should be all false"
+                )
             else:  # '>='
                 if threshold <= 0:
                     # 0 >= threshold is true if threshold <= 0
-                    assert pred.all(), "All probs = 0, so '>= threshold' should be all true when threshold <= 0"
+                    assert pred.all(), (
+                        "All probs = 0, so '>= threshold' should be all true when threshold <= 0"
+                    )
                 else:
                     # 0 >= threshold is false if threshold > 0
-                    assert not pred.any(), "All probs = 0, so '>= threshold' should be all false when threshold > 0"
+                    assert not pred.any(), (
+                        "All probs = 0, so '>= threshold' should be all false when threshold > 0"
+                    )
 
     def test_all_probabilities_one(self):
         """Test when all probabilities are exactly 1.0."""
         probs = np.ones(6)
         labels = np.array([1, 0, 1, 0, 1, 0])
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                labels,
+                probs,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=comparison,
             )
 
             # With all probs = 1, predictions depend on threshold and comparison
-            pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+            pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
-            if comparison == '>':
+            if comparison == ">":
                 if threshold < 1:
                     # 1 > threshold is true if threshold < 1
-                    assert pred.all(), "All probs = 1, so '> threshold' should be all true when threshold < 1"
+                    assert pred.all(), (
+                        "All probs = 1, so '> threshold' should be all true when threshold < 1"
+                    )
                 else:
                     # 1 > threshold is false if threshold >= 1
-                    assert not pred.any(), "All probs = 1, so '> threshold' should be all false when threshold >= 1"
+                    assert not pred.any(), (
+                        "All probs = 1, so '> threshold' should be all false when threshold >= 1"
+                    )
             else:  # '>='
                 # 1 >= threshold is true for any valid threshold <= 1
                 assert pred.all(), "All probs = 1, so '>= threshold' should be all true"
@@ -367,16 +415,24 @@ class TestDegenerateVsArbitraryThresholds:
         ]
 
         for labels, probs in test_cases:
-            for comparison in ['>', '>=']:
+            for comparison in [">", ">="]:
                 for metric in ["accuracy", "f1"]:
                     threshold = get_optimal_threshold(
-                        labels, probs, metric=metric, method="sort_scan", comparison=comparison
+                        labels,
+                        probs,
+                        metric=metric,
+                        method="sort_scan",
+                        comparison=comparison,
                     )
 
                     # Should NOT be arbitrary 0.5 (unless it's actually optimal)
                     # We verify this by checking that the threshold actually produces
                     # the mathematically optimal result
-                    pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+                    pred = (
+                        (probs > threshold)
+                        if comparison == ">"
+                        else (probs >= threshold)
+                    )
 
                     if np.all(labels == 0):
                         # All negative case - should predict all negative
@@ -393,10 +449,14 @@ class TestDegenerateVsArbitraryThresholds:
 
                     # In all cases, threshold should be mathematically justified
                     if metric == "accuracy":
-                        accuracy = _compute_accuracy(labels, probs, threshold, comparison)
+                        accuracy = _compute_accuracy(
+                            labels, probs, threshold, comparison
+                        )
                         # Should be optimal accuracy (test other thresholds don't beat it)
                         for test_thresh in [0.0, 0.25, 0.5, 0.75, 1.0]:
-                            test_acc = _compute_accuracy(labels, probs, test_thresh, comparison)
+                            test_acc = _compute_accuracy(
+                                labels, probs, test_thresh, comparison
+                            )
                             assert accuracy >= test_acc - 1e-10, (
                                 f"Threshold {threshold} gives accuracy {accuracy} but "
                                 f"test threshold {test_thresh} gives {test_acc}"
@@ -416,10 +476,14 @@ class TestDegenerateVsArbitraryThresholds:
             if labels.sum() == labels.size:
                 labels[0] = 0
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             try:
                 threshold = get_optimal_threshold(
-                    labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                    labels,
+                    probs,
+                    metric="accuracy",
+                    method="sort_scan",
+                    comparison=comparison,
                 )
 
                 # Threshold should be meaningful, not arbitrary

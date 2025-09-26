@@ -142,7 +142,9 @@ class TestCoreInvariants:
             # Piecewise should generally be at least as good as naive
             # However, edge cases with identical probabilities may have implementation differences
             tolerance = 1e-10
-            if len(np.unique(probabilities)) <= 2 and (0.0 in probabilities or 1.0 in probabilities):
+            if len(np.unique(probabilities)) <= 2 and (
+                0.0 in probabilities or 1.0 in probabilities
+            ):
                 tolerance = 0.5  # More lenient for edge cases with boundary values
 
             assert piecewise_score >= naive_score - tolerance, (

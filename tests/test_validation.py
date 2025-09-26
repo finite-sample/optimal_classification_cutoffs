@@ -89,10 +89,10 @@ class TestInputValidation:
         _validate_inputs(true_labels, pred_probs)
 
         # Invalid: labels outside valid range (has label 3 for 3-class problem)
-        with pytest.raises(
-            ValueError, match="must be within \\[0, 2\\]"
-        ):
-            _validate_inputs([0, 2, 3], np.random.rand(3, 3))  # Label 3 invalid for 3 classes
+        with pytest.raises(ValueError, match="must be within \\[0, 2\\]"):
+            _validate_inputs(
+                [0, 2, 3], np.random.rand(3, 3)
+            )  # Label 3 invalid for 3 classes
 
         # Invalid: negative labels
         with pytest.raises(ValueError, match="Labels must be non-negative"):

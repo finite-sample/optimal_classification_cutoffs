@@ -59,10 +59,7 @@ def expand_by_rational_weights(y, p, w):
 class TestWeightedEqualsExpanded:
     """Test that weighted metrics match expanded dataset results."""
 
-    @given(
-        n=st.integers(5, 80),
-        comparison=st.sampled_from(['>', '>='])
-    )
+    @given(n=st.integers(5, 80), comparison=st.sampled_from([">", ">="]))
     @settings(deadline=None, max_examples=80)
     def test_weighted_equals_expanded_f1(self, n, comparison):
         """Weighted F1 must match F1 on expanded dataset."""
@@ -81,20 +78,32 @@ class TestWeightedEqualsExpanded:
 
         # Weighted optimization
         threshold_weighted = get_optimal_threshold(
-            y, p, metric="f1", method="sort_scan",
-            comparison=comparison, sample_weight=w
+            y,
+            p,
+            metric="f1",
+            method="sort_scan",
+            comparison=comparison,
+            sample_weight=w,
         )
 
         # Expanded dataset optimization
         y_expanded, p_expanded = expand_by_rational_weights(y, p, w)
         threshold_expanded = get_optimal_threshold(
-            y_expanded, p_expanded, metric="f1", method="sort_scan",
-            comparison=comparison, sample_weight=None
+            y_expanded,
+            p_expanded,
+            metric="f1",
+            method="sort_scan",
+            comparison=comparison,
+            sample_weight=None,
         )
 
         # Decisions must match on original items
-        pred_weighted = (p > threshold_weighted) if comparison == '>' else (p >= threshold_weighted)
-        pred_expanded = (p > threshold_expanded) if comparison == '>' else (p >= threshold_expanded)
+        pred_weighted = (
+            (p > threshold_weighted) if comparison == ">" else (p >= threshold_weighted)
+        )
+        pred_expanded = (
+            (p > threshold_expanded) if comparison == ">" else (p >= threshold_expanded)
+        )
 
         # This is the key test - decisions should be identical
         assert np.array_equal(pred_weighted, pred_expanded), (
@@ -105,8 +114,12 @@ class TestWeightedEqualsExpanded:
         )
 
         # Also verify scores match
-        tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(y, p, threshold_weighted, w, comparison)
-        tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(y_expanded, p_expanded, threshold_expanded, None, comparison)
+        tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(
+            y, p, threshold_weighted, w, comparison
+        )
+        tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(
+            y_expanded, p_expanded, threshold_expanded, None, comparison
+        )
 
         f1_weighted = f1_score(tp_w, tn_w, fp_w, fn_w)
         f1_expanded = f1_score(tp_e, tn_e, fp_e, fn_e)
@@ -117,10 +130,7 @@ class TestWeightedEqualsExpanded:
             f"expanded={f1_expanded:.12f}"
         )
 
-    @given(
-        n=st.integers(8, 60),
-        comparison=st.sampled_from(['>', '>='])
-    )
+    @given(n=st.integers(8, 60), comparison=st.sampled_from([">", ">="]))
     @settings(deadline=None, max_examples=60)
     def test_weighted_equals_expanded_accuracy(self, n, comparison):
         """Weighted accuracy must match accuracy on expanded dataset."""
@@ -137,19 +147,31 @@ class TestWeightedEqualsExpanded:
         w = rng.choice([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0], size=n)
 
         threshold_weighted = get_optimal_threshold(
-            y, p, metric="accuracy", method="sort_scan",
-            comparison=comparison, sample_weight=w
+            y,
+            p,
+            metric="accuracy",
+            method="sort_scan",
+            comparison=comparison,
+            sample_weight=w,
         )
 
         y_expanded, p_expanded = expand_by_rational_weights(y, p, w)
         threshold_expanded = get_optimal_threshold(
-            y_expanded, p_expanded, metric="accuracy", method="sort_scan",
-            comparison=comparison, sample_weight=None
+            y_expanded,
+            p_expanded,
+            metric="accuracy",
+            method="sort_scan",
+            comparison=comparison,
+            sample_weight=None,
         )
 
         # Verify decisions match
-        pred_weighted = (p > threshold_weighted) if comparison == '>' else (p >= threshold_weighted)
-        pred_expanded = (p > threshold_expanded) if comparison == '>' else (p >= threshold_expanded)
+        pred_weighted = (
+            (p > threshold_weighted) if comparison == ">" else (p >= threshold_weighted)
+        )
+        pred_expanded = (
+            (p > threshold_expanded) if comparison == ">" else (p >= threshold_expanded)
+        )
 
         assert np.array_equal(pred_weighted, pred_expanded), (
             "Weighted and expanded decisions don't match for accuracy"
@@ -194,7 +216,7 @@ class TestWeightScaleInvariance:
     @given(
         n=st.integers(10, 50),
         scale_factor=st.floats(0.1, 10.0),
-        comparison=st.sampled_from(['>', '>='])
+        comparison=st.sampled_from([">", ">="]),
     )
     @settings(deadline=None, max_examples=50)
     def test_weight_scale_invariance_f1(self, n, scale_factor, comparison):
@@ -216,18 +238,28 @@ class TestWeightScaleInvariance:
 
         # Both should give same threshold (decisions)
         threshold_orig = get_optimal_threshold(
-            y, p, metric="f1", method="sort_scan",
-            comparison=comparison, sample_weight=w_orig
+            y,
+            p,
+            metric="f1",
+            method="sort_scan",
+            comparison=comparison,
+            sample_weight=w_orig,
         )
 
         threshold_scaled = get_optimal_threshold(
-            y, p, metric="f1", method="sort_scan",
-            comparison=comparison, sample_weight=w_scaled
+            y,
+            p,
+            metric="f1",
+            method="sort_scan",
+            comparison=comparison,
+            sample_weight=w_scaled,
         )
 
         # Decisions should be identical
-        pred_orig = (p > threshold_orig) if comparison == '>' else (p >= threshold_orig)
-        pred_scaled = (p > threshold_scaled) if comparison == '>' else (p >= threshold_scaled)
+        pred_orig = (p > threshold_orig) if comparison == ">" else (p >= threshold_orig)
+        pred_scaled = (
+            (p > threshold_scaled) if comparison == ">" else (p >= threshold_scaled)
+        )
 
         assert np.array_equal(pred_orig, pred_scaled), (
             f"Scale invariance violated: original threshold {threshold_orig:.10f}, "
@@ -337,10 +369,7 @@ class TestWeightEdgeCases:
 class TestWeightMethodConsistency:
     """Test that different methods handle weights consistently."""
 
-    @given(
-        n=st.integers(8, 40),
-        comparison=st.sampled_from(['>', '>='])
-    )
+    @given(n=st.integers(8, 40), comparison=st.sampled_from([">", ">="]))
     @settings(deadline=None, max_examples=40)
     def test_sort_scan_vs_smart_brute_with_weights(self, n, comparison):
         """sort_scan and smart_brute should give consistent results with weights."""
@@ -356,21 +385,33 @@ class TestWeightMethodConsistency:
 
         try:
             threshold_scan = get_optimal_threshold(
-                y, p, metric="f1", method="sort_scan",
-                comparison=comparison, sample_weight=w
+                y,
+                p,
+                metric="f1",
+                method="sort_scan",
+                comparison=comparison,
+                sample_weight=w,
             )
 
             threshold_brute = get_optimal_threshold(
-                y, p, metric="f1", method="smart_brute",
-                comparison=comparison, sample_weight=w
+                y,
+                p,
+                metric="f1",
+                method="smart_brute",
+                comparison=comparison,
+                sample_weight=w,
             )
 
             # Decisions should match (allowing small threshold differences due to different
             # threshold selection strategies)
 
             # Compute F1 scores to verify they're equal
-            tp_scan, tn_scan, fp_scan, fn_scan = get_confusion_matrix(y, p, threshold_scan, w, comparison)
-            tp_brute, tn_brute, fp_brute, fn_brute = get_confusion_matrix(y, p, threshold_brute, w, comparison)
+            tp_scan, tn_scan, fp_scan, fn_scan = get_confusion_matrix(
+                y, p, threshold_scan, w, comparison
+            )
+            tp_brute, tn_brute, fp_brute, fn_brute = get_confusion_matrix(
+                y, p, threshold_brute, w, comparison
+            )
 
             f1_scan = f1_score(tp_scan, tn_scan, fp_scan, fn_scan)
             f1_brute = f1_score(tp_brute, tn_brute, fp_brute, fn_brute)
@@ -393,11 +434,15 @@ class TestWeightMethodConsistency:
 
         # Equal weights
         w_equal = np.ones(5)
-        threshold_equal = get_optimal_threshold(y, p, metric="accuracy", sample_weight=w_equal)
+        threshold_equal = get_optimal_threshold(
+            y, p, metric="accuracy", sample_weight=w_equal
+        )
 
         # Weight the correct predictions more heavily
         w_biased = np.array([2.0, 2.0, 2.0, 2.0, 1.0])  # Weight first 4 samples more
-        threshold_biased = get_optimal_threshold(y, p, metric="accuracy", sample_weight=w_biased)
+        threshold_biased = get_optimal_threshold(
+            y, p, metric="accuracy", sample_weight=w_biased
+        )
 
         # Apply thresholds
         pred_equal = p > threshold_equal

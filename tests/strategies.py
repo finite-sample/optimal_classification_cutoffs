@@ -11,7 +11,12 @@ from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
 
-def probs_1d(min_size: int = 3, max_size: int = 300, allow_extremes: bool = True, tie_blocks: bool = True):
+def probs_1d(
+    min_size: int = 3,
+    max_size: int = 300,
+    allow_extremes: bool = True,
+    tie_blocks: bool = True,
+):
     """Generate 1D probabilities in [0,1] with controllable ties and extremes.
 
     Parameters
@@ -33,7 +38,9 @@ def probs_1d(min_size: int = 3, max_size: int = 300, allow_extremes: bool = True
     base = arrays(
         dtype=float,
         shape=st.integers(min_value=min_size, max_value=max_size),
-        elements=st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False)
+        elements=st.floats(
+            min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False
+        ),
     )
 
     def _post_process(arr):
@@ -81,7 +88,9 @@ def labels_binary_like(p_strategy=None):
 
         # Generate labels roughly aligned with probabilities
         rng = np.random.default_rng(321)
-        labels = (rng.uniform(0, 1, size=probs.shape[0]) < np.clip(probs, 0.05, 0.95)).astype(int)
+        labels = (
+            rng.uniform(0, 1, size=probs.shape[0]) < np.clip(probs, 0.05, 0.95)
+        ).astype(int)
 
         # Ensure both classes present
         if labels.sum() == 0:
@@ -94,7 +103,9 @@ def labels_binary_like(p_strategy=None):
     return _make_labels_and_probs()
 
 
-def rational_weights(min_size: int = 3, max_size: int = 200, denominators: tuple = (2, 3, 4, 5)):
+def rational_weights(
+    min_size: int = 3, max_size: int = 200, denominators: tuple = (2, 3, 4, 5)
+):
     """Generate sample weights that are rational with small denominators.
 
     This enables exact expansion testing where each sample can be duplicated
@@ -144,16 +155,19 @@ def multiclass_probs(n_classes: int, min_size: int = 10, max_size: int = 100):
     hypothesis.strategies.SearchStrategy
         Strategy that generates normalized probability matrices
     """
+
     @st.composite
     def _make_multiclass_probs(draw):
         size = draw(st.integers(min_size, max_size))
 
         # Generate raw probabilities
-        probs = draw(arrays(
-            dtype=float,
-            shape=(size, n_classes),
-            elements=st.floats(0.01, 0.99, allow_nan=False, allow_infinity=False)
-        ))
+        probs = draw(
+            arrays(
+                dtype=float,
+                shape=(size, n_classes),
+                elements=st.floats(0.01, 0.99, allow_nan=False, allow_infinity=False),
+            )
+        )
 
         # Normalize to sum to 1
         probs = probs / probs.sum(axis=1, keepdims=True)
@@ -163,7 +177,9 @@ def multiclass_probs(n_classes: int, min_size: int = 10, max_size: int = 100):
     return _make_multiclass_probs()
 
 
-def multiclass_labels_and_probs(n_classes: int, min_size: int = 10, max_size: int = 100):
+def multiclass_labels_and_probs(
+    n_classes: int, min_size: int = 10, max_size: int = 100
+):
     """Generate multiclass labels and corresponding probability matrices.
 
     Parameters
@@ -180,6 +196,7 @@ def multiclass_labels_and_probs(n_classes: int, min_size: int = 10, max_size: in
     hypothesis.strategies.SearchStrategy
         Strategy that generates (labels, probabilities) pairs
     """
+
     @st.composite
     def _make_multiclass_data(draw):
         size = draw(st.integers(min_size, max_size))
@@ -219,6 +236,7 @@ def beta_bernoulli_calibrated(min_size: int = 50, max_size: int = 300):
     hypothesis.strategies.SearchStrategy
         Strategy that generates calibrated (labels, probabilities, alpha, beta) tuples
     """
+
     @st.composite
     def _make_calibrated_data(draw):
         size = draw(st.integers(min_size, max_size))
@@ -237,7 +255,12 @@ def beta_bernoulli_calibrated(min_size: int = 50, max_size: int = 300):
     return _make_calibrated_data()
 
 
-def tied_probabilities(base_prob: float = 0.5, tie_fraction: float = 0.3, min_size: int = 10, max_size: int = 50):
+def tied_probabilities(
+    base_prob: float = 0.5,
+    tie_fraction: float = 0.3,
+    min_size: int = 10,
+    max_size: int = 50,
+):
     """Generate probability arrays with many tied values.
 
     This is useful for testing tie-handling behavior in different comparison operators.
@@ -258,16 +281,19 @@ def tied_probabilities(base_prob: float = 0.5, tie_fraction: float = 0.3, min_si
     hypothesis.strategies.SearchStrategy
         Strategy that generates probability arrays with controlled ties
     """
+
     @st.composite
     def _make_tied_probs(draw):
         size = draw(st.integers(min_size, max_size))
 
         # Generate base probabilities
-        probs = draw(arrays(
-            dtype=float,
-            shape=size,
-            elements=st.floats(0.0, 1.0, allow_nan=False, allow_infinity=False)
-        ))
+        probs = draw(
+            arrays(
+                dtype=float,
+                shape=size,
+                elements=st.floats(0.0, 1.0, allow_nan=False, allow_infinity=False),
+            )
+        )
 
         # Force ties at base_prob
         n_ties = max(2, int(size * tie_fraction))
@@ -295,6 +321,7 @@ def extreme_probabilities(min_size: int = 5, max_size: int = 30):
     hypothesis.strategies.SearchStrategy
         Strategy that generates arrays with extreme probability values
     """
+
     @st.composite
     def _make_extreme_probs(draw):
         size = draw(st.integers(min_size, max_size))
@@ -303,14 +330,14 @@ def extreme_probabilities(min_size: int = 5, max_size: int = 30):
         rng = np.random.default_rng(111)
 
         for i in range(size):
-            choice = rng.choice(['zero', 'one', 'near_zero', 'near_one', 'normal'])
-            if choice == 'zero':
+            choice = rng.choice(["zero", "one", "near_zero", "near_one", "normal"])
+            if choice == "zero":
                 probs[i] = 0.0
-            elif choice == 'one':
+            elif choice == "one":
                 probs[i] = 1.0
-            elif choice == 'near_zero':
+            elif choice == "near_zero":
                 probs[i] = rng.uniform(1e-10, 1e-5)
-            elif choice == 'near_one':
+            elif choice == "near_one":
                 probs[i] = rng.uniform(1.0 - 1e-5, 1.0 - 1e-10)
             else:  # normal
                 probs[i] = rng.uniform(0.1, 0.9)
@@ -320,7 +347,9 @@ def extreme_probabilities(min_size: int = 5, max_size: int = 30):
     return _make_extreme_probs()
 
 
-def permutation_invariant_multiclass(n_classes: int, min_size: int = 20, max_size: int = 60):
+def permutation_invariant_multiclass(
+    n_classes: int, min_size: int = 20, max_size: int = 60
+):
     """Generate multiclass data with label permutations for invariance testing.
 
     Returns the original data and a permuted version for testing that
@@ -340,6 +369,7 @@ def permutation_invariant_multiclass(n_classes: int, min_size: int = 20, max_siz
     hypothesis.strategies.SearchStrategy
         Strategy that generates ((labels, probs), (labels_perm, probs_perm), perm) tuples
     """
+
     @st.composite
     def _make_permutation_data(draw):
         labels, probs = draw(multiclass_labels_and_probs(n_classes, min_size, max_size))

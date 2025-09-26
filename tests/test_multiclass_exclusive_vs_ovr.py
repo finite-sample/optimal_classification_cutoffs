@@ -40,19 +40,21 @@ class TestExclusiveVsOvRDistinction:
     def test_exclusive_produces_single_label_predictions(self):
         """Exclusive approach should produce exactly one prediction per sample."""
         labels = np.array([0, 1, 2, 0, 1, 2])
-        probs = np.array([
-            [0.7, 0.2, 0.1],  # Clear class 0
-            [0.1, 0.8, 0.1],  # Clear class 1
-            [0.1, 0.1, 0.8],  # Clear class 2
-            [0.4, 0.4, 0.2],  # Ambiguous 0 vs 1
-            [0.3, 0.5, 0.2],  # Clear class 1
-            [0.2, 0.3, 0.5],  # Clear class 2
-        ])
+        probs = np.array(
+            [
+                [0.7, 0.2, 0.1],  # Clear class 0
+                [0.1, 0.8, 0.1],  # Clear class 1
+                [0.1, 0.1, 0.8],  # Clear class 2
+                [0.4, 0.4, 0.2],  # Ambiguous 0 vs 1
+                [0.3, 0.5, 0.2],  # Clear class 1
+                [0.2, 0.3, 0.5],  # Clear class 2
+            ]
+        )
 
         # Get thresholds using coordinate ascent (which ensures exclusive predictions)
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Apply exclusive prediction rule: argmax(p - tau)
@@ -74,16 +76,18 @@ class TestExclusiveVsOvRDistinction:
     def test_ovr_can_produce_multilabel_predictions(self):
         """OvR approach can produce multiple positive predictions per sample."""
         labels = np.array([0, 1, 2, 0])
-        probs = np.array([
-            [0.8, 0.7, 0.1],  # Both class 0 and 1 might be predicted
-            [0.2, 0.9, 0.8],  # Both class 1 and 2 might be predicted
-            [0.1, 0.2, 0.9],  # Clear class 2
-            [0.6, 0.3, 0.4],  # Clear class 0
-        ])
+        probs = np.array(
+            [
+                [0.8, 0.7, 0.1],  # Both class 0 and 1 might be predicted
+                [0.2, 0.9, 0.8],  # Both class 1 and 2 might be predicted
+                [0.1, 0.2, 0.9],  # Clear class 2
+                [0.6, 0.3, 0.4],  # Clear class 0
+            ]
+        )
 
         # Use OvR optimization (method='auto' typically uses OvR for multiclass)
         thresholds = get_optimal_threshold(
-            labels, probs, metric="f1", method="auto", comparison='>'
+            labels, probs, metric="f1", method="auto", comparison=">"
         )
 
         # Apply per-class thresholds
@@ -102,18 +106,20 @@ class TestExclusiveVsOvRDistinction:
     def test_exclusive_accuracy_different_from_ovr_f1(self):
         """Exclusive accuracy should be different from OvR macro F1."""
         labels = np.array([0, 1, 2, 0, 1, 2])
-        probs = np.array([
-            [0.6, 0.3, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.5, 0.4, 0.1],
-            [0.3, 0.6, 0.1],
-            [0.1, 0.3, 0.6],
-        ])
+        probs = np.array(
+            [
+                [0.6, 0.3, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.5, 0.4, 0.1],
+                [0.3, 0.6, 0.1],
+                [0.1, 0.3, 0.6],
+            ]
+        )
 
         # Get OvR thresholds (standard approach)
         thresholds_ovr = get_optimal_threshold(
-            labels, probs, metric="f1", method="auto", comparison='>'
+            labels, probs, metric="f1", method="auto", comparison=">"
         )
 
         # Apply OvR predictions
@@ -147,13 +153,15 @@ class TestExclusiveVsOvRDistinction:
     def test_exclusive_accuracy_metric_computation(self):
         """Test exclusive accuracy metric computation."""
         labels = np.array([0, 1, 2, 0, 1])
-        probs = np.array([
-            [0.8, 0.1, 0.1],  # Correct prediction for class 0
-            [0.2, 0.7, 0.1],  # Correct prediction for class 1
-            [0.1, 0.2, 0.7],  # Correct prediction for class 2
-            [0.3, 0.6, 0.1],  # Incorrect prediction (predicts class 1, should be 0)
-            [0.1, 0.8, 0.1],  # Correct prediction for class 1
-        ])
+        probs = np.array(
+            [
+                [0.8, 0.1, 0.1],  # Correct prediction for class 0
+                [0.2, 0.7, 0.1],  # Correct prediction for class 1
+                [0.1, 0.2, 0.7],  # Correct prediction for class 2
+                [0.3, 0.6, 0.1],  # Incorrect prediction (predicts class 1, should be 0)
+                [0.1, 0.8, 0.1],  # Correct prediction for class 1
+            ]
+        )
 
         # Use simple thresholds that would lead to argmax predictions
         thresholds = np.array([0.0, 0.0, 0.0])  # Low thresholds
@@ -161,7 +169,7 @@ class TestExclusiveVsOvRDistinction:
         try:
             # Compute exclusive accuracy
             accuracy = multiclass_metric_exclusive(
-                labels, probs, thresholds, metric_name="accuracy", comparison='>'
+                labels, probs, thresholds, metric_name="accuracy", comparison=">"
             )
 
             # Manual calculation: argmax predictions
@@ -183,7 +191,7 @@ class TestExclusiveVsOvRDistinction:
 
         # Get OvR thresholds
         thresholds_ovr = get_optimal_threshold(
-            labels, probs, metric="f1", method="auto", comparison='>'
+            labels, probs, metric="f1", method="auto", comparison=">"
         )
 
         # Apply OvR predictions
@@ -201,7 +209,9 @@ class TestExclusiveVsOvRDistinction:
         ovr_counts = np.sum(pred_ovr, axis=1)
         exclusive_counts = np.sum(pred_exclusive, axis=1)
 
-        assert np.all(exclusive_counts == 1), "Exclusive should predict exactly 1 class per sample"
+        assert np.all(exclusive_counts == 1), (
+            "Exclusive should predict exactly 1 class per sample"
+        )
 
         # OvR can have variable counts (0, 1, or more per sample)
         assert len(ovr_counts) == len(labels)  # Basic sanity check
@@ -217,17 +227,19 @@ class TestMulticlassAccuracySemantics:
     def test_multiclass_accuracy_requires_exclusive_predictions(self):
         """Multiclass accuracy should require exclusive single-label predictions."""
         labels = np.array([0, 1, 2])
-        probs = np.array([
-            [0.6, 0.3, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.3, 0.6],
-        ])
+        probs = np.array(
+            [
+                [0.6, 0.3, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.3, 0.6],
+            ]
+        )
 
         # Try to compute multiclass accuracy with OvR approach
         # This should either work by converting to exclusive or raise an error
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="auto", comparison='>'
+                labels, probs, metric="accuracy", method="auto", comparison=">"
             )
 
             # If it works, verify the result makes sense
@@ -251,7 +263,7 @@ class TestMulticlassAccuracySemantics:
         # F1 should work with OvR approach
         try:
             thresholds_f1 = get_optimal_threshold(
-                labels, probs, metric="f1", method="auto", comparison='>'
+                labels, probs, metric="f1", method="auto", comparison=">"
             )
             assert len(thresholds_f1) == probs.shape[1]
 
@@ -261,7 +273,7 @@ class TestMulticlassAccuracySemantics:
         # Accuracy should require exclusive approach or raise error
         try:
             thresholds_accuracy = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="auto", comparison='>'
+                labels, probs, metric="accuracy", method="auto", comparison=">"
             )
 
             # If it works, it should produce exclusive-style results
@@ -269,28 +281,30 @@ class TestMulticlassAccuracySemantics:
 
         except ValueError as e:
             # Expected error about exclusive predictions
-            assert ("exclusive" in str(e).lower() or
-                   "single-label" in str(e).lower() or
-                   "micro" in str(e).lower()), (
-                f"Expected error about exclusive/single-label predictions: {e}"
-            )
+            assert (
+                "exclusive" in str(e).lower()
+                or "single-label" in str(e).lower()
+                or "micro" in str(e).lower()
+            ), f"Expected error about exclusive/single-label predictions: {e}"
 
     def test_single_label_consistency_check(self):
         """Test that single-label predictions are consistent."""
         labels = np.array([0, 1, 2, 1, 0])
-        probs = np.array([
-            [0.7, 0.2, 0.1],
-            [0.1, 0.8, 0.1],
-            [0.2, 0.1, 0.7],
-            [0.3, 0.6, 0.1],
-            [0.8, 0.1, 0.1],
-        ])
+        probs = np.array(
+            [
+                [0.7, 0.2, 0.1],
+                [0.1, 0.8, 0.1],
+                [0.2, 0.1, 0.7],
+                [0.3, 0.6, 0.1],
+                [0.8, 0.1, 0.1],
+            ]
+        )
 
         # Any method that produces single-label predictions should be consistent
         # with the exclusive accuracy computation
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Apply exclusive prediction rule
@@ -303,7 +317,7 @@ class TestMulticlassAccuracySemantics:
             # Should match exclusive accuracy computation if available
             try:
                 computed_accuracy = multiclass_metric_exclusive(
-                    labels, probs, thresholds, metric_name="accuracy", comparison='>'
+                    labels, probs, thresholds, metric_name="accuracy", comparison=">"
                 )
 
                 assert abs(manual_accuracy - computed_accuracy) < 1e-10, (
@@ -324,16 +338,18 @@ class TestMulticlassEdgeCases:
     def test_single_class_case(self):
         """Test behavior with single class (degenerate multiclass)."""
         labels = np.array([0, 0, 0])  # Only class 0
-        probs = np.array([
-            [0.8, 0.2],  # 2 classes in probabilities
-            [0.6, 0.4],
-            [0.7, 0.3],
-        ])
+        probs = np.array(
+            [
+                [0.8, 0.2],  # 2 classes in probabilities
+                [0.6, 0.4],
+                [0.7, 0.3],
+            ]
+        )
 
         # This is technically binary, but might be handled as multiclass
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="auto", comparison='>'
+                labels, probs, metric="f1", method="auto", comparison=">"
             )
 
             # Should produce valid thresholds
@@ -348,23 +364,27 @@ class TestMulticlassEdgeCases:
     def test_perfect_separation_case(self):
         """Test case where classes are perfectly separated."""
         labels = np.array([0, 1, 2])
-        probs = np.array([
-            [1.0, 0.0, 0.0],  # Perfect class 0
-            [0.0, 1.0, 0.0],  # Perfect class 1
-            [0.0, 0.0, 1.0],  # Perfect class 2
-        ])
+        probs = np.array(
+            [
+                [1.0, 0.0, 0.0],  # Perfect class 0
+                [0.0, 1.0, 0.0],  # Perfect class 1
+                [0.0, 0.0, 1.0],  # Perfect class 2
+            ]
+        )
 
         for method in ["auto", "sort_scan"]:
             try:
                 thresholds = get_optimal_threshold(
-                    labels, probs, metric="f1", method=method, comparison='>'
+                    labels, probs, metric="f1", method=method, comparison=">"
                 )
 
                 # With perfect separation, should achieve perfect performance
                 pred_classes = np.argmax(probs - thresholds.reshape(1, -1), axis=1)
                 accuracy = np.mean(pred_classes == labels)
 
-                assert accuracy == 1.0, "Perfect separation should achieve perfect accuracy"
+                assert accuracy == 1.0, (
+                    "Perfect separation should achieve perfect accuracy"
+                )
 
             except (ValueError, NotImplementedError):
                 continue  # Try other methods
@@ -372,15 +392,17 @@ class TestMulticlassEdgeCases:
     def test_ambiguous_cases(self):
         """Test cases where multiple classes have similar probabilities."""
         labels = np.array([0, 1, 2])
-        probs = np.array([
-            [0.34, 0.33, 0.33],  # Very close probabilities
-            [0.33, 0.34, 0.33],
-            [0.33, 0.33, 0.34],
-        ])
+        probs = np.array(
+            [
+                [0.34, 0.33, 0.33],  # Very close probabilities
+                [0.33, 0.34, 0.33],
+                [0.33, 0.33, 0.34],
+            ]
+        )
 
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="auto", comparison='>'
+                labels, probs, metric="f1", method="auto", comparison=">"
             )
 
             # Should handle ambiguous cases gracefully
@@ -400,10 +422,7 @@ class TestMulticlassEdgeCases:
                 pytest.skip("Ambiguous case numerical issues")
             raise
 
-    @given(
-        n_samples=st.integers(5, 20),
-        n_classes=st.integers(3, 5)
-    )
+    @given(n_samples=st.integers(5, 20), n_classes=st.integers(3, 5))
     @settings(deadline=None, max_examples=20)
     def test_exclusive_single_label_property(self, n_samples, n_classes):
         """Property test: exclusive predictions should always be single-label."""
@@ -412,7 +431,7 @@ class TestMulticlassEdgeCases:
         try:
             # Use any method that should produce reasonable thresholds
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="auto", comparison='>'
+                labels, probs, metric="f1", method="auto", comparison=">"
             )
 
             # Apply exclusive prediction rule
@@ -431,7 +450,9 @@ class TestMulticlassEdgeCases:
 
         except Exception as e:
             # Some combinations might not be supported
-            if any(phrase in str(e).lower() for phrase in
-                   ["not supported", "not implemented", "degenerate"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented", "degenerate"]
+            ):
                 pytest.skip(f"Configuration not supported: {e}")
             raise

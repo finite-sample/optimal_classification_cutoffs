@@ -37,7 +37,7 @@ class TestDegenerateCasesFix:
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
         threshold = get_optimal_threshold(
-            y_true, pred_prob, metric='accuracy', comparison='>'
+            y_true, pred_prob, metric="accuracy", comparison=">"
         )
 
         # With '>', we need prob > threshold to be false for all
@@ -52,7 +52,7 @@ class TestDegenerateCasesFix:
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
         threshold = get_optimal_threshold(
-            y_true, pred_prob, metric='accuracy', comparison='>='
+            y_true, pred_prob, metric="accuracy", comparison=">="
         )
 
         # With '>=', we need prob >= threshold to be false for all
@@ -67,7 +67,7 @@ class TestDegenerateCasesFix:
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
         threshold = get_optimal_threshold(
-            y_true, pred_prob, metric='accuracy', comparison='>'
+            y_true, pred_prob, metric="accuracy", comparison=">"
         )
 
         # With '>', we need prob > threshold to be true for all
@@ -82,7 +82,7 @@ class TestDegenerateCasesFix:
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
         threshold = get_optimal_threshold(
-            y_true, pred_prob, metric='accuracy', comparison='>='
+            y_true, pred_prob, metric="accuracy", comparison=">="
         )
 
         # With '>=', we need prob >= threshold to be true for all
@@ -96,13 +96,13 @@ class TestDegenerateCasesFix:
         # All negative
         y_neg = [0, 0, 0]
         p_neg = [0.2, 0.7, 0.8]
-        thresh_neg = get_optimal_threshold(y_neg, p_neg, metric='f1')
+        thresh_neg = get_optimal_threshold(y_neg, p_neg, metric="f1")
         assert thresh_neg != 0.5, "All-negative should not return arbitrary 0.5"
 
         # All positive
         y_pos = [1, 1, 1]
         p_pos = [0.2, 0.7, 0.8]
-        thresh_pos = get_optimal_threshold(y_pos, p_pos, metric='f1')
+        thresh_pos = get_optimal_threshold(y_pos, p_pos, metric="f1")
         assert thresh_pos != 0.5, "All-positive should not return arbitrary 0.5"
 
 
@@ -120,7 +120,7 @@ class TestMicroAccuracyFix:
 
         # Compute exclusive accuracy
         exclusive_acc = multiclass_metric_exclusive(
-            y_true, pred_prob, thresholds, 'accuracy'
+            y_true, pred_prob, thresholds, "accuracy"
         )
 
         # Compute OvR confusion matrices
@@ -128,10 +128,12 @@ class TestMicroAccuracyFix:
 
         # OvR aggregation should raise error for accuracy
         with pytest.raises(ValueError, match="Micro-averaged accuracy requires"):
-            multiclass_metric(cms, 'accuracy', 'micro')
+            multiclass_metric(cms, "accuracy", "micro")
 
         # Exclusive accuracy should be reasonable (0-1 range)
-        assert 0 <= exclusive_acc <= 1, f"Exclusive accuracy {exclusive_acc} out of range"
+        assert 0 <= exclusive_acc <= 1, (
+            f"Exclusive accuracy {exclusive_acc} out of range"
+        )
 
     def test_micro_accuracy_optimization(self):
         """Micro accuracy optimization should route through exclusive predictions."""
@@ -143,7 +145,7 @@ class TestMicroAccuracyFix:
 
         # This should work without error
         thresholds = get_optimal_multiclass_thresholds(
-            y_true, pred_prob, metric='accuracy', average='micro', method='minimize'
+            y_true, pred_prob, metric="accuracy", average="micro", method="minimize"
         )
 
         assert len(thresholds) == n_classes
@@ -167,10 +169,10 @@ class TestDinkelbachComparisonSupport:
 
         # Test through main API
         thresh_main_excl = get_optimal_threshold(
-            y_true, pred_prob, method='dinkelbach', comparison='>'
+            y_true, pred_prob, method="dinkelbach", comparison=">"
         )
         thresh_main_incl = get_optimal_threshold(
-            y_true, pred_prob, method='dinkelbach', comparison='>='
+            y_true, pred_prob, method="dinkelbach", comparison=">="
         )
 
         assert thresh_main_excl == thresh_excl
@@ -184,7 +186,7 @@ class TestDinkelbachComparisonSupport:
 
         for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, pred_prob, method='dinkelbach', comparison=comparison
+                y_true, pred_prob, method="dinkelbach", comparison=comparison
             )
 
             # Should produce valid threshold
@@ -201,7 +203,9 @@ class TestDinkelbachComparisonSupport:
             assert predictions.dtype == bool
 
             # Should produce reasonable F1 score
-            tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold, comparison=comparison)
+            tp, tn, fp, fn = get_confusion_matrix(
+                y_true, pred_prob, threshold, comparison=comparison
+            )
             f1 = f1_score(tp, tn, fp, fn)
             assert 0 <= f1 <= 1
 
@@ -216,7 +220,7 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without error
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric='f1')
+        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
         assert len(thresholds) == 3
 
     def test_invalid_labels_rejected(self):
@@ -226,7 +230,7 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         with pytest.raises(ValueError, match="must be within \\[0, 2\\]"):
-            get_optimal_threshold(y_true, pred_prob, metric='f1')
+            get_optimal_threshold(y_true, pred_prob, metric="f1")
 
     def test_sparse_labels_work(self):
         """Sparse label sets should work correctly."""
@@ -236,7 +240,7 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work and return 4 thresholds
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric='f1')
+        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
         assert len(thresholds) == 4
 
 
@@ -252,10 +256,11 @@ class TestBinarySearchEfficiency:
         # Test both comparison operators
         for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, pred_prob,
-                metric='f1',
-                method='smart_brute',
-                comparison=comparison
+                y_true,
+                pred_prob,
+                metric="f1",
+                method="smart_brute",
+                comparison=comparison,
             )
 
             # Verify correctness by checking confusion matrix
@@ -276,10 +281,11 @@ class TestBinarySearchEfficiency:
         sample_weight = np.random.rand(100) * 2  # Random weights
 
         threshold = get_optimal_threshold(
-            y_true, pred_prob,
-            metric='f1',
-            method='smart_brute',
-            sample_weight=sample_weight
+            y_true,
+            pred_prob,
+            metric="f1",
+            method="smart_brute",
+            sample_weight=sample_weight,
         )
 
         # Verify weighted confusion matrix
@@ -305,12 +311,13 @@ class TestMicroOptimizationDocumentation:
             warnings.simplefilter("always")
 
             _optimize_micro_averaged_thresholds(
-                y_true, pred_prob, 'f1', 'smart_brute', None, False, '>'
+                y_true, pred_prob, "f1", "smart_brute", None, False, ">"
             )
 
             # Should raise warning about limitation
             warning_found = any(
-                "smart_brute with micro averaging uses independent" in str(warning.message)
+                "smart_brute with micro averaging uses independent"
+                in str(warning.message)
                 for warning in w
             )
             assert warning_found, "Should warn about micro optimization limitation"
@@ -326,7 +333,7 @@ class TestMicroOptimizationDocumentation:
             warnings.simplefilter("always")
 
             _optimize_micro_averaged_thresholds(
-                y_true, pred_prob, 'f1', 'minimize', None, False, '>'
+                y_true, pred_prob, "f1", "minimize", None, False, ">"
             )
 
             # Should not warn about micro optimization
@@ -346,11 +353,11 @@ class TestCoordinateAscentDocumentation:
         pred_prob = np.random.rand(20, 3)
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
-        with pytest.raises(NotImplementedError, match="This limitation could be lifted"):
+        with pytest.raises(
+            NotImplementedError, match="This limitation could be lifted"
+        ):
             get_optimal_threshold(
-                y_true, pred_prob,
-                method='coord_ascent',
-                sample_weight=np.ones(20)
+                y_true, pred_prob, method="coord_ascent", sample_weight=np.ones(20)
             )
 
     def test_coord_ascent_comparison_error(self):
@@ -361,9 +368,7 @@ class TestCoordinateAscentDocumentation:
 
         with pytest.raises(NotImplementedError, match="Support for.*could be added"):
             get_optimal_threshold(
-                y_true, pred_prob,
-                method='coord_ascent',
-                comparison='>='
+                y_true, pred_prob, method="coord_ascent", comparison=">="
             )
 
     def test_coord_ascent_metric_error(self):
@@ -372,11 +377,11 @@ class TestCoordinateAscentDocumentation:
         pred_prob = np.random.rand(20, 3)
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
-        with pytest.raises(NotImplementedError, match="Support for other piecewise metrics"):
+        with pytest.raises(
+            NotImplementedError, match="Support for other piecewise metrics"
+        ):
             get_optimal_threshold(
-                y_true, pred_prob,
-                method='coord_ascent',
-                metric='accuracy'
+                y_true, pred_prob, method="coord_ascent", metric="accuracy"
             )
 
 
@@ -387,11 +392,11 @@ class TestExclusivePredictionRule:
         """Exclusive predictions should use margin-based rule, not argmax."""
         # Case where argmax != max margin
         pred_prob = np.array([[0.49, 0.10, 0.41]])  # Class 0 has highest prob
-        thresholds = np.array([0.3, 0.5, 0.2])      # Class 2 has highest margin
+        thresholds = np.array([0.3, 0.5, 0.2])  # Class 2 has highest margin
         y_dummy = np.array([0])  # Not used in prediction logic
 
         predictions = _compute_exclusive_predictions(
-            y_dummy, pred_prob, thresholds, comparison='>'
+            y_dummy, pred_prob, thresholds, comparison=">"
         )
 
         # Should pick class 2 (highest margin: 0.41 - 0.2 = 0.21)
@@ -405,11 +410,13 @@ class TestExclusivePredictionRule:
         y_dummy = np.array([0])
 
         predictions = _compute_exclusive_predictions(
-            y_dummy, pred_prob, thresholds, comparison='>'
+            y_dummy, pred_prob, thresholds, comparison=">"
         )
 
         # Should fall back to class 2 (highest probability)
-        assert predictions[0] == 2, "Should fall back to argmax when all margins negative"
+        assert predictions[0] == 2, (
+            "Should fall back to argmax when all margins negative"
+        )
 
     def test_exclusive_accuracy_differs_from_argmax(self):
         """Exclusive accuracy can differ from standard argmax accuracy."""
@@ -423,9 +430,7 @@ class TestExclusivePredictionRule:
         thresholds = np.array([0.2, 0.5, 0.3])
 
         # Exclusive predictions (margin-based)
-        exclusive_preds = _compute_exclusive_predictions(
-            y_true, pred_prob, thresholds
-        )
+        exclusive_preds = _compute_exclusive_predictions(y_true, pred_prob, thresholds)
         exclusive_acc = np.mean(exclusive_preds == y_true)
 
         # Argmax predictions
@@ -435,7 +440,9 @@ class TestExclusivePredictionRule:
         # They can be different (not asserting inequality since it's probabilistic)
         assert 0 <= exclusive_acc <= 1
         assert 0 <= argmax_acc <= 1
-        print(f"Exclusive accuracy: {exclusive_acc:.3f}, Argmax accuracy: {argmax_acc:.3f}")
+        print(
+            f"Exclusive accuracy: {exclusive_acc:.3f}, Argmax accuracy: {argmax_acc:.3f}"
+        )
 
 
 # Property-based tests using Hypothesis
@@ -445,7 +452,7 @@ class TestPropertyBased:
     @given(
         n_samples=st.integers(min_value=10, max_value=100),
         positive_rate=st.floats(min_value=0.1, max_value=0.9),
-        noise=st.floats(min_value=0.0, max_value=0.3)
+        noise=st.floats(min_value=0.0, max_value=0.3),
     )
     @settings(max_examples=50, deadline=5000)
     def test_weighted_equals_expanded(self, n_samples, positive_rate, noise):
@@ -454,21 +461,27 @@ class TestPropertyBased:
 
         # Generate base data
         pred_prob = np.random.rand(n_samples)
-        y_true = (pred_prob + noise * np.random.randn(n_samples) > positive_rate).astype(int)
+        y_true = (
+            pred_prob + noise * np.random.randn(n_samples) > positive_rate
+        ).astype(int)
 
         # Integer weights for exact expansion
         weights = np.random.randint(1, 4, n_samples)  # Weights 1, 2, or 3
 
         # Weighted approach
         threshold_weighted = get_optimal_threshold(
-            y_true, pred_prob, metric='accuracy', method='smart_brute', sample_weight=weights
+            y_true,
+            pred_prob,
+            metric="accuracy",
+            method="smart_brute",
+            sample_weight=weights,
         )
 
         # Expanded approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(pred_prob, weights)
         threshold_expanded = get_optimal_threshold(
-            y_expanded, p_expanded, metric='accuracy', method='smart_brute'
+            y_expanded, p_expanded, metric="accuracy", method="smart_brute"
         )
 
         # Should be exactly equal or very close (allowing only tiny eps for tie semantics)
@@ -478,8 +491,12 @@ class TestPropertyBased:
         )
 
         # Also verify scores are identical
-        tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(y_true, pred_prob, threshold_weighted, weights)
-        tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(y_expanded, p_expanded, threshold_expanded)
+        tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(
+            y_true, pred_prob, threshold_weighted, weights
+        )
+        tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(
+            y_expanded, p_expanded, threshold_expanded
+        )
 
         acc_weighted = accuracy_score(tp_w, tn_w, fp_w, fn_w)
         acc_expanded = accuracy_score(tp_e, tn_e, fp_e, fn_e)
@@ -491,7 +508,7 @@ class TestPropertyBased:
 
     @given(
         n_samples=st.integers(min_value=20, max_value=100),
-        tie_prob=st.floats(min_value=0.2, max_value=0.8)
+        tie_prob=st.floats(min_value=0.2, max_value=0.8),
     )
     @settings(max_examples=30, deadline=5000)
     def test_tie_semantics_consistency(self, n_samples, tie_prob):
@@ -509,10 +526,10 @@ class TestPropertyBased:
 
         # Get thresholds for both comparison operators
         thresh_excl = get_optimal_threshold(
-            y_true, pred_prob, metric='f1', comparison='>'
+            y_true, pred_prob, metric="f1", comparison=">"
         )
         thresh_incl = get_optimal_threshold(
-            y_true, pred_prob, metric='f1', comparison='>='
+            y_true, pred_prob, metric="f1", comparison=">="
         )
 
         # Apply thresholds
@@ -530,7 +547,7 @@ class TestPropertyBased:
 
     @given(
         n_classes=st.integers(min_value=2, max_value=5),
-        n_samples=st.integers(min_value=20, max_value=100)
+        n_samples=st.integers(min_value=20, max_value=100),
     )
     @settings(max_examples=20, deadline=10000)
     def test_label_validation_robustness(self, n_classes, n_samples):
@@ -538,13 +555,15 @@ class TestPropertyBased:
         np.random.seed(456)  # Fixed seed
 
         # Valid case: random subset of classes
-        present_classes = np.random.choice(n_classes, size=min(n_classes, 3), replace=False)
+        present_classes = np.random.choice(
+            n_classes, size=min(n_classes, 3), replace=False
+        )
         y_true = np.random.choice(present_classes, size=n_samples)
         pred_prob = np.random.rand(n_samples, n_classes)
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without error
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric='f1')
+        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
         assert len(thresholds) == n_classes
 
         # Invalid case: label outside range
@@ -554,7 +573,7 @@ class TestPropertyBased:
             pred_invalid = pred_invalid / pred_invalid.sum(axis=1, keepdims=True)
 
             with pytest.raises(ValueError, match="must be within"):
-                get_optimal_threshold(y_invalid, pred_invalid, metric='f1')
+                get_optimal_threshold(y_invalid, pred_invalid, metric="f1")
 
 
 class TestRegressionPrevention:
@@ -566,26 +585,29 @@ class TestRegressionPrevention:
 
         # Multiclass case with non-consecutive labels, weights, ties
         y_true = np.array([0, 2, 0, 2, 1, 1])  # Skip some classes
-        pred_prob = np.array([
-            [0.5, 0.2, 0.3],
-            [0.3, 0.3, 0.4],
-            [0.5, 0.1, 0.4],  # Ties with first sample
-            [0.2, 0.2, 0.6],
-            [0.4, 0.5, 0.1],
-            [0.3, 0.5, 0.2]
-        ])
+        pred_prob = np.array(
+            [
+                [0.5, 0.2, 0.3],
+                [0.3, 0.3, 0.4],
+                [0.5, 0.1, 0.4],  # Ties with first sample
+                [0.2, 0.2, 0.6],
+                [0.4, 0.5, 0.1],
+                [0.3, 0.5, 0.2],
+            ]
+        )
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         sample_weight = np.array([0.5, 1.5, 2.0, 1.0, 0.8, 1.2])  # Fractional weights
 
         # Should work with all the fixes
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             thresholds = get_optimal_threshold(
-                y_true, pred_prob,
-                metric='f1',
-                method='smart_brute',
+                y_true,
+                pred_prob,
+                metric="f1",
+                method="smart_brute",
                 comparison=comparison,
-                sample_weight=sample_weight
+                sample_weight=sample_weight,
             )
 
             assert len(thresholds) == 3
@@ -593,9 +615,11 @@ class TestRegressionPrevention:
 
             # Verify confusion matrices work
             cms = get_multiclass_confusion_matrix(
-                y_true, pred_prob, thresholds,
+                y_true,
+                pred_prob,
+                thresholds,
                 sample_weight=sample_weight,
-                comparison=comparison
+                comparison=comparison,
             )
 
             assert len(cms) == 3
@@ -612,11 +636,9 @@ class TestRegressionPrevention:
         y_true = np.random.binomial(1, pred_prob)  # Labels match probabilities
 
         # Test both comparison operators
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, pred_prob,
-                method='dinkelbach',
-                comparison=comparison
+                y_true, pred_prob, method="dinkelbach", comparison=comparison
             )
 
             # Should be reasonable threshold
@@ -644,14 +666,15 @@ class TestRegressionPrevention:
         ]
 
         for y_true, pred_prob in test_cases:
-            for method in ['smart_brute', 'minimize']:
-                for comparison in ['>', '>=']:
+            for method in ["smart_brute", "minimize"]:
+                for comparison in [">", ">="]:
                     try:
                         threshold = get_optimal_threshold(
-                            y_true, pred_prob,
-                            metric='f1',
+                            y_true,
+                            pred_prob,
+                            metric="f1",
                             method=method,
-                            comparison=comparison
+                            comparison=comparison,
                         )
 
                         # Should return reasonable threshold, not arbitrary 0.5
@@ -662,8 +685,12 @@ class TestRegressionPrevention:
                         tp, tn, fp, fn = get_confusion_matrix(
                             y_true, pred_prob, threshold, comparison=comparison
                         )
-                        metric_val = f1_score(tp, tn, fp, fn) if tp + fp + fn > 0 else 1.0
+                        metric_val = (
+                            f1_score(tp, tn, fp, fn) if tp + fp + fn > 0 else 1.0
+                        )
                         assert 0 <= metric_val <= 1, f"Invalid F1 {metric_val}"
 
                     except Exception as e:
-                        pytest.fail(f"Method {method} with {comparison} failed on {y_true}, {pred_prob}: {e}")
+                        pytest.fail(
+                            f"Method {method} with {comparison} failed on {y_true}, {pred_prob}: {e}"
+                        )

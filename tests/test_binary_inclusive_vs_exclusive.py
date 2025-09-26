@@ -81,10 +81,10 @@ class TestOptimizationWithTies:
         labels = np.array([1, 0, 0])  # First tied item is positive, second is negative
 
         threshold_exclusive = get_optimal_threshold(
-            labels, probs, metric="f1", method="sort_scan", comparison='>'
+            labels, probs, metric="f1", method="sort_scan", comparison=">"
         )
         threshold_inclusive = get_optimal_threshold(
-            labels, probs, metric="f1", method="sort_scan", comparison='>='
+            labels, probs, metric="f1", method="sort_scan", comparison=">="
         )
 
         pred_exclusive = probs > threshold_exclusive
@@ -101,8 +101,12 @@ class TestOptimizationWithTies:
             assert len(pred_exclusive) == len(pred_inclusive) == len(probs)
 
         # Verify both produce valid F1 scores
-        f1_exclusive = f1_score(*get_confusion_matrix(labels, probs, threshold_exclusive, comparison='>'))
-        f1_inclusive = f1_score(*get_confusion_matrix(labels, probs, threshold_inclusive, comparison='>='))
+        f1_exclusive = f1_score(
+            *get_confusion_matrix(labels, probs, threshold_exclusive, comparison=">")
+        )
+        f1_inclusive = f1_score(
+            *get_confusion_matrix(labels, probs, threshold_inclusive, comparison=">=")
+        )
 
         assert 0 <= f1_exclusive <= 1, f"Exclusive F1 {f1_exclusive} out of range"
         assert 0 <= f1_inclusive <= 1, f"Inclusive F1 {f1_inclusive} out of range"
@@ -123,10 +127,10 @@ class TestOptimizationWithTies:
         for metric in ["f1", "accuracy"]:
             try:
                 threshold_exclusive = get_optimal_threshold(
-                    labels, probs, metric=metric, method="sort_scan", comparison='>'
+                    labels, probs, metric=metric, method="sort_scan", comparison=">"
                 )
                 threshold_inclusive = get_optimal_threshold(
-                    labels, probs, metric=metric, method="sort_scan", comparison='>='
+                    labels, probs, metric=metric, method="sort_scan", comparison=">="
                 )
 
                 # Both should produce valid thresholds
@@ -139,8 +143,8 @@ class TestOptimizationWithTies:
 
                 # Check behavior when probabilities are exactly equal to threshold
                 # Use exact equality rather than np.isclose to avoid false positives
-                exactly_tied_exclusive = (probs == threshold_exclusive)
-                exactly_tied_inclusive = (probs == threshold_inclusive)
+                exactly_tied_exclusive = probs == threshold_exclusive
+                exactly_tied_inclusive = probs == threshold_inclusive
 
                 if np.any(exactly_tied_exclusive):
                     # Items exactly tied to exclusive threshold should not be predicted positive
@@ -173,10 +177,10 @@ class TestOptimizationWithTies:
 
         for metric in ["f1", "accuracy"]:
             threshold_exclusive = get_optimal_threshold(
-                labels, probs, metric=metric, method="sort_scan", comparison='>'
+                labels, probs, metric=metric, method="sort_scan", comparison=">"
             )
             threshold_inclusive = get_optimal_threshold(
-                labels, probs, metric=metric, method="sort_scan", comparison='>='
+                labels, probs, metric=metric, method="sort_scan", comparison=">="
             )
 
             # Apply thresholds
@@ -198,8 +202,16 @@ class TestOptimizationWithTies:
 
             # Verify scores are valid
             if metric == "f1":
-                score_exclusive = f1_score(*get_confusion_matrix(labels, probs, threshold_exclusive, comparison='>'))
-                score_inclusive = f1_score(*get_confusion_matrix(labels, probs, threshold_inclusive, comparison='>='))
+                score_exclusive = f1_score(
+                    *get_confusion_matrix(
+                        labels, probs, threshold_exclusive, comparison=">"
+                    )
+                )
+                score_inclusive = f1_score(
+                    *get_confusion_matrix(
+                        labels, probs, threshold_inclusive, comparison=">="
+                    )
+                )
             else:  # accuracy
                 score_exclusive = np.mean(pred_exclusive == labels)
                 score_inclusive = np.mean(pred_inclusive == labels)
@@ -219,18 +231,22 @@ class TestComparisonThreading:
 
         # Both should work without error
         threshold_exclusive = get_optimal_threshold(
-            labels, probs, metric="f1", method="sort_scan", comparison='>'
+            labels, probs, metric="f1", method="sort_scan", comparison=">"
         )
         threshold_inclusive = get_optimal_threshold(
-            labels, probs, metric="f1", method="sort_scan", comparison='>='
+            labels, probs, metric="f1", method="sort_scan", comparison=">="
         )
 
         assert 0 <= threshold_exclusive <= 1
         assert 0 <= threshold_inclusive <= 1
 
         # Verify that confusion matrices use the correct comparison
-        tp_ex, tn_ex, fp_ex, fn_ex = get_confusion_matrix(labels, probs, threshold_exclusive, comparison='>')
-        tp_in, tn_in, fp_in, fn_in = get_confusion_matrix(labels, probs, threshold_inclusive, comparison='>=')
+        tp_ex, tn_ex, fp_ex, fn_ex = get_confusion_matrix(
+            labels, probs, threshold_exclusive, comparison=">"
+        )
+        tp_in, tn_in, fp_in, fn_in = get_confusion_matrix(
+            labels, probs, threshold_inclusive, comparison=">="
+        )
 
         # Totals should match
         assert tp_ex + tn_ex + fp_ex + fn_ex == len(labels)
@@ -242,15 +258,19 @@ class TestComparisonThreading:
         labels = np.array([0, 1, 0, 1])
 
         # Test both comparison operators
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="smart_brute", comparison=comparison
+                labels,
+                probs,
+                metric="accuracy",
+                method="smart_brute",
+                comparison=comparison,
             )
 
             assert 0 <= threshold <= 1
 
             # Verify the threshold works correctly with the specified comparison
-            pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+            pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
             accuracy = np.mean(pred == labels)
 
             assert 0 <= accuracy <= 1
@@ -260,7 +280,7 @@ class TestComparisonThreading:
         probs = np.array([0.1, 0.3, 0.7, 0.9])
         labels = np.array([0, 0, 1, 1])
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             try:
                 threshold = get_optimal_threshold(
                     labels, probs, metric="f1", method="minimize", comparison=comparison
@@ -269,7 +289,9 @@ class TestComparisonThreading:
                 assert 0 <= threshold <= 1
 
                 # Verify confusion matrix uses correct comparison
-                tp, tn, fp, fn = get_confusion_matrix(labels, probs, threshold, comparison=comparison)
+                tp, tn, fp, fn = get_confusion_matrix(
+                    labels, probs, threshold, comparison=comparison
+                )
                 assert tp + tn + fp + fn == len(labels)
 
             except Exception as e:
@@ -287,19 +309,23 @@ class TestEdgeCasesWithComparison:
         probs = np.array([0.0, 0.5, 1.0])
         labels = np.array([0, 1, 1])
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                labels,
+                probs,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=comparison,
             )
 
             # Should handle boundary values gracefully
             assert 0 <= threshold <= 1
 
-            pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
+            pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
             # Specific boundary behavior
             if threshold == 0.0:
-                if comparison == '>':
+                if comparison == ">":
                     # 0.0 > 0.0 is False, others depend on their values vs 0
                     expected = probs > 0.0
                 else:  # '>='
@@ -308,7 +334,7 @@ class TestEdgeCasesWithComparison:
                 assert np.array_equal(pred, expected)
 
             if threshold == 1.0:
-                if comparison == '>':
+                if comparison == ">":
                     # Only values > 1.0 (none in [0,1]) should be True
                     expected = np.array([False, False, False])
                 else:  # '>='
@@ -322,19 +348,29 @@ class TestEdgeCasesWithComparison:
         probs_zero = np.zeros(4)
         labels_zero = np.array([0, 1, 0, 1])
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                labels_zero, probs_zero, metric="accuracy", method="sort_scan", comparison=comparison
+                labels_zero,
+                probs_zero,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=comparison,
             )
 
-            pred = (probs_zero > threshold) if comparison == '>' else (probs_zero >= threshold)
+            pred = (
+                (probs_zero > threshold)
+                if comparison == ">"
+                else (probs_zero >= threshold)
+            )
 
             # Predictions should be consistent based on threshold and comparison
             if threshold > 0:
                 # No probability can be > or >= a positive threshold
-                assert not pred.any(), f"All probs = 0, threshold = {threshold} > 0 should predict all negative"
+                assert not pred.any(), (
+                    f"All probs = 0, threshold = {threshold} > 0 should predict all negative"
+                )
             elif threshold == 0:
-                if comparison == '>':
+                if comparison == ">":
                     # 0 > 0 is False
                     assert not pred.any()
                 else:  # '>='
@@ -345,19 +381,29 @@ class TestEdgeCasesWithComparison:
         probs_one = np.ones(4)
         labels_one = np.array([1, 0, 1, 0])
 
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                labels_one, probs_one, metric="accuracy", method="sort_scan", comparison=comparison
+                labels_one,
+                probs_one,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=comparison,
             )
 
-            pred = (probs_one > threshold) if comparison == '>' else (probs_one >= threshold)
+            pred = (
+                (probs_one > threshold)
+                if comparison == ">"
+                else (probs_one >= threshold)
+            )
 
             # Predictions should be consistent
             if threshold < 1:
                 # All probabilities should be > or >= a threshold < 1
-                assert pred.all(), f"All probs = 1, threshold = {threshold} < 1 should predict all positive"
+                assert pred.all(), (
+                    f"All probs = 1, threshold = {threshold} < 1 should predict all positive"
+                )
             elif threshold == 1:
-                if comparison == '>':
+                if comparison == ">":
                     # 1 > 1 is False
                     assert not pred.any()
                 else:  # '>='

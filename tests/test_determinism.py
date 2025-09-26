@@ -33,13 +33,15 @@ def _create_numerical_precision_scenario():
     """Create scenario with values that test numerical precision."""
     # Values with small differences that could cause instability
     labels = np.array([0, 1, 0, 1, 1])
-    probs = np.array([
-        0.5000000001,  # Very close to 0.5
-        0.5000000002,
-        0.4999999998,  # Very close to 0.5 from below
-        0.5000000003,
-        0.4999999999
-    ])
+    probs = np.array(
+        [
+            0.5000000001,  # Very close to 0.5
+            0.5000000002,
+            0.4999999998,  # Very close to 0.5 from below
+            0.5000000003,
+            0.4999999999,
+        ]
+    )
 
     return labels, probs
 
@@ -60,7 +62,7 @@ class TestBasicDeterminism:
             for run in range(5):
                 try:
                     threshold = get_optimal_threshold(
-                        labels, probs, metric="f1", method=method, comparison='>'
+                        labels, probs, metric="f1", method=method, comparison=">"
                     )
                     thresholds.append(threshold)
 
@@ -90,7 +92,11 @@ class TestBasicDeterminism:
             for run in range(3):
                 try:
                     threshold = get_optimal_threshold(
-                        labels, probs, metric=metric, method="sort_scan", comparison='>='
+                        labels,
+                        probs,
+                        metric=metric,
+                        method="sort_scan",
+                        comparison=">=",
                     )
                     results.append(threshold)
 
@@ -116,8 +122,12 @@ class TestBasicDeterminism:
         for run in range(4):
             try:
                 threshold = get_optimal_threshold(
-                    labels, probs, metric="f1", method="sort_scan",
-                    sample_weight=weights, comparison='>'
+                    labels,
+                    probs,
+                    metric="f1",
+                    method="sort_scan",
+                    sample_weight=weights,
+                    comparison=">",
                 )
                 results.append(threshold)
 
@@ -130,10 +140,7 @@ class TestBasicDeterminism:
                     f"Weighted optimization not deterministic: run {i} gave {results[i]}, run 0 gave {results[0]}"
                 )
 
-    @given(
-        n_samples=st.integers(10, 50),
-        random_seed=st.integers(0, 1000)
-    )
+    @given(n_samples=st.integers(10, 50), random_seed=st.integers(0, 1000))
     @settings(deadline=None, max_examples=20)
     def test_determinism_property_based(self, n_samples, random_seed):
         """Property-based test for determinism."""
@@ -153,7 +160,7 @@ class TestBasicDeterminism:
             results = []
             for _ in range(3):
                 threshold = get_optimal_threshold(
-                    labels, probs, metric="accuracy", method="sort_scan", comparison='>'
+                    labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
                 results.append(threshold)
 
@@ -164,7 +171,10 @@ class TestBasicDeterminism:
                 )
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["degenerate", "empty", "single class"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["degenerate", "empty", "single class"]
+            ):
                 pytest.skip("Degenerate case in property test")
             raise
 
@@ -181,7 +191,7 @@ class TestStableSorting:
         for _ in range(10):
             try:
                 threshold = get_optimal_threshold(
-                    labels, probs, metric="f1", method="sort_scan", comparison='>'
+                    labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
                 results.append(threshold)
 
@@ -201,11 +211,15 @@ class TestStableSorting:
         probs = np.array([0.3, 0.6, 0.6, 0.6, 0.8, 0.3])  # Duplicates at 0.3 and 0.6
 
         results = []
-        for comparison in ['>', '>=']:
+        for comparison in [">", ">="]:
             for _ in range(5):
                 try:
                     threshold = get_optimal_threshold(
-                        labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                        labels,
+                        probs,
+                        metric="accuracy",
+                        method="sort_scan",
+                        comparison=comparison,
                     )
                     results.append((comparison, threshold))
 
@@ -213,8 +227,8 @@ class TestStableSorting:
                     continue
 
         # Group by comparison operator
-        exclusive_results = [t for comp, t in results if comp == '>']
-        inclusive_results = [t for comp, t in results if comp == '>=']
+        exclusive_results = [t for comp, t in results if comp == ">"]
+        inclusive_results = [t for comp, t in results if comp == ">="]
 
         # Within each comparison type, results should be identical
         if len(exclusive_results) > 1:
@@ -237,7 +251,7 @@ class TestStableSorting:
 
         try:
             threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="sort_scan", comparison='>'
+                labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
 
             # Test behavior at the tied probability value
@@ -270,7 +284,7 @@ class TestStableSorting:
         for _ in range(8):
             try:
                 threshold = get_optimal_threshold(
-                    labels, probs, metric="accuracy", method="sort_scan", comparison='>'
+                    labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
                 thresholds.append(threshold)
 
@@ -294,7 +308,7 @@ class TestNumericalStability:
 
         try:
             threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="sort_scan", comparison='>'
+                labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
 
             # Should handle precision issues gracefully
@@ -304,7 +318,7 @@ class TestNumericalStability:
 
             # Result should be reproducible
             threshold2 = get_optimal_threshold(
-                labels, probs, metric="f1", method="sort_scan", comparison='>'
+                labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
 
             assert threshold == threshold2, (
@@ -327,7 +341,7 @@ class TestNumericalStability:
             for _ in range(3):
                 try:
                     threshold = get_optimal_threshold(
-                        labels, probs, metric="accuracy", method=method, comparison='>'
+                        labels, probs, metric="accuracy", method=method, comparison=">"
                     )
                     results.append(threshold)
 
@@ -354,7 +368,7 @@ class TestNumericalStability:
 
         try:
             base_threshold = get_optimal_threshold(
-                base_labels, base_probs, metric="f1", method="sort_scan", comparison='>'
+                base_labels, base_probs, metric="f1", method="sort_scan", comparison=">"
             )
 
             # Apply small perturbations
@@ -365,7 +379,11 @@ class TestNumericalStability:
                 perturbed_probs = np.clip(perturbed_probs, 0, 1)  # Keep in valid range
 
                 perturbed_threshold = get_optimal_threshold(
-                    base_labels, perturbed_probs, metric="f1", method="sort_scan", comparison='>'
+                    base_labels,
+                    perturbed_probs,
+                    metric="f1",
+                    method="sort_scan",
+                    comparison=">",
                 )
 
                 # Small perturbations should produce small changes (or no change)
@@ -384,25 +402,38 @@ class TestNumericalStability:
         # Test with values that might cause floating point issues
         edge_cases = [
             (np.array([0, 1]), np.array([0.0, 1.0])),  # Exact boundaries
-            (np.array([0, 1]), np.array([np.nextafter(0.0, 1.0), np.nextafter(1.0, 0.0)])),  # Near boundaries
+            (
+                np.array([0, 1]),
+                np.array([np.nextafter(0.0, 1.0), np.nextafter(1.0, 0.0)]),
+            ),  # Near boundaries
             (np.array([0, 1, 0, 1]), np.array([0.5, 0.5, 0.5, 0.5])),  # All identical
         ]
 
         for labels, probs in edge_cases:
-            for comparison in ['>', '>=']:
+            for comparison in [">", ">="]:
                 try:
                     threshold = get_optimal_threshold(
-                        labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                        labels,
+                        probs,
+                        metric="accuracy",
+                        method="sort_scan",
+                        comparison=comparison,
                     )
 
                     # Should handle edge cases gracefully
-                    assert 0 <= threshold <= 1, f"Threshold {threshold} out of bounds for edge case"
+                    assert 0 <= threshold <= 1, (
+                        f"Threshold {threshold} out of bounds for edge case"
+                    )
                     assert not np.isnan(threshold), "NaN threshold for edge case"
                     assert not np.isinf(threshold), "Infinite threshold for edge case"
 
                     # Should be reproducible
                     threshold2 = get_optimal_threshold(
-                        labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
+                        labels,
+                        probs,
+                        metric="accuracy",
+                        method="sort_scan",
+                        comparison=comparison,
                     )
 
                     assert threshold == threshold2, (
@@ -410,7 +441,10 @@ class TestNumericalStability:
                     )
 
                 except ValueError as e:
-                    if "degenerate" in str(e).lower() or "single class" in str(e).lower():
+                    if (
+                        "degenerate" in str(e).lower()
+                        or "single class" in str(e).lower()
+                    ):
                         continue  # Expected for some edge cases
                     raise
 
@@ -426,15 +460,21 @@ class TestReproducibilityAcrossPlatforms:
         # Convert to different numpy types
         array_types = [
             (np.array(base_labels, dtype=int), np.array(base_probs, dtype=float)),
-            (np.array(base_labels, dtype=np.int32), np.array(base_probs, dtype=np.float32)),
-            (np.array(base_labels, dtype=np.int64), np.array(base_probs, dtype=np.float64)),
+            (
+                np.array(base_labels, dtype=np.int32),
+                np.array(base_probs, dtype=np.float32),
+            ),
+            (
+                np.array(base_labels, dtype=np.int64),
+                np.array(base_probs, dtype=np.float64),
+            ),
         ]
 
         results = []
         for labels, probs in array_types:
             try:
                 threshold = get_optimal_threshold(
-                    labels, probs, metric="f1", method="sort_scan", comparison='>'
+                    labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
                 results.append(threshold)
 
@@ -458,11 +498,19 @@ class TestReproducibilityAcrossPlatforms:
 
         try:
             threshold_list = get_optimal_threshold(
-                labels_list, probs_list, metric="accuracy", method="sort_scan", comparison='>'
+                labels_list,
+                probs_list,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=">",
             )
 
             threshold_array = get_optimal_threshold(
-                labels_array, probs_array, metric="accuracy", method="sort_scan", comparison='>'
+                labels_array,
+                probs_array,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=">",
             )
 
             # Should be identical
@@ -483,7 +531,7 @@ class TestReproducibilityAcrossPlatforms:
         for i in range(20):
             try:
                 threshold = get_optimal_threshold(
-                    labels, probs, metric="f1", method="sort_scan", comparison='>='
+                    labels, probs, metric="f1", method="sort_scan", comparison=">="
                 )
                 results.append((i, threshold))
 
@@ -510,11 +558,15 @@ class TestReproducibilityAcrossPlatforms:
 
         try:
             threshold_original = get_optimal_threshold(
-                labels, probs, metric="accuracy", method="sort_scan", comparison='>'
+                labels, probs, metric="accuracy", method="sort_scan", comparison=">"
             )
 
             threshold_permuted = get_optimal_threshold(
-                labels_perm, probs_perm, metric="accuracy", method="sort_scan", comparison='>'
+                labels_perm,
+                probs_perm,
+                metric="accuracy",
+                method="sort_scan",
+                comparison=">",
             )
 
             # Results should be identical (threshold optimization is order-independent)

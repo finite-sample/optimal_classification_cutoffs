@@ -23,7 +23,7 @@ class TestLinearUtilityMetrics:
         # Test with simple values
         tp, tn, fp, fn = 10, 20, 5, 3
         result = metric(tp, tn, fp, fn)
-        expected = 1.0*10 + 0.5*20 + (-2.0)*5 + (-5.0)*3
+        expected = 1.0 * 10 + 0.5 * 20 + (-2.0) * 5 + (-5.0) * 3
         expected = 10 + 10 - 10 - 15  # = -5
         assert result == expected
 
@@ -48,7 +48,7 @@ class TestLinearUtilityMetrics:
         # Should be equivalent to make_linear_counts_metric(w_tp=2.0, w_fp=-1.0, w_fn=-5.0)
         tp, tn, fp, fn = 10, 20, 3, 2
         result = metric(tp, tn, fp, fn)
-        expected = 2.0*10 + 0.0*20 + (-1.0)*3 + (-5.0)*2
+        expected = 2.0 * 10 + 0.0 * 20 + (-1.0) * 3 + (-5.0) * 2
         expected = 20 + 0 - 3 - 10  # = 7
         assert result == expected
 
@@ -98,8 +98,12 @@ class TestBayesThresholds:
         U_fp = U_fn = 0.0
         # t* = (1-0) / [(1-0) + (1-0)] = 1/2 = 0.5
 
-        thresh_excl = bayes_threshold_from_utility(U_tp, U_tn, U_fp, U_fn, comparison=">")
-        thresh_incl = bayes_threshold_from_utility(U_tp, U_tn, U_fp, U_fn, comparison=">=")
+        thresh_excl = bayes_threshold_from_utility(
+            U_tp, U_tn, U_fp, U_fn, comparison=">"
+        )
+        thresh_incl = bayes_threshold_from_utility(
+            U_tp, U_tn, U_fp, U_fn, comparison=">="
+        )
 
         # Both should be close to 0.5, with slight differences for tie handling
         assert abs(thresh_excl - 0.5) < 1e-10
@@ -127,13 +131,15 @@ class TestUtilityOptimization:
 
         # Verify it actually optimizes the utility
         tp, tn, fp, fn = get_confusion_matrix(y, p, threshold, comparison=">=")
-        utility_score = 0*tp + 0*tn + (-1)*fp + (-5)*fn
+        utility_score = 0 * tp + 0 * tn + (-1) * fp + (-5) * fn
 
         # Test nearby thresholds should give worse utility
         for delta in [-0.01, 0.01]:
             test_thresh = np.clip(threshold + delta, 0, 1)
-            tp_test, tn_test, fp_test, fn_test = get_confusion_matrix(y, p, test_thresh, comparison=">=")
-            utility_test = 0*tp_test + 0*tn_test + (-1)*fp_test + (-5)*fn_test
+            tp_test, tn_test, fp_test, fn_test = get_confusion_matrix(
+                y, p, test_thresh, comparison=">="
+            )
+            utility_test = 0 * tp_test + 0 * tn_test + (-1) * fp_test + (-5) * fn_test
             # Allow for small numerical differences due to discrete nature
             assert utility_test <= utility_score + 1e-10
 
@@ -168,7 +174,9 @@ class TestUtilityOptimization:
 
         # These should be equivalent
         thresh1 = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
-        thresh2 = get_optimal_threshold(y, p, utility={"fp": 1.0, "fn": 5.0}, minimize_cost=True)
+        thresh2 = get_optimal_threshold(
+            y, p, utility={"fp": 1.0, "fn": 5.0}, minimize_cost=True
+        )
 
         assert abs(thresh1 - thresh2) < 1e-12
 
@@ -192,7 +200,10 @@ class TestUtilityOptimization:
         p = np.random.uniform(0, 1, size=(n, 3))  # 3 classes
         y = np.random.randint(0, 3, size=n)
 
-        with pytest.raises(NotImplementedError, match="Utility/cost-based optimization not yet implemented for multiclass"):
+        with pytest.raises(
+            NotImplementedError,
+            match="Utility/cost-based optimization not yet implemented for multiclass",
+        ):
             get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
 
 
@@ -212,7 +223,9 @@ class TestUtilityMetricIntegration:
         thresh_f1 = get_optimal_threshold(y, p, metric="f1", method="sort_scan")
 
         # Utility optimization that rewards TP and penalizes FP/FN equally
-        thresh_util = get_optimal_threshold(y, p, utility={"tp": 1.0, "fp": -0.5, "fn": -0.5})
+        thresh_util = get_optimal_threshold(
+            y, p, utility={"tp": 1.0, "fp": -0.5, "fn": -0.5}
+        )
 
         # Check that predictions are mostly the same
         pred_f1 = (p > thresh_f1).astype(int)
@@ -279,7 +292,9 @@ class TestEdgeCases:
         """Test that empirical optimization requires true labels."""
         p = np.array([0.1, 0.5, 0.9])
 
-        with pytest.raises(ValueError, match="true_labs is required for empirical utility optimization"):
+        with pytest.raises(
+            ValueError, match="true_labs is required for empirical utility optimization"
+        ):
             get_optimal_threshold(None, p, utility={"fp": -1, "fn": -5}, bayes=False)
 
     def test_empty_utility_dict(self):

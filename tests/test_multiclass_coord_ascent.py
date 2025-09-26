@@ -37,7 +37,7 @@ def _generate_multiclass_data(n_samples, n_classes, random_state=42):
     return labels, probs
 
 
-def _compute_exclusive_f1(labels, probs, thresholds, comparison='>'):
+def _compute_exclusive_f1(labels, probs, thresholds, comparison=">"):
     """Compute F1 score using exclusive single-label predictions."""
     try:
         return multiclass_metric_exclusive(
@@ -82,12 +82,14 @@ class TestCoordinateAscentMonotonicity:
 
     def test_coordinate_ascent_monotonic_f1(self):
         """Coordinate ascent should produce monotonically non-decreasing F1."""
-        labels, probs = _generate_multiclass_data(n_samples=30, n_classes=3, random_state=123)
+        labels, probs = _generate_multiclass_data(
+            n_samples=30, n_classes=3, random_state=123
+        )
 
         try:
             # Use coordinate ascent method
             final_thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Verify final result is reasonable
@@ -95,17 +97,21 @@ class TestCoordinateAscentMonotonicity:
             assert all(0 <= t <= 1 for t in final_thresholds)
 
             # Compute final F1
-            final_f1 = _compute_exclusive_f1(labels, probs, final_thresholds, '>')
+            final_f1 = _compute_exclusive_f1(labels, probs, final_thresholds, ">")
             assert 0 <= final_f1 <= 1, f"Final F1 {final_f1} out of valid range"
 
             # Test that small perturbations don't significantly improve F1
             # (indicating we're at least at a local optimum)
             for _ in range(5):
                 rng = np.random.default_rng(456)
-                perturbed_thresholds = final_thresholds + rng.normal(0, 0.05, size=len(final_thresholds))
+                perturbed_thresholds = final_thresholds + rng.normal(
+                    0, 0.05, size=len(final_thresholds)
+                )
                 perturbed_thresholds = np.clip(perturbed_thresholds, 0, 1)
 
-                perturbed_f1 = _compute_exclusive_f1(labels, probs, perturbed_thresholds, '>')
+                perturbed_f1 = _compute_exclusive_f1(
+                    labels, probs, perturbed_thresholds, ">"
+                )
 
                 # Final should be at least as good as random perturbations
                 # (allowing small numerical tolerance)
@@ -120,14 +126,16 @@ class TestCoordinateAscentMonotonicity:
 
     def test_coordinate_ascent_vs_random_initialization(self):
         """Coordinate ascent should outperform random initialization."""
-        labels, probs = _generate_multiclass_data(n_samples=25, n_classes=3, random_state=789)
+        labels, probs = _generate_multiclass_data(
+            n_samples=25, n_classes=3, random_state=789
+        )
 
         try:
             # Get coordinate ascent result
             optimal_thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
-            optimal_f1 = _compute_exclusive_f1(labels, probs, optimal_thresholds, '>')
+            optimal_f1 = _compute_exclusive_f1(labels, probs, optimal_thresholds, ">")
 
             # Compare against multiple random initializations
             rng = np.random.default_rng(999)
@@ -135,7 +143,7 @@ class TestCoordinateAscentMonotonicity:
 
             for _ in range(10):
                 random_thresholds = rng.uniform(0, 1, size=len(optimal_thresholds))
-                random_f1 = _compute_exclusive_f1(labels, probs, random_thresholds, '>')
+                random_f1 = _compute_exclusive_f1(labels, probs, random_thresholds, ">")
                 random_f1s.append(random_f1)
 
             max_random_f1 = max(random_f1s)
@@ -146,28 +154,33 @@ class TestCoordinateAscentMonotonicity:
             )
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
     def test_coordinate_ascent_improves_from_poor_start(self):
         """Coordinate ascent should improve from poor starting points."""
         labels = np.array([0, 1, 2, 0, 1, 2])
-        probs = np.array([
-            [0.8, 0.1, 0.1],
-            [0.1, 0.8, 0.1],
-            [0.1, 0.1, 0.8],
-            [0.7, 0.2, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-        ])
+        probs = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.1, 0.8, 0.1],
+                [0.1, 0.1, 0.8],
+                [0.7, 0.2, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+            ]
+        )
 
         try:
             # Get optimized result
             optimal_thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
-            optimal_f1 = _compute_exclusive_f1(labels, probs, optimal_thresholds, '>')
+            optimal_f1 = _compute_exclusive_f1(labels, probs, optimal_thresholds, ">")
 
             # Test several poor starting points
             poor_starts = [
@@ -177,7 +190,7 @@ class TestCoordinateAscentMonotonicity:
             ]
 
             for poor_thresholds in poor_starts:
-                poor_f1 = _compute_exclusive_f1(labels, probs, poor_thresholds, '>')
+                poor_f1 = _compute_exclusive_f1(labels, probs, poor_thresholds, ">")
 
                 # Optimized should be better than poor starting point
                 # (unless the poor start happens to be optimal by coincidence)
@@ -186,7 +199,10 @@ class TestCoordinateAscentMonotonicity:
                 )
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
@@ -196,12 +212,14 @@ class TestCoordinateAscentConvergence:
 
     def test_coordinate_ascent_converges(self):
         """Coordinate ascent should converge in finite iterations."""
-        labels, probs = _generate_multiclass_data(n_samples=20, n_classes=3, random_state=555)
+        labels, probs = _generate_multiclass_data(
+            n_samples=20, n_classes=3, random_state=555
+        )
 
         try:
             # This should complete without infinite loops or convergence errors
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Basic sanity checks
@@ -213,20 +231,25 @@ class TestCoordinateAscentConvergence:
         except Exception as e:
             if "convergence" in str(e).lower():
                 pytest.fail(f"Coordinate ascent failed to converge: {e}")
-            elif any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            elif any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
     def test_coordinate_ascent_deterministic(self):
         """Coordinate ascent should be deterministic given same input."""
-        labels, probs = _generate_multiclass_data(n_samples=15, n_classes=3, random_state=777)
+        labels, probs = _generate_multiclass_data(
+            n_samples=15, n_classes=3, random_state=777
+        )
 
         try:
             # Run multiple times - should get identical results
             results = []
             for _ in range(3):
                 thresholds = get_optimal_threshold(
-                    labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                    labels, probs, metric="f1", method="coord_ascent", comparison=">"
                 )
                 results.append(thresholds)
 
@@ -237,21 +260,27 @@ class TestCoordinateAscentConvergence:
                 )
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
     def test_coordinate_ascent_finite_iterations(self):
         """Test that coordinate ascent terminates in reasonable number of iterations."""
         # This is more of a stress test to ensure no infinite loops
-        labels, probs = _generate_multiclass_data(n_samples=50, n_classes=4, random_state=888)
+        labels, probs = _generate_multiclass_data(
+            n_samples=50, n_classes=4, random_state=888
+        )
 
         try:
             import time
+
             start_time = time.time()
 
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             end_time = time.time()
@@ -267,7 +296,10 @@ class TestCoordinateAscentConvergence:
             assert all(0 <= t <= 1 for t in thresholds)
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
@@ -278,17 +310,19 @@ class TestSingleLabelConsistency:
     def test_predictions_use_argmax_rule(self):
         """Coordinate ascent predictions should use argmax(p - tau) rule."""
         labels = np.array([0, 1, 2, 0, 1])
-        probs = np.array([
-            [0.6, 0.3, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.5, 0.4, 0.1],
-            [0.3, 0.6, 0.1],
-        ])
+        probs = np.array(
+            [
+                [0.6, 0.3, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.5, 0.4, 0.1],
+                [0.3, 0.6, 0.1],
+            ]
+        )
 
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Apply the argmax(p - tau) rule
@@ -297,7 +331,9 @@ class TestSingleLabelConsistency:
 
             # Each sample should get exactly one prediction
             assert len(predicted_classes) == len(labels)
-            assert all(isinstance(pred, (int, np.integer)) for pred in predicted_classes)
+            assert all(
+                isinstance(pred, (int, np.integer)) for pred in predicted_classes
+            )
             assert all(0 <= pred < probs.shape[1] for pred in predicted_classes)
 
             # Convert to one-hot for verification
@@ -311,23 +347,28 @@ class TestSingleLabelConsistency:
             )
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
     def test_single_label_vs_multilabel_difference(self):
         """Single-label coordinate ascent should differ from independent per-class optimization."""
-        labels, probs = _generate_multiclass_data(n_samples=20, n_classes=3, random_state=111)
+        labels, probs = _generate_multiclass_data(
+            n_samples=20, n_classes=3, random_state=111
+        )
 
         try:
             # Get coordinate ascent (single-label) result
             thresholds_coord = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Get independent per-class (OvR) result
             thresholds_ovr = get_optimal_threshold(
-                labels, probs, metric="f1", method="auto", comparison='>'
+                labels, probs, metric="f1", method="auto", comparison=">"
             )
 
             # Apply both approaches
@@ -342,7 +383,9 @@ class TestSingleLabelConsistency:
 
             # Coordinate ascent should have exactly 1 prediction per sample
             coord_counts = np.sum(pred_coord_onehot, axis=1)
-            assert np.all(coord_counts == 1), "Coordinate ascent should predict exactly 1 class per sample"
+            assert np.all(coord_counts == 1), (
+                "Coordinate ascent should predict exactly 1 class per sample"
+            )
 
             # OvR can have variable predictions per sample
             ovr_counts = np.sum(pred_ovr, axis=1)
@@ -350,7 +393,10 @@ class TestSingleLabelConsistency:
             assert len(ovr_counts) == len(labels)
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Method not available: {e}")
             raise
 
@@ -359,18 +405,20 @@ class TestSingleLabelConsistency:
         # Create case where independent optimization would be suboptimal
         # due to single-label constraint
         labels = np.array([0, 1, 2, 0, 1, 2])
-        probs = np.array([
-            [0.5, 0.4, 0.1],  # Ambiguous between 0 and 1
-            [0.4, 0.5, 0.1],  # Ambiguous between 0 and 1
-            [0.1, 0.4, 0.5],  # Clear class 2
-            [0.6, 0.3, 0.1],  # Clear class 0
-            [0.3, 0.6, 0.1],  # Clear class 1
-            [0.1, 0.3, 0.6],  # Clear class 2
-        ])
+        probs = np.array(
+            [
+                [0.5, 0.4, 0.1],  # Ambiguous between 0 and 1
+                [0.4, 0.5, 0.1],  # Ambiguous between 0 and 1
+                [0.1, 0.4, 0.5],  # Clear class 2
+                [0.6, 0.3, 0.1],  # Clear class 0
+                [0.3, 0.6, 0.1],  # Clear class 1
+                [0.1, 0.3, 0.6],  # Clear class 2
+            ]
+        )
 
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Apply single-label rule
@@ -378,17 +426,22 @@ class TestSingleLabelConsistency:
             predictions = np.argmax(scores, axis=1)
 
             # Compute resulting F1
-            coord_f1 = _compute_exclusive_f1(labels, probs, thresholds, '>')
+            coord_f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
 
             # The key test: coordinate ascent should produce a valid result
-            assert 0 <= coord_f1 <= 1, f"Coordinate ascent F1 {coord_f1} out of valid range"
+            assert 0 <= coord_f1 <= 1, (
+                f"Coordinate ascent F1 {coord_f1} out of valid range"
+            )
 
             # Verify single-label property
             assert len(predictions) == len(labels)
             assert all(0 <= pred < probs.shape[1] for pred in predictions)
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
@@ -399,15 +452,17 @@ class TestCoordinateAscentEdgeCases:
     def test_coordinate_ascent_with_extreme_probabilities(self):
         """Test coordinate ascent with probabilities near 0 and 1."""
         labels = np.array([0, 1, 2])
-        probs = np.array([
-            [0.99, 0.005, 0.005],  # Very confident class 0
-            [0.01, 0.98, 0.01],    # Very confident class 1
-            [0.01, 0.01, 0.98],    # Very confident class 2
-        ])
+        probs = np.array(
+            [
+                [0.99, 0.005, 0.005],  # Very confident class 0
+                [0.01, 0.98, 0.01],  # Very confident class 1
+                [0.01, 0.01, 0.98],  # Very confident class 2
+            ]
+        )
 
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Should handle extreme probabilities gracefully
@@ -416,22 +471,25 @@ class TestCoordinateAscentEdgeCases:
             assert all(not np.isnan(t) and not np.isinf(t) for t in thresholds)
 
             # Should achieve good performance on this easy case
-            f1 = _compute_exclusive_f1(labels, probs, thresholds, '>')
+            f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
             assert f1 >= 0.8, f"Should achieve high F1 on easy case, got {f1:.4f}"
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
     def test_coordinate_ascent_with_uniform_probabilities(self):
         """Test coordinate ascent when all probabilities are equal."""
         labels = np.array([0, 1, 2, 0, 1, 2])
-        probs = np.full((6, 3), 1/3)  # All probabilities equal (uniform)
+        probs = np.full((6, 3), 1 / 3)  # All probabilities equal (uniform)
 
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Should produce valid thresholds even with uniform probabilities
@@ -448,7 +506,10 @@ class TestCoordinateAscentEdgeCases:
             )
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented"]
+            ):
                 pytest.skip(f"Coordinate ascent not available: {e}")
             raise
 
@@ -459,7 +520,7 @@ class TestCoordinateAscentEdgeCases:
 
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Should handle single sample case
@@ -471,18 +532,18 @@ class TestCoordinateAscentEdgeCases:
             np.argmax(scores, axis=1)[0]
 
             # Optimal prediction should match the true label if reasonable
-            f1 = _compute_exclusive_f1(labels, probs, thresholds, '>')
+            f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
             assert 0 <= f1 <= 1, f"F1 {f1} out of valid range"
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented", "single sample"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented", "single sample"]
+            ):
                 pytest.skip(f"Single sample case not supported: {e}")
             raise
 
-    @given(
-        n_samples=st.integers(8, 25),
-        n_classes=st.integers(3, 4)
-    )
+    @given(n_samples=st.integers(8, 25), n_classes=st.integers(3, 4))
     @settings(deadline=None, max_examples=15)
     def test_coordinate_ascent_property_invariants(self, n_samples, n_classes):
         """Property-based test for coordinate ascent invariants."""
@@ -490,26 +551,33 @@ class TestCoordinateAscentEdgeCases:
 
         try:
             thresholds = get_optimal_threshold(
-                labels, probs, metric="f1", method="coord_ascent", comparison='>'
+                labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Basic invariants
             assert len(thresholds) == n_classes, "Wrong number of thresholds"
             assert all(0 <= t <= 1 for t in thresholds), "Thresholds out of [0,1] range"
-            assert all(not np.isnan(t) and not np.isinf(t) for t in thresholds), "Invalid threshold values"
+            assert all(not np.isnan(t) and not np.isinf(t) for t in thresholds), (
+                "Invalid threshold values"
+            )
 
             # Single-label property
             scores = probs - thresholds.reshape(1, -1)
             predictions = np.argmax(scores, axis=1)
 
             assert len(predictions) == n_samples, "Wrong number of predictions"
-            assert all(0 <= pred < n_classes for pred in predictions), "Invalid prediction classes"
+            assert all(0 <= pred < n_classes for pred in predictions), (
+                "Invalid prediction classes"
+            )
 
             # F1 should be valid
-            f1 = _compute_exclusive_f1(labels, probs, thresholds, '>')
+            f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
             assert 0 <= f1 <= 1, f"F1 {f1} out of valid range"
 
         except Exception as e:
-            if any(phrase in str(e).lower() for phrase in ["not supported", "not implemented", "degenerate"]):
+            if any(
+                phrase in str(e).lower()
+                for phrase in ["not supported", "not implemented", "degenerate"]
+            ):
                 pytest.skip(f"Configuration not supported: {e}")
             raise

@@ -784,9 +784,7 @@ def make_linear_counts_metric(
     >>> metric = make_linear_counts_metric(w_tp=2.0, w_tn=0.5, w_fp=-1.0, w_fn=-5.0)
     """
 
-    def _metric(
-        tp: Any, tn: Any, fp: Any, fn: Any
-    ) -> Any:
+    def _metric(tp: Any, tn: Any, fp: Any, fn: Any) -> Any:
         """Vectorized linear combination of confusion matrix counts."""
         return (
             w_tp * np.asarray(tp, dtype=float)
