@@ -9,7 +9,7 @@ complexity with vectorized operations.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -501,33 +501,39 @@ def f1_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     )
     f1_numerator = 2 * precision * recall
     f1_denominator = precision + recall
-    return np.divide(
-        f1_numerator,
-        f1_denominator,
-        out=np.zeros_like(tp, dtype=float),
-        where=f1_denominator > 0,
+    return cast(
+        Array,
+        np.divide(
+            f1_numerator,
+            f1_denominator,
+            out=np.zeros_like(tp, dtype=float),
+            where=f1_denominator > 0,
+        ),
     )
 
 
 def accuracy_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized accuracy computation."""
     total = tp + tn + fp + fn
-    return np.divide(
-        tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0
+    return cast(
+        Array,
+        np.divide(tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0),
     )
 
 
 def precision_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized precision computation."""
-    return np.divide(
-        tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0
+    return cast(
+        Array,
+        np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0),
     )
 
 
 def recall_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     """Vectorized recall computation."""
-    return np.divide(
-        tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0
+    return cast(
+        Array,
+        np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0),
     )
 
 

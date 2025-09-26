@@ -1,7 +1,7 @@
 """Metric registry, confusion matrix utilities, and built-in metrics."""
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -225,11 +225,14 @@ def _f1_vectorized(
     )
     f1_numerator = 2 * precision * recall
     f1_denominator = precision + recall
-    return np.divide(
-        f1_numerator,
-        f1_denominator,
-        out=np.zeros_like(tp, dtype=float),
-        where=f1_denominator > 0,
+    return cast(
+        np.ndarray[Any, Any],
+        np.divide(
+            f1_numerator,
+            f1_denominator,
+            out=np.zeros_like(tp, dtype=float),
+            where=f1_denominator > 0,
+        ),
     )
 
 
@@ -241,8 +244,9 @@ def _accuracy_vectorized(
 ) -> np.ndarray[Any, Any]:
     """Vectorized accuracy computation."""
     total = tp + tn + fp + fn
-    return np.divide(
-        tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0
+    return cast(
+        np.ndarray[Any, Any],
+        np.divide(tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0),
     )
 
 
@@ -253,8 +257,9 @@ def _precision_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized precision computation."""
-    return np.divide(
-        tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0
+    return cast(
+        np.ndarray[Any, Any],
+        np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0),
     )
 
 
@@ -265,8 +270,9 @@ def _recall_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized recall computation."""
-    return np.divide(
-        tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0
+    return cast(
+        np.ndarray[Any, Any],
+        np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0),
     )
 
 
