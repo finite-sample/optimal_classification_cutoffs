@@ -1,5 +1,4 @@
-## Optimal Classification Cut-Offs
-
+# Optimal Classification Cut-Offs
 
 [![Python application](https://github.com/finite-sample/optimal_classification_cutoffs/actions/workflows/ci.yml/badge.svg)](https://github.com/finite-sample/optimal_classification_cutoffs/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://finite-sample.github.io/optimal_classification_cutoffs/)
@@ -8,211 +7,298 @@
 [![Python](https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/finite-sample/optimal_classification_cutoffs/master/pyproject.toml&query=$.project.requires-python&label=Python)](https://github.com/finite-sample/optimal_classification_cutoffs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+**Select optimal probability thresholds for binary and multiclass classification.**  
+Maximize F1, precision, recall, accuracy, or custom cost-sensitive metrics using efficient algorithms designed for piecewise-constant classification metrics.
 
-Probabilistic classifiers output per-class probabilities, and fixed cutoffs such as ``0.5`` rarely maximize metrics like accuracy or the F\ :sub:`1` score.
-This package provides utilities to **select optimal probability cutoffs for both binary and multiclass classification**.
-For multiclass problems, the package uses a One-vs-Rest strategy to optimize per-class thresholds independently.
-Optimization methods include brute-force search, numerical techniques, and gradient-based approaches.
+---
 
-## Quick start
+## 🚀 Quick Start
+
+### Installation
+```bash
+pip install optimal-classification-cutoffs
+```
 
 ### Binary Classification
 ```python
 from optimal_cutoffs import ThresholdOptimizer
 
-# true binary labels and predicted probabilities
+# Your true labels and predicted probabilities
 y_true = [0, 1, 1, 0, 1]
 y_prob = [0.2, 0.8, 0.7, 0.3, 0.9]
 
-# Auto-selection (uses sort_scan for piecewise metrics like F1)
-optimizer = ThresholdOptimizer(objective="f1", method="auto")
+# Find optimal threshold for F1 score
+optimizer = ThresholdOptimizer(objective="f1")
 optimizer.fit(y_true, y_prob)
-y_pred = optimizer.predict(y_prob)
+print(f"Optimal threshold: {optimizer.threshold_:.3f}")
 
-# Explicit sort_scan for maximum performance on piecewise metrics
-optimizer_fast = ThresholdOptimizer(objective="f1", method="sort_scan")
-optimizer_fast.fit(y_true, y_prob)
-y_pred_fast = optimizer_fast.predict(y_prob)
+# Make predictions
+y_pred = optimizer.predict(y_prob)
+print(f"Predictions: {y_pred}")  # [0, 1, 1, 0, 1]
 ```
 
 ### Multiclass Classification
 ```python
 import numpy as np
-from optimal_cutoffs import ThresholdOptimizer
 
-# true multiclass labels and predicted probability matrix
-y_true = [0, 1, 2, 0, 1]
+# Multiclass data: 3 classes, 5 samples
+y_true = [0, 1, 2, 0, 1] 
 y_prob = np.array([
-    [0.7, 0.2, 0.1],  # probabilities for classes 0, 1, 2
-    [0.1, 0.8, 0.1],
-    [0.1, 0.1, 0.8],
-    [0.6, 0.3, 0.1],
-    [0.2, 0.7, 0.1],
+    [0.7, 0.2, 0.1],  # Sample 0: most likely class 0
+    [0.1, 0.8, 0.1],  # Sample 1: most likely class 1
+    [0.1, 0.1, 0.8],  # Sample 2: most likely class 2
+    [0.6, 0.3, 0.1],  # Sample 3: most likely class 0
+    [0.2, 0.7, 0.1],  # Sample 4: most likely class 1
 ])
 
-# Standard One-vs-Rest optimization
-optimizer = ThresholdOptimizer(objective="f1", method="auto")
+# Find optimal per-class thresholds
+optimizer = ThresholdOptimizer(objective="f1")
 optimizer.fit(y_true, y_prob)
-y_pred = optimizer.predict(y_prob)
+print(f"Per-class thresholds: {optimizer.threshold_}")
 
-# For imbalanced datasets, try coordinate ascent
-optimizer_coord = ThresholdOptimizer(objective="f1", method="coord_ascent")
-optimizer_coord.fit(y_true, y_prob)
-y_pred_coord = optimizer_coord.predict(y_prob)  # often better macro-F1
+# Make predictions
+y_pred = optimizer.predict(y_prob)
+print(f"Predicted classes: {y_pred}")
 ```
 
-## Understanding Piecewise-Constant Metrics
+### Cost-Sensitive Optimization ✨ *New in v0.3.0*
+```python
+# Medical diagnosis: false negatives cost 10x more than false positives
+threshold = get_optimal_threshold(
+    y_true, y_prob, 
+    utility={"tp": 50, "tn": 0, "fp": -1, "fn": -10}
+)
 
-Classification metrics like **F1 score, accuracy, precision, and recall are piecewise-constant functions** with respect to the decision threshold. This means they only change values when the threshold crosses one of the unique predicted probabilities—they remain constant between these "breakpoints."
+# Or for calibrated probabilities (no training data needed)
+from optimal_cutoffs import bayes_threshold_from_costs
+optimal_threshold = bayes_threshold_from_costs(
+    cost_fp=1.0,    # Cost of false positive
+    cost_fn=10.0,   # Cost of false negative (10x worse)
+    benefit_tp=50.0 # Benefit of catching true positive
+)
+```
 
-### Why Continuous Optimizers Can Miss the Maximum
+---
 
-Standard optimization methods like `scipy.optimize.minimize_scalar` assume smooth functions and use gradient-based techniques. However, piecewise-constant functions have:
+## 🔧 Key Features
 
-- **Zero gradients** everywhere except at breakpoints (where they're undefined)
-- **Flat regions** that provide no directional information to guide optimization
-- **Step discontinuities** that can trap optimizers in suboptimal regions
+### ⚡ Optimized Algorithms for Piecewise Metrics
+Classification metrics like F1, accuracy, precision, and recall are **piecewise-constant functions** that only change when thresholds cross unique probability values. Standard optimizers fail because these metrics have zero gradients everywhere.
 
-The figure below illustrates this phenomenon:
+**Our solution:** Specialized algorithms that guarantee global optima:
+
+- **`sort_scan`**: O(n log n) exact algorithm, 50-100x faster than naive approaches
+- **`coord_ascent`**: Advanced multiclass optimizer for coupled single-label predictions  
+- **`auto`**: Intelligent method selection based on your data
 
 ![F1 Score Piecewise Behavior](docs/piecewise_f1_demo.png)
 
-*F1 score only changes at unique probability values (red dots). Continuous optimizers may converge anywhere within the flat regions, potentially missing the true optimum.*
+*F1 score only changes at unique probability values. Our algorithms find the true optimum.*
 
-### Our Solution: Optimized Algorithms for Piecewise Metrics
+### 💰 Cost-Sensitive Optimization ✨ *New in v0.3.0*
 
-This library addresses the piecewise-constant challenge through multiple specialized algorithms:
-
-1. **Sort-and-Scan (`method="sort_scan"`)**: Our fastest exact algorithm for piecewise-constant metrics in binary classification. Uses O(n log n) sorting with vectorized confusion matrix computation, providing 50-100x performance improvements while guaranteeing the global optimum.
-
-2. **Smart Brute Force (`method="smart_brute"`)**: Fallback algorithm that evaluates all unique probability values as threshold candidates. Still significantly faster than naive approaches through optimized implementations.
-
-3. **Coordinate Ascent (`method="coord_ascent"`)**: Specialized multiclass optimizer that maintains single-label consistency through coupled threshold optimization. Particularly effective for imbalanced datasets where it often improves macro-F1 compared to independent One-vs-Rest optimization.
-
-4. **Auto Selection (`method="auto"`)**: Intelligently selects the best algorithm based on your data and metric characteristics.
-
-5. **Fallback Mechanisms**: Including `scipy.optimize.minimize_scalar` with unique probability evaluation for non-piecewise metrics.
-
-For detailed mathematical explanation and interactive visualizations, see our [theoretical documentation](https://finite-sample.github.io/optimal_classification_cutoffs/theory.html).
-
-## When to Use Calibration
-
-**Threshold optimization and probability calibration serve different purposes and are complementary:**
-
-### Use Calibration When:
-- You need reliable probability estimates (e.g., "this prediction has 70% confidence")
-- Comparing models based on probability quality
-- Converting arbitrary scores to meaningful probabilities
-
-### Use Threshold Optimization When:
-- Maximizing specific classification metrics (F1, precision, recall)
-- Making binary decisions for deployment
-- Handling imbalanced datasets (where 0.5 threshold is suboptimal)
-
-### Best Practice: Use Both Together
+Handle scenarios where different errors have different costs:
 
 ```python
-from sklearn.calibration import CalibratedClassifierCV
-from optimal_cutoffs import ThresholdOptimizer
+# Financial fraud: missing fraud (FN) costs much more than false alarms (FP)
+from optimal_cutoffs import make_cost_metric
 
-# 1. Train and calibrate your classifier
-calibrated_model = CalibratedClassifierCV(base_model, cv=3)
-calibrated_model.fit(X_train, y_train)
-y_prob_cal = calibrated_model.predict_proba(X_val)[:, 1]
+cost_metric = make_cost_metric(
+    cost_fp=1.0,     # False positive cost (false alarm)
+    cost_fn=100.0,   # False negative cost (missed fraud)
+    benefit_tp=500.0  # True positive benefit (caught fraud)
+)
 
-# 2. Optimize threshold on calibrated probabilities
-optimizer = ThresholdOptimizer(objective="f1")
-optimizer.fit(y_val, y_prob_cal)
-
-# 3. Use both for final predictions
-y_prob_test = calibrated_model.predict_proba(X_test)[:, 1]  # Calibrated probabilities
-y_pred_test = optimizer.predict(y_prob_test)                # Optimized decisions
+threshold = get_optimal_threshold(y_true, y_prob, metric=cost_metric)
 ```
 
-**Key insight:** Calibration improves probability quality; threshold optimization maximizes classification metrics. Using both gives you reliable probabilities *and* optimal decisions.
+**Bayes-Optimal Thresholds:** For calibrated probabilities, calculate optimal thresholds directly without training data:
 
-For more details on calibration methods (Platt scaling, isotonic regression) and when to use them, see our [full documentation](https://finite-sample.github.io/optimal_classification_cutoffs/theory.html#calibration-and-threshold-optimization).
+```python
+from optimal_cutoffs import bayes_threshold_from_utility
 
-## Advanced Methods and Future Enhancements
+# Direct calculation for calibrated probabilities
+threshold = bayes_threshold_from_utility(
+    U_tp=50,  U_tn=0,   # Utilities for correct predictions
+    U_fp=-1,  U_fn=-10  # Utilities for errors  
+)
+```
 
-**Expected F-beta optimization via Dinkelbach method:** For scenarios requiring optimization of expected F-beta under calibrated probabilities, the Dinkelbach fractional programming method provides an ultra-fast exact solution. This leverages the F1 threshold identity that states the optimal threshold equals the ratio of false negatives to false positives at optimality. This mathematically elegant approach can be significantly faster than iterative optimization for calibrated probability distributions. Implementation of this method is planned for a future release, building on the theoretical foundation established in the threshold optimization literature.
+### 🎯 Multiclass Strategies
 
-## API
+**One-vs-Rest (Default)**: Independent per-class thresholds
+```python
+thresholds = get_optimal_multiclass_thresholds(y_true, y_prob, method="auto")
+```
 
-`get_confusion_matrix(true_labs, pred_prob, threshold)`
-- **Purpose:** Compute confusion-matrix counts for a threshold.
-- **Args:** arrays of true binary labels and probabilities, plus the decision threshold.
-- **Returns:** `(tp, tn, fp, fn)` counts.
+**Coordinate Ascent**: Coupled optimization for single-label consistency
+```python
+# Better for imbalanced datasets
+thresholds = get_optimal_multiclass_thresholds(y_true, y_prob, method="coord_ascent")
+```
 
-`get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds)`
-- **Purpose:** Compute per-class confusion-matrix counts for multiclass classification using One-vs-Rest.
-- **Args:** true class labels (0, 1, 2, ...), probability matrix (n_samples, n_classes), and per-class thresholds.
-- **Returns:** List of per-class `(tp, tn, fp, fn)` tuples.
+---
 
-`register_metric(name=None, func=None)`
-- **Purpose:** Add a metric function to the global registry.
-- **Args:** optional metric name and callable; can also be used as a decorator.
-- **Returns:** the registered function or decorator.
+## 🤔 When to Use What?
 
-`register_metrics(metrics)`
-- **Purpose:** Register multiple metric functions at once.
-- **Args:** dictionary mapping names to callables.
-- **Returns:** `None`.
+### Threshold Optimization vs Calibration
 
-`multiclass_metric(confusion_matrices, metric_name, average="macro")`
-- **Purpose:** Compute multiclass metrics from per-class confusion matrices.
-- **Args:** list of confusion matrices, metric name, averaging strategy ("macro", "micro", "weighted").
-- **Returns:** aggregated metric score.
+| **Use Threshold Optimization When:** | **Use Calibration When:** |
+|--------------------------------------|---------------------------|
+| Maximizing classification metrics (F1, precision) | Need reliable probability estimates |
+| Making binary decisions for deployment | Comparing model confidence |
+| Handling class imbalance | Converting scores to probabilities |
 
-`get_probability(true_labs, pred_prob, objective='accuracy', verbose=False)`
-- **Purpose:** Brute-force search for the threshold that maximizes accuracy or F\ :sub:`1` using scipy.optimize.brute.
-- **Args:** true labels, predicted probabilities, objective ("accuracy" or "f1"), and verbosity flag.
-- **Returns:** optimal threshold.
+**Best Practice: Use Both Together**
+```python
+from sklearn.calibration import CalibratedClassifierCV
 
-`get_optimal_threshold(true_labs, pred_prob, metric='f1', method='auto', sample_weight=None, comparison='>')`
-- **Purpose:** Optimize any registered metric using different strategies. **Automatically detects binary vs multiclass inputs.**
-- **Args:** true labels (binary or multiclass), probabilities (1D for binary, 2D for multiclass), metric name, optimization method, optional sample weights, and comparison operator.
-- **Methods:**
-  - `"auto"`: Automatically selects the best method based on metric characteristics (default)
-  - `"sort_scan"`: Exact O(n log n) algorithm for piecewise-constant metrics in binary classification. Provides 50-100x speedup while guaranteeing global optimum
-  - `"smart_brute"`: Evaluates all unique probabilities (fallback when sort_scan unavailable)
-  - `"minimize"`: Uses scipy.optimize.minimize_scalar with fallback evaluation
-  - `"gradient"`: Simple gradient ascent
-- **Comparison:** `">"` (exclusive, default) or `">="` (inclusive) for handling tied probabilities. The sort-and-scan algorithm uses midpoint thresholds to make this robust either way.
-- **Returns:** optimal threshold (float for binary, array for multiclass).
+# 1. Calibrate probabilities first
+calibrated_model = CalibratedClassifierCV(base_model)
+y_prob = calibrated_model.predict_proba(X_val)[:, 1]
 
-`get_optimal_multiclass_thresholds(true_labs, pred_prob, metric='f1', method='auto', average='macro', sample_weight=None, comparison='>')`
-- **Purpose:** Find optimal per-class thresholds for multiclass classification.
-- **Args:** true class labels, probability matrix (n_samples, n_classes), metric name, optimization method, averaging strategy, optional sample weights, and comparison operator.
-- **Methods:** Same as `get_optimal_threshold` plus:
-  - `"coord_ascent"`: Coordinate ascent for coupled multiclass optimization (single-label consistent). Iteratively optimizes per-class thresholds while maintaining single-label predictions via argmax(P - tau). Often improves macro-F1 on imbalanced datasets compared to independent One-vs-Rest optimization
-- **Strategies:** "macro"/"weighted" (One-vs-Rest independent), "micro" (joint optimization), "coord_ascent" (coupled optimization)
-- **Returns:** array of optimal thresholds, one per class.
+# 2. Optimize threshold on calibrated probabilities  
+optimizer = ThresholdOptimizer(objective="f1")
+optimizer.fit(y_val, y_prob)
 
-`cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='auto', cv=5, random_state=None)`
-- **Purpose:** Estimate thresholds via cross-validation and report per-fold scores.
-- **Args:** Same parameters as `get_optimal_threshold`, plus cross-validation folds and random state.
-- **Returns:** arrays of thresholds and scores.
+# Result: Reliable probabilities AND optimal decisions
+```
 
-`nested_cv_threshold_optimization(true_labs, pred_prob, metric='f1', method='auto', inner_cv=5, outer_cv=5, random_state=None)`
-- **Purpose:** Perform nested cross-validation for threshold estimation and
-  unbiased performance evaluation.
-- **Returns:** arrays of outer-fold thresholds and scores.
+### Cost-Sensitive vs Metric Optimization
 
-`ThresholdOptimizer(objective='accuracy', verbose=False, method='auto', comparison='>')`
-- **Purpose:** High-level wrapper with ``fit``/``predict`` methods using scikit-learn style API. **Supports both binary and multiclass classification.**
-- **Args:** objective metric name (e.g., "accuracy", "f1", "precision", "recall"), verbosity flag, optimization method, and comparison operator.
-- **Methods:** All methods from `get_optimal_threshold` and `get_optimal_multiclass_thresholds`, including `"sort_scan"` for binary and `"coord_ascent"` for multiclass.
-- **Comparison:** `">"` (exclusive) or `">="` (inclusive) for threshold comparison behavior.
-- **Returns:** fitted instance with ``threshold_`` attribute (float for binary, array for multiclass). The ``predict`` method returns boolean predictions for binary, class indices for multiclass.
+| **Use Cost-Sensitive When:** | **Use Metric Optimization When:** |
+|-------------------------------|-----------------------------------|
+| Different errors have different costs | All errors are equally bad |
+| Business impact varies by error type | Optimizing standard metrics (F1, accuracy) |
+| Medical, financial, safety applications | General ML model evaluation |
 
-## Examples
+### Method Selection Guide
 
-- [Basic binary usage](examples/basic_usage.py)
-- [Advanced binary usage with sklearn](examples/advanced_usage.ipynb)  
-- [Multiclass classification](examples/multiclass_usage.py)
-- [Cross-validation and gradient methods](examples/comscore.ipynb)
+| **Method** | **Best For** | **Speed** | **Guarantees** |
+|------------|--------------|-----------|----------------|
+| `"auto"` | Most cases | Fast | Selects best method automatically |
+| `"sort_scan"` | Binary piecewise metrics | Very Fast | Exact global optimum |
+| `"coord_ascent"` | Multiclass, imbalanced data | Medium | Local optimum, single-label consistent |
+| `"minimize"` | Custom smooth metrics | Medium | Local optimum |
 
-## Authors
+---
+
+## 📖 API Reference
+
+### Core Functions
+
+#### `ThresholdOptimizer(objective="f1", method="auto")`
+**Scikit-learn style threshold optimization**
+```python
+optimizer = ThresholdOptimizer(objective="f1", method="auto")
+optimizer.fit(y_true, y_prob)
+y_pred = optimizer.predict(y_prob)
+```
+- **Auto-detects** binary vs multiclass inputs
+- **Methods**: `"auto"`, `"sort_scan"`, `"coord_ascent"`, `"minimize"`, `"gradient"`
+- **Returns**: Fitted object with `threshold_` attribute
+
+#### `get_optimal_threshold(y_true, y_prob, metric="f1", method="auto", **kwargs)`
+**Functional interface for threshold optimization**
+```python
+threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
+```
+- **New in v0.3.0**: `utility`, `minimize_cost`, and `bayes` parameters
+- **Returns**: Optimal threshold (float for binary, array for multiclass)
+
+### Cost-Sensitive Functions ✨ *New in v0.3.0*
+
+#### `bayes_threshold_from_utility(U_tp, U_tn, U_fp, U_fn)`
+**Calculate Bayes-optimal threshold for calibrated probabilities**
+```python
+threshold = bayes_threshold_from_utility(U_tp=1, U_tn=0, U_fp=-1, U_fn=-5)
+```
+
+#### `bayes_threshold_from_costs(cost_fp, cost_fn, benefit_tp=0, benefit_tn=0)`
+**Convenience wrapper for cost-based optimization**
+```python
+threshold = bayes_threshold_from_costs(cost_fp=1, cost_fn=10, benefit_tp=50)
+```
+
+#### `make_cost_metric(cost_fp, cost_fn, benefit_tp=0, benefit_tn=0)`
+**Create custom cost-sensitive metrics**
+```python
+custom_metric = make_cost_metric(cost_fp=1, cost_fn=5, benefit_tp=10)
+threshold = get_optimal_threshold(y_true, y_prob, metric=custom_metric)
+```
+
+#### `make_linear_counts_metric(w_tp=0, w_tn=0, w_fp=0, w_fn=0)`
+**Create metrics from confusion matrix weights**
+```python
+profit_metric = make_linear_counts_metric(w_tp=100, w_fp=-10, w_fn=-50)
+```
+
+### Multiclass Functions
+
+#### `get_optimal_multiclass_thresholds(y_true, y_prob, metric="f1", method="auto")`
+**Multiclass threshold optimization**
+```python
+thresholds = get_optimal_multiclass_thresholds(y_true, y_prob, method="coord_ascent")
+```
+
+### Utility Functions
+
+<details>
+<summary>Click to expand utility functions</summary>
+
+#### `get_confusion_matrix(y_true, y_prob, threshold)`
+```python
+tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, 0.5)
+```
+
+#### `get_multiclass_confusion_matrix(y_true, y_prob, thresholds)`  
+```python
+cms = get_multiclass_confusion_matrix(y_true, y_prob, [0.3, 0.5, 0.7])
+```
+
+#### `register_metric(name, func)` and `register_metrics(metrics_dict)`
+```python
+@register_metric("custom_f2")
+def f2_score(tp, tn, fp, fn):
+    return (5 * tp) / (5 * tp + 4 * fn + fp)
+```
+
+</details>
+
+---
+
+## 📊 Examples
+
+### Basic Examples
+- [Binary classification](examples/basic_usage.py) - Getting started
+- [Multiclass classification](examples/multiclass_usage.py) - Multi-class optimization
+
+### Advanced Examples  
+- [Cost-sensitive medical diagnosis](examples/cost_sensitive_medical.py) ✨ *New*
+- [Financial fraud detection](examples/cost_sensitive_finance.py) ✨ *New*
+- [Cross-validation workflows](examples/comscore.ipynb) - Robust evaluation
+- [Integration with sklearn](examples/advanced_usage.ipynb) - Production pipelines
+
+---
+
+## 🧮 Theory & Background
+
+**Why do standard optimizers fail?** Classification metrics are piecewise-constant functions with zero gradients everywhere except at breakpoints. Traditional optimizers get trapped in flat regions and miss the global optimum.
+
+**Our innovation:** Exact algorithms that leverage the mathematical structure of classification metrics. The sort-and-scan method achieves O(n log n) complexity while guaranteeing global optimality for piecewise metrics.
+
+**For detailed mathematical explanations** and interactive visualizations, see our [comprehensive documentation](https://finite-sample.github.io/optimal_classification_cutoffs/).
+
+---
+
+## 🔬 Advanced Methods
+
+**Coordinate Ascent for Multiclass:** Unlike One-vs-Rest approaches, our coordinate ascent method maintains single-label consistency by coupling classes through `argmax(P - τ)` decision rules. This often improves macro-F1 on imbalanced datasets.
+
+**Dinkelbach Fractional Programming:** For expected F-beta optimization under calibrated probabilities, the Dinkelbach method provides ultra-fast exact solutions using the F1 threshold identity. Future release planned.
+
+---
+
+## 👨‍💻 Authors
 
 Suriyan Laohaprapanon and Gaurav Sood
