@@ -325,11 +325,11 @@ class TestOptimalThresholdSortScan:
         )
 
         threshold_gte, _, _ = optimal_threshold_sortscan(
-            y_true, pred_prob, f1_vectorized, inclusive=True   # ">=" -> True  
+            y_true, pred_prob, f1_vectorized, inclusive=True   # ">=" -> True
         )
 
         # With improved tie handling, they might be the same depending on the data
-        # Just check both are valid  
+        # Just check both are valid
         assert 0 <= threshold_gt <= 1
         assert 0 <= threshold_gte <= 1
 
@@ -340,7 +340,7 @@ class TestOptimalThresholdSortScan:
         assert threshold == 0.7
         assert k == 0
 
-        # All negative labels  
+        # All negative labels
         threshold, score, k = optimal_threshold_sortscan(
             [0, 0, 0], [0.1, 0.5, 0.9], f1_vectorized
         )

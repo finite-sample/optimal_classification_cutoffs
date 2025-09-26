@@ -223,20 +223,20 @@ class TestAveragingMathematicalIdentities:
         # The formula total_tp / (total_tp + total_fp + total_fn) ignores TN,
         # which is incorrect for accuracy computation.
         # True multiclass accuracy requires exclusive single-label predictions.
-        
+
         with pytest.raises(ValueError, match="Micro-averaged accuracy requires exclusive"):
             multiclass_metric(cms, "accuracy", average="micro")
-            
+
         # The old formula computed Jaccard/IoU, not accuracy:
         total_tp = sum(cm[0] for cm in cms)
         total_fp = sum(cm[2] for cm in cms)
         total_fn = sum(cm[3] for cm in cms)
         total_predictions = total_tp + total_fp + total_fn
-        
+
         jaccard_score = (
             total_tp / total_predictions if total_predictions > 0 else 0.0
         )
-        
+
         # This is what the old implementation computed (Jaccard/IoU, not accuracy)
         assert 0 <= jaccard_score <= 1, "Jaccard score should be in [0, 1]"
 

@@ -67,6 +67,11 @@ no_implicit_optional = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+exclude = [
+    "^tests/",
+    "^docs/",
+    "^examples/",
+]
 
 [tool.ruff]
 target-version = "py311"

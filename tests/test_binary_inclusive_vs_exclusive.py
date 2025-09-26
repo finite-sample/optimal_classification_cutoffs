@@ -9,40 +9,38 @@ reflected consistently in threshold selection and plateau sensitivity.
 """
 
 import numpy as np
-import pytest
 from hypothesis import given, settings
-from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import get_confusion_matrix, f1_score
+from optimal_cutoffs.metrics import f1_score, get_confusion_matrix
 from tests.strategies import tied_probabilities
 
 
 class TestComparisonOperatorSemantics:
     """Test fundamental semantics of '>' vs '>=' comparison operators."""
-    
+
     def test_basic_comparison_difference(self):
         """Basic test showing '>' excludes and '>=' includes tied values."""
         probs = np.array([0.3, 0.5, 0.5, 0.7])
-        
+
         # With threshold = 0.5:
         # '>' means: 0.3 > 0.5 (False), 0.5 > 0.5 (False), 0.5 > 0.5 (False), 0.7 > 0.5 (True)
         # '>=' means: 0.3 >= 0.5 (False), 0.5 >= 0.5 (True), 0.5 >= 0.5 (True), 0.7 >= 0.5 (True)
-        
+
         threshold = 0.5
         pred_exclusive = probs > threshold
         pred_inclusive = probs >= threshold
-        
+
         expected_exclusive = np.array([False, False, False, True])
         expected_inclusive = np.array([False, True, True, True])
-        
+
         assert np.array_equal(pred_exclusive, expected_exclusive), (
             f"Exclusive '>' failed: expected {expected_exclusive}, got {pred_exclusive}"
         )
         assert np.array_equal(pred_inclusive, expected_inclusive), (
             f"Inclusive '>=' failed: expected {expected_inclusive}, got {pred_inclusive}"
         )
-        
+
         # Should be different when there are ties
         assert not np.array_equal(pred_exclusive, pred_inclusive), (
             "Exclusive and inclusive should differ when there are ties at threshold"
@@ -52,10 +50,10 @@ class TestComparisonOperatorSemantics:
         """When no probabilities equal threshold, both operators should give same result."""
         probs = np.array([0.2, 0.4, 0.6, 0.8])
         threshold = 0.5  # No probability equals 0.5
-        
+
         pred_exclusive = probs > threshold
         pred_inclusive = probs >= threshold
-        
+
         # Should be identical when no ties
         assert np.array_equal(pred_exclusive, pred_inclusive), (
             f"Should be identical with no ties: exclusive={pred_exclusive}, inclusive={pred_inclusive}"
@@ -65,47 +63,47 @@ class TestComparisonOperatorSemantics:
         """When all probabilities equal threshold, operators should give different results."""
         probs = np.array([0.5, 0.5, 0.5, 0.5])
         threshold = 0.5
-        
+
         pred_exclusive = probs > threshold  # Should be all False
         pred_inclusive = probs >= threshold  # Should be all True
-        
+
         assert not pred_exclusive.any(), "Exclusive '>' should exclude all tied values"
         assert pred_inclusive.all(), "Inclusive '>=' should include all tied values"
 
 
 class TestOptimizationWithTies:
     """Test that optimization algorithms handle tied probabilities correctly."""
-    
+
     def test_inclusive_changes_decision_on_ties(self):
         """Minimal example where inclusive vs exclusive changes optimal decision."""
         # Carefully constructed case: two items exactly at 0.5, one positive, one negative
         probs = np.array([0.5, 0.5, 0.2])
         labels = np.array([1, 0, 0])  # First tied item is positive, second is negative
-        
+
         threshold_exclusive = get_optimal_threshold(
             labels, probs, metric="f1", method="sort_scan", comparison='>'
         )
         threshold_inclusive = get_optimal_threshold(
             labels, probs, metric="f1", method="sort_scan", comparison='>='
         )
-        
+
         pred_exclusive = probs > threshold_exclusive
         pred_inclusive = probs >= threshold_inclusive
-        
+
         # Should produce different predictions due to tie handling
         # (exact result depends on F1 optimization, but they should differ)
         if np.any(probs == threshold_exclusive) or np.any(probs == threshold_inclusive):
             # If threshold equals one of the probabilities, predictions should differ
-            different_decisions = not np.array_equal(pred_exclusive, pred_inclusive)
-            
+            not np.array_equal(pred_exclusive, pred_inclusive)
+
             # This may not always be true depending on what threshold is selected,
             # so we just verify the algorithms don't crash and produce valid results
             assert len(pred_exclusive) == len(pred_inclusive) == len(probs)
-        
+
         # Verify both produce valid F1 scores
         f1_exclusive = f1_score(*get_confusion_matrix(labels, probs, threshold_exclusive, comparison='>'))
         f1_inclusive = f1_score(*get_confusion_matrix(labels, probs, threshold_inclusive, comparison='>='))
-        
+
         assert 0 <= f1_exclusive <= 1, f"Exclusive F1 {f1_exclusive} out of range"
         assert 0 <= f1_inclusive <= 1, f"Inclusive F1 {f1_inclusive} out of range"
 
@@ -115,13 +113,13 @@ class TestOptimizationWithTies:
         """Test consistency with tied probabilities using property-based testing."""
         rng = np.random.default_rng(42)
         labels = (rng.uniform(0, 1, size=len(probs)) < 0.5).astype(int)
-        
+
         # Ensure both classes present
         if labels.sum() == 0:
             labels[0] = 1
         if labels.sum() == labels.size:
             labels[0] = 0
-        
+
         for metric in ["f1", "accuracy"]:
             try:
                 threshold_exclusive = get_optimal_threshold(
@@ -130,20 +128,20 @@ class TestOptimizationWithTies:
                 threshold_inclusive = get_optimal_threshold(
                     labels, probs, metric=metric, method="sort_scan", comparison='>='
                 )
-                
+
                 # Both should produce valid thresholds
                 assert 0 <= threshold_exclusive <= 1
                 assert 0 <= threshold_inclusive <= 1
-                
+
                 # Verify predictions are consistent with comparison semantics
                 pred_exclusive = probs > threshold_exclusive
                 pred_inclusive = probs >= threshold_inclusive
-                
+
                 # Check behavior when probabilities are exactly equal to threshold
                 # Use exact equality rather than np.isclose to avoid false positives
                 exactly_tied_exclusive = (probs == threshold_exclusive)
                 exactly_tied_inclusive = (probs == threshold_inclusive)
-                
+
                 if np.any(exactly_tied_exclusive):
                     # Items exactly tied to exclusive threshold should not be predicted positive
                     assert not pred_exclusive[exactly_tied_exclusive].any(), (
@@ -151,7 +149,7 @@ class TestOptimizationWithTies:
                         f"Threshold: {threshold_exclusive}, Tied items: {probs[exactly_tied_exclusive]}, "
                         f"Predictions: {pred_exclusive[exactly_tied_exclusive]}"
                     )
-                    
+
                 if np.any(exactly_tied_inclusive):
                     # Items exactly tied to inclusive threshold should be predicted positive
                     assert pred_inclusive[exactly_tied_inclusive].all(), (
@@ -159,7 +157,7 @@ class TestOptimizationWithTies:
                         f"Threshold: {threshold_inclusive}, Tied items: {probs[exactly_tied_inclusive]}, "
                         f"Predictions: {pred_inclusive[exactly_tied_inclusive]}"
                     )
-                
+
             except Exception as e:
                 # Some edge cases might be unsupported
                 if "degenerate" in str(e).lower() or "empty" in str(e).lower():
@@ -172,7 +170,7 @@ class TestOptimizationWithTies:
         # but tie handling affects the actual predictions
         probs = np.array([0.1, 0.4, 0.4, 0.4, 0.8])
         labels = np.array([0, 1, 0, 1, 1])  # Mixed labels with ties at 0.4
-        
+
         for metric in ["f1", "accuracy"]:
             threshold_exclusive = get_optimal_threshold(
                 labels, probs, metric=metric, method="sort_scan", comparison='>'
@@ -180,24 +178,24 @@ class TestOptimizationWithTies:
             threshold_inclusive = get_optimal_threshold(
                 labels, probs, metric=metric, method="sort_scan", comparison='>='
             )
-            
+
             # Apply thresholds
             pred_exclusive = probs > threshold_exclusive
             pred_inclusive = probs >= threshold_inclusive
-            
+
             # If threshold is exactly at a tied value (0.4), behavior should differ
             if abs(threshold_exclusive - 0.4) < 1e-10:
                 tied_indices = np.isclose(probs, 0.4, atol=1e-10)
                 assert not pred_exclusive[tied_indices].any(), (
                     "Exclusive should not predict tied values as positive"
                 )
-            
+
             if abs(threshold_inclusive - 0.4) < 1e-10:
                 tied_indices = np.isclose(probs, 0.4, atol=1e-10)
                 assert pred_inclusive[tied_indices].all(), (
                     "Inclusive should predict tied values as positive"
                 )
-            
+
             # Verify scores are valid
             if metric == "f1":
                 score_exclusive = f1_score(*get_confusion_matrix(labels, probs, threshold_exclusive, comparison='>'))
@@ -205,20 +203,20 @@ class TestOptimizationWithTies:
             else:  # accuracy
                 score_exclusive = np.mean(pred_exclusive == labels)
                 score_inclusive = np.mean(pred_inclusive == labels)
-            
+
             assert 0 <= score_exclusive <= 1
             assert 0 <= score_inclusive <= 1
 
 
 class TestComparisonThreading:
     """Test that comparison operators are correctly threaded through algorithms."""
-    
+
     def test_sort_scan_threading(self):
         """Test that sort_scan correctly threads comparison operator to kernel."""
         # Use a case where the operator makes a difference
         probs = np.array([0.2, 0.6, 0.6, 0.8])
         labels = np.array([0, 1, 0, 1])
-        
+
         # Both should work without error
         threshold_exclusive = get_optimal_threshold(
             labels, probs, metric="f1", method="sort_scan", comparison='>'
@@ -226,14 +224,14 @@ class TestComparisonThreading:
         threshold_inclusive = get_optimal_threshold(
             labels, probs, metric="f1", method="sort_scan", comparison='>='
         )
-        
+
         assert 0 <= threshold_exclusive <= 1
         assert 0 <= threshold_inclusive <= 1
-        
+
         # Verify that confusion matrices use the correct comparison
         tp_ex, tn_ex, fp_ex, fn_ex = get_confusion_matrix(labels, probs, threshold_exclusive, comparison='>')
         tp_in, tn_in, fp_in, fn_in = get_confusion_matrix(labels, probs, threshold_inclusive, comparison='>=')
-        
+
         # Totals should match
         assert tp_ex + tn_ex + fp_ex + fn_ex == len(labels)
         assert tp_in + tn_in + fp_in + fn_in == len(labels)
@@ -242,38 +240,38 @@ class TestComparisonThreading:
         """Test that smart_brute correctly handles comparison operators."""
         probs = np.array([0.3, 0.5, 0.5, 0.7])
         labels = np.array([0, 1, 0, 1])
-        
+
         # Test both comparison operators
         for comparison in ['>', '>=']:
             threshold = get_optimal_threshold(
                 labels, probs, metric="accuracy", method="smart_brute", comparison=comparison
             )
-            
+
             assert 0 <= threshold <= 1
-            
+
             # Verify the threshold works correctly with the specified comparison
             pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
             accuracy = np.mean(pred == labels)
-            
+
             assert 0 <= accuracy <= 1
 
     def test_minimize_method_threading(self):
         """Test that minimize method handles comparison operators."""
         probs = np.array([0.1, 0.3, 0.7, 0.9])
         labels = np.array([0, 0, 1, 1])
-        
+
         for comparison in ['>', '>=']:
             try:
                 threshold = get_optimal_threshold(
                     labels, probs, metric="f1", method="minimize", comparison=comparison
                 )
-                
+
                 assert 0 <= threshold <= 1
-                
+
                 # Verify confusion matrix uses correct comparison
                 tp, tn, fp, fn = get_confusion_matrix(labels, probs, threshold, comparison=comparison)
                 assert tp + tn + fp + fn == len(labels)
-                
+
             except Exception as e:
                 # Some methods might not support all combinations
                 if "not supported" in str(e).lower():
@@ -283,22 +281,22 @@ class TestComparisonThreading:
 
 class TestEdgeCasesWithComparison:
     """Test edge cases with both comparison operators."""
-    
+
     def test_boundary_probabilities(self):
         """Test with probabilities exactly at 0.0 and 1.0."""
         probs = np.array([0.0, 0.5, 1.0])
         labels = np.array([0, 1, 1])
-        
+
         for comparison in ['>', '>=']:
             threshold = get_optimal_threshold(
                 labels, probs, metric="accuracy", method="sort_scan", comparison=comparison
             )
-            
+
             # Should handle boundary values gracefully
             assert 0 <= threshold <= 1
-            
+
             pred = (probs > threshold) if comparison == '>' else (probs >= threshold)
-            
+
             # Specific boundary behavior
             if threshold == 0.0:
                 if comparison == '>':
@@ -308,7 +306,7 @@ class TestEdgeCasesWithComparison:
                     # All >= 0.0 should be True
                     expected = np.array([True, True, True])
                 assert np.array_equal(pred, expected)
-            
+
             if threshold == 1.0:
                 if comparison == '>':
                     # Only values > 1.0 (none in [0,1]) should be True
@@ -323,14 +321,14 @@ class TestEdgeCasesWithComparison:
         # All at 0.0
         probs_zero = np.zeros(4)
         labels_zero = np.array([0, 1, 0, 1])
-        
+
         for comparison in ['>', '>=']:
             threshold = get_optimal_threshold(
                 labels_zero, probs_zero, metric="accuracy", method="sort_scan", comparison=comparison
             )
-            
+
             pred = (probs_zero > threshold) if comparison == '>' else (probs_zero >= threshold)
-            
+
             # Predictions should be consistent based on threshold and comparison
             if threshold > 0:
                 # No probability can be > or >= a positive threshold
@@ -342,18 +340,18 @@ class TestEdgeCasesWithComparison:
                 else:  # '>='
                     # 0 >= 0 is True
                     assert pred.all()
-        
+
         # All at 1.0
         probs_one = np.ones(4)
         labels_one = np.array([1, 0, 1, 0])
-        
+
         for comparison in ['>', '>=']:
             threshold = get_optimal_threshold(
                 labels_one, probs_one, metric="accuracy", method="sort_scan", comparison=comparison
             )
-            
+
             pred = (probs_one > threshold) if comparison == '>' else (probs_one >= threshold)
-            
+
             # Predictions should be consistent
             if threshold < 1:
                 # All probabilities should be > or >= a threshold < 1
@@ -369,20 +367,20 @@ class TestEdgeCasesWithComparison:
     def test_single_probability_tied(self):
         """Test with a single probability exactly equal to potential threshold."""
         probs = np.array([0.2, 0.4, 0.6, 0.8])
-        labels = np.array([0, 0, 1, 1])
-        
+        np.array([0, 0, 1, 1])
+
         # Force consideration of 0.6 as threshold by making it optimal
         test_threshold = 0.6
-        
+
         pred_exclusive = probs > test_threshold  # [False, False, False, True]
         pred_inclusive = probs >= test_threshold  # [False, False, True, True]
-        
+
         expected_exclusive = np.array([False, False, False, True])
         expected_inclusive = np.array([False, False, True, True])
-        
+
         assert np.array_equal(pred_exclusive, expected_exclusive)
         assert np.array_equal(pred_inclusive, expected_inclusive)
-        
+
         # Verify different predictions
         assert not np.array_equal(pred_exclusive, pred_inclusive), (
             "Should differ when probability equals threshold"

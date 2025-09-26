@@ -144,7 +144,7 @@ class TestCoreInvariants:
             tolerance = 1e-10
             if len(np.unique(probabilities)) <= 2 and (0.0 in probabilities or 1.0 in probabilities):
                 tolerance = 0.5  # More lenient for edge cases with boundary values
-            
+
             assert piecewise_score >= naive_score - tolerance, (
                 f"Piecewise optimization worse than naive for {metric}: "
                 f"{piecewise_score} vs {naive_score} (tolerance={tolerance})"
@@ -354,15 +354,15 @@ class TestStatisticalProperties:
 
             # Perfect separation should generally be better or at least reasonable
             # However, with extreme class imbalance, perfect separation can sometimes
-            # perform worse than well-calibrated probabilities. We only fail if the 
+            # perform worse than well-calibrated probabilities. We only fail if the
             # performance is unreasonably bad.
-            
+
             # Skip the test if we have extreme class imbalance (< 10% or > 90% positive)
             pos_ratio = np.mean(labels)
             if pos_ratio < 0.1 or pos_ratio > 0.9:
                 # With extreme imbalance, perfect separation assumptions may not hold
                 return
-                
+
             if perfect_score < original_score - 0.5:
                 # Only fail if the difference is very substantial
                 pytest.fail(
