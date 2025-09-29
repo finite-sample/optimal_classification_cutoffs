@@ -122,3 +122,43 @@ tau_bayes = bayes_threshold_from_costs(
 )
 ```
 
+## API Decision Stack
+
+1. Problem: binary or multiclass (auto‑detected).
+
+2. Objective: metric ("f1", "precision", "recall", "accuracy") or utility/cost (binary‑only).
+
+3. Estimation regime (choose one):
+    • Empirical (finite sample) — optimize on labeled data.
+    • Expected under calibration —
+      – Bayes (utility, closed‑form; binary‑only), or
+      – Dinkelbach (expected F1; no weights).
+
+4. Method (empirical only): "auto", "sort_scan", "smart_brute", "minimize", "gradient"; multiclass adds "coord_ascent". For expected F1, use "dinkelbach".
+
+5. Validation: holdout or cross‑validation (cv_threshold_optimization, nested_cv_threshold_optimization).
+
+## Examples
+
+* Empirical metric (binary):
+
+```
+get_optimal_threshold(y, p, metric="f1", method="auto")
+```
+
+* Empirical utility (binary):
+```
+get_optimal_threshold(y, p, utility={"fp":-1, "fn":-5}, method="sort_scan")
+```
+
+* Bayes utility (calibrated, binary):
+```
+bayes_threshold_from_costs(fp_cost=1, fn_cost=5) # or
+get_optimal_threshold(None, p, utility={"fp":-1,"fn":-5}, bayes=True)
+```
+
+* Expected F1 via Dinkelbach (calibrated, binary):
+
+```
+get_optimal_threshold(y, p, metric="f1", method="dinkelbach")
+```
