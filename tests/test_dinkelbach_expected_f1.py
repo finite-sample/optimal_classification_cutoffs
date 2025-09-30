@@ -43,21 +43,21 @@ class TestDinkelbachLabelIndependence:
                 labels_calibrated,
                 probs,
                 metric="f1",
-                method="dinkelbach",
+                mode="expected",
                 comparison=comparison,
             )
             threshold_random = get_optimal_threshold(
                 labels_random,
                 probs,
                 metric="f1",
-                method="dinkelbach",
+                mode="expected",
                 comparison=comparison,
             )
             threshold_anticorrelated = get_optimal_threshold(
                 labels_anticorrelated,
                 probs,
                 metric="f1",
-                method="dinkelbach",
+                mode="expected",
                 comparison=comparison,
             )
 
@@ -92,7 +92,7 @@ class TestDinkelbachLabelIndependence:
         thresholds = []
         for labels in label_patterns:
             threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="dinkelbach", comparison=">"
+                labels, probs, mode="expected", metric="f1", comparison=">"
             )
             thresholds.append(threshold)
 
@@ -111,15 +111,19 @@ class TestDinkelbachLabelIndependence:
         # Two datasets with same probs but different labels
         labels2 = np.array([0, 1, 0, 1, 1])  # sum = 3 (also different from probs)
 
-        threshold1 = get_optimal_threshold(
-            labels, probs, metric="f1", method="dinkelbach", comparison=">="
+        result1 = get_optimal_threshold(
+            labels, probs, mode="expected", metric="f1", comparison=">="
         )
-        threshold2 = get_optimal_threshold(
-            labels2, probs, metric="f1", method="dinkelbach", comparison=">="
+        result2 = get_optimal_threshold(
+            labels2, probs, mode="expected", metric="f1", comparison=">="
         )
 
+        # Extract thresholds from tuples
+        threshold1, _ = result1
+        threshold2, _ = result2
+
         # Should be identical despite different label sums
-        assert threshold1 == threshold2, (
+        assert abs(threshold1 - threshold2) < 1e-10, (
             f"Different label sums should not affect Dinkelbach: {threshold1} vs {threshold2}"
         )
 
@@ -144,12 +148,16 @@ class TestDinkelbachCalibratedPerformance:
             return
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="dinkelbach", comparison=comparison
+            result = get_optimal_threshold(
+                labels, probs, mode="expected", metric="f1", comparison=comparison
             )
+
+            # Extract threshold from tuple
+            threshold, expected_f1 = result
 
             # Should produce reasonable threshold
             assert 0 <= threshold <= 1, f"Threshold {threshold} out of bounds"
+            assert 0 <= expected_f1 <= 1, f"Expected F1 {expected_f1} out of bounds"
 
             # Compute empirical F1 with this threshold
             tp, tn, fp, fn = get_confusion_matrix(
@@ -181,9 +189,10 @@ class TestDinkelbachCalibratedPerformance:
             pytest.skip("Degenerate calibrated data")
 
         # Get thresholds from different methods
-        threshold_dinkelbach = get_optimal_threshold(
-            labels, probs, metric="f1", method="dinkelbach", comparison=">"
+        result_dinkelbach = get_optimal_threshold(
+            labels, probs, mode="expected", metric="f1", comparison=">"
         )
+        threshold_dinkelbach, _ = result_dinkelbach  # Extract threshold from tuple
         threshold_sort_scan = get_optimal_threshold(
             labels, probs, metric="f1", method="sort_scan", comparison=">"
         )
@@ -218,9 +227,10 @@ class TestDinkelbachCalibratedPerformance:
         if np.sum(labels) <= 1 or np.sum(labels) >= n - 1:
             pytest.skip("Degenerate case")
 
-        threshold = get_optimal_threshold(
-            labels, probs, metric="f1", method="dinkelbach", comparison=">"
+        result = get_optimal_threshold(
+            labels, probs, mode="expected", metric="f1", comparison=">"
         )
+        threshold, _ = result  # Extract threshold from tuple
 
         # Compute empirical F1
         empirical_f1 = f1_score(
@@ -262,12 +272,16 @@ class TestDinkelbachTieHandling:
         probs = np.array([0.2, 0.5, 0.5, 0.5, 0.8])
         labels = np.array([0, 1, 0, 1, 1])  # Mixed labels (irrelevant for Dinkelbach)
 
-        threshold_exclusive = get_optimal_threshold(
-            labels, probs, metric="f1", method="dinkelbach", comparison=">"
+        result_exclusive = get_optimal_threshold(
+            labels, probs, mode="expected", metric="f1", comparison=">"
         )
-        threshold_inclusive = get_optimal_threshold(
-            labels, probs, metric="f1", method="dinkelbach", comparison=">="
+        result_inclusive = get_optimal_threshold(
+            labels, probs, mode="expected", metric="f1", comparison=">="
         )
+        
+        # Extract thresholds from tuples
+        threshold_exclusive, _ = result_exclusive
+        threshold_inclusive, _ = result_inclusive
 
         # Both should be valid
         assert 0 <= threshold_exclusive <= 1
@@ -297,9 +311,10 @@ class TestDinkelbachTieHandling:
         labels = np.random.default_rng(42).integers(0, 2, size=20)  # Random labels
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="dinkelbach", comparison=comparison
+            result = get_optimal_threshold(
+                labels, probs, mode="expected", metric="f1", comparison=comparison
             )
+            threshold, _ = result  # Extract threshold from tuple
 
             # Should produce valid threshold
             assert 0 <= threshold <= 1
@@ -317,9 +332,10 @@ class TestDinkelbachTieHandling:
         labels = np.array([0, 0, 1, 1, 0, 1])  # Labels don't matter for Dinkelbach
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="dinkelbach", comparison=comparison
+            result = get_optimal_threshold(
+                labels, probs, mode="expected", metric="f1", comparison=comparison
             )
+            threshold, _ = result  # Extract threshold from tuple
 
             # Verify threshold produces consistent behavior
             pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
@@ -349,9 +365,10 @@ class TestDinkelbachEdgeCases:
         labels = np.array([0, 0, 1, 1])  # Labels don't affect Dinkelbach
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="dinkelbach", comparison=comparison
+            result = get_optimal_threshold(
+                labels, probs, mode="expected", metric="f1", comparison=comparison
             )
+            threshold, _ = result  # Extract threshold from tuple
 
             assert 0 <= threshold <= 1, (
                 f"Threshold {threshold} out of bounds with extreme probs"
@@ -379,9 +396,10 @@ class TestDinkelbachEdgeCases:
         labels = np.array([0, 1, 0])  # Mixed labels
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
-                labels, probs, metric="f1", method="dinkelbach", comparison=comparison
+            result = get_optimal_threshold(
+                labels, probs, mode="expected", metric="f1", comparison=comparison
             )
+            threshold, _ = result  # Extract threshold from tuple
 
             assert 0 <= threshold <= 1
 
@@ -403,13 +421,14 @@ class TestDinkelbachEdgeCases:
             # Multiple calls should give identical results
             thresholds = []
             for _ in range(5):
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels,
                     probs,
                     metric="f1",
-                    method="dinkelbach",
+                    mode="expected",
                     comparison=comparison,
                 )
+                threshold, _ = result  # Extract threshold from tuple
                 thresholds.append(threshold)
 
             # All should be identical
@@ -418,29 +437,37 @@ class TestDinkelbachEdgeCases:
                     f"Dinkelbach not reproducible: call {i} gave {thresholds[i]} vs {thresholds[0]}"
                 )
 
-    def test_dinkelbach_no_sample_weights_support(self):
-        """Test that Dinkelbach correctly rejects sample weights."""
+    def test_dinkelbach_supports_sample_weights(self):
+        """Test that Dinkelbach correctly handles sample weights."""
         probs = np.array([0.2, 0.5, 0.8])
         labels = np.array([0, 1, 1])
         weights = np.array([1.0, 2.0, 1.5])
 
-        with pytest.raises(ValueError, match="does not support sample weights"):
-            get_optimal_threshold(
-                labels, probs, metric="f1", method="dinkelbach", sample_weight=weights
-            )
+        # Should not raise an error with sample weights
+        result = get_optimal_threshold(
+            labels, probs, mode="expected", metric="f1", sample_weight=weights
+        )
+        
+        # Extract threshold from tuple and verify it's valid
+        threshold, expected_f1 = result
+        assert 0 <= threshold <= 1
+        assert 0 <= expected_f1 <= 1
 
-    def test_dinkelbach_only_supports_f1(self):
-        """Test that Dinkelbach only supports F1 metric."""
+    def test_dinkelbach_supports_multiple_metrics(self):
+        """Test that Dinkelbach supports F1 and other F-beta related metrics."""
         probs = np.array([0.3, 0.7])
         labels = np.array([0, 1])
 
         # Should work with F1
-        threshold_f1 = get_optimal_threshold(
-            labels, probs, metric="f1", method="dinkelbach"
+        result_f1 = get_optimal_threshold(
+            labels, probs, mode="expected", metric="f1"
         )
+        threshold_f1, _ = result_f1  # Extract threshold from tuple
         assert 0 <= threshold_f1 <= 1
 
-        # Should reject other metrics
-        for metric in ["accuracy", "precision", "recall"]:
-            with pytest.raises(ValueError, match="currently only supports F1"):
-                get_optimal_threshold(labels, probs, metric=metric, method="dinkelbach")
+        # Should also work with other metrics
+        for metric in ["accuracy", "precision", "recall", "f2"]:
+            result = get_optimal_threshold(labels, probs, metric=metric, mode="expected")
+            threshold, expected_score = result
+            assert 0 <= threshold <= 1, f"Invalid threshold for {metric}: {threshold}"
+            assert 0 <= expected_score <= 1, f"Invalid score for {metric}: {expected_score}"

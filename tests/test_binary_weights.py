@@ -371,8 +371,8 @@ class TestWeightMethodConsistency:
 
     @given(n=st.integers(8, 40), comparison=st.sampled_from([">", ">="]))
     @settings(deadline=None, max_examples=40)
-    def test_sort_scan_vs_smart_brute_with_weights(self, n, comparison):
-        """sort_scan and smart_brute should give consistent results with weights."""
+    def test_sort_scan_vs_unique_scan_with_weights(self, n, comparison):
+        """sort_scan and unique_scan should give consistent results with weights."""
         rng = np.random.default_rng(1111)
         p = rng.uniform(0, 1, size=n)
         y = (rng.uniform(0, 1, size=n) < 0.5).astype(int)
@@ -397,7 +397,7 @@ class TestWeightMethodConsistency:
                 y,
                 p,
                 metric="f1",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
                 sample_weight=w,
             )
@@ -419,7 +419,7 @@ class TestWeightMethodConsistency:
             # Scores should match (both methods should find optimal)
             assert abs(f1_scan - f1_brute) < 1e-10, (
                 f"F1 scores don't match: sort_scan={f1_scan:.12f}, "
-                f"smart_brute={f1_brute:.12f}"
+                f"unique_scan={f1_brute:.12f}"
             )
 
         except (ValueError, NotImplementedError):

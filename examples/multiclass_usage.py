@@ -39,7 +39,7 @@ print(f"Probability matrix shape: {y_prob.shape}\n")
 # Method 1: Using ThresholdOptimizer (recommended)
 print("=== Method 1: ThresholdOptimizer ===")
 
-optimizer = ThresholdOptimizer(objective="f1", method="smart_brute")
+optimizer = ThresholdOptimizer(metric="f1", method="unique_scan")
 optimizer.fit(y, y_prob)
 
 print(f"Optimal thresholds per class: {optimizer.threshold_}")
@@ -98,7 +98,7 @@ for class_idx in range(len(np.unique(y))):
     y_prob_binary = y_prob[:, class_idx]
 
     # Optimize threshold for this specific class
-    class_optimizer = ThresholdOptimizer(objective="f1")
+    class_optimizer = ThresholdOptimizer(metric="f1")
     class_optimizer.fit(y_binary, y_prob_binary)
 
     print(f"Class {class_idx}:")
@@ -111,7 +111,7 @@ for class_idx in range(len(np.unique(y))):
 # Method 4: Different optimization methods
 print("\n=== Method 4: Different Optimization Methods ===")
 
-methods = ["smart_brute", "minimize", "gradient"]
+methods = ["unique_scan", "minimize", "gradient"]
 for method in methods:
     thresholds = get_optimal_multiclass_thresholds(
         y, y_prob, metric="f1", method=method

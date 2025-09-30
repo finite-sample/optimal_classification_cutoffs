@@ -394,7 +394,7 @@ class TestStatisticalProperties:
 
     @given(
         data=matched_labels_and_probabilities(min_size=5, max_size=20),
-        method=st.sampled_from(["smart_brute", "minimize", "gradient"]),
+        method=st.sampled_from(["unique_scan", "minimize", "gradient"]),
     )
     @settings(max_examples=20)
     def test_optimization_method_consistency(self, data, method):
@@ -900,7 +900,7 @@ class TestPerformanceProperties:
 
         import time
 
-        methods = ["smart_brute", "minimize", "gradient"]
+        methods = ["unique_scan", "minimize", "gradient"]
         times = {}
         results = {}
 
@@ -980,7 +980,7 @@ class TestPerformanceProperties:
         end_time = time.time()
 
         # Time should scale with number of unique values, not total samples
-        # For the smart_brute method, complexity is O(k log k) where k is unique values
+        # For the unique_scan method, complexity is O(k log k) where k is unique values
         expected_max_time = 0.01 * n_unique / 10 + 0.001  # Base time + scaling
 
         assert end_time - start_time < expected_max_time, (

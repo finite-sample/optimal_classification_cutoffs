@@ -231,7 +231,7 @@ class TestInputValidation:
     def test_validate_optimization_method(self):
         """Test optimization method validation."""
         # Valid optimization methods
-        for method in ["smart_brute", "minimize", "gradient"]:
+        for method in ["unique_scan", "minimize", "gradient"]:
             _validate_optimization_method(method)
 
         # Invalid optimization method

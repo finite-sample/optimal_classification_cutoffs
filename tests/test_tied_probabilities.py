@@ -58,7 +58,7 @@ class TestTiedProbabilities:
         y_true = [0, 0, 1, 1, 1, 0]
         pred_prob = [0.2, 0.5, 0.5, 0.5, 0.8, 0.2]  # Ties at 0.2 and 0.5
 
-        for method in ["smart_brute", "sort_scan", "minimize"]:
+        for method in ["unique_scan", "sort_scan", "minimize"]:
             if method == "sort_scan" and not _has_vectorized_metric("f1"):
                 continue
 
@@ -160,7 +160,7 @@ class TestTiedProbabilities:
         y_true = [0, 1, 0, 1, 1, 0]
         pred_prob = [0.4, 0.6, 0.4, 0.6, 0.6, 0.4]
 
-        optimizer = ThresholdOptimizer(objective="f1", method="smart_brute")
+        optimizer = ThresholdOptimizer(metric="f1", method="unique_scan")
         optimizer.fit(y_true, pred_prob)
 
         predictions = optimizer.predict(pred_prob)
@@ -243,7 +243,7 @@ class TestConsistencyAcrossMethods:
         y_true = [0, 1, 0, 1, 1, 0, 1, 0]
         pred_prob = [0.3, 0.7, 0.3, 0.7, 0.7, 0.3, 0.7, 0.3]  # Many ties
 
-        methods = ["smart_brute", "minimize", "gradient"]
+        methods = ["unique_scan", "minimize", "gradient"]
         if _has_vectorized_metric(metric):
             methods.append("sort_scan")
 

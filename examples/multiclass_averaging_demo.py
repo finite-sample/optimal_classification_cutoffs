@@ -103,7 +103,7 @@ def demonstrate_optimization_differences(y_true, y_prob):
     """Demonstrate how different averaging strategies affect threshold optimization."""
     print("\n=== Optimization with Different Averaging Strategies ===\n")
 
-    optimization_methods = ["smart_brute", "minimize"]
+    optimization_methods = ["unique_scan", "minimize"]
 
     for method in optimization_methods:
         print(f"Optimization Method: {method}")
@@ -147,14 +147,14 @@ def demonstrate_performance_vectorization(y_true, y_prob):
     # Time standard implementation
     start = time.time()
     thresholds_standard = get_optimal_multiclass_thresholds(
-        y_true, y_prob, "f1", "smart_brute", average="macro", vectorized=False
+        y_true, y_prob, "f1", "unique_scan", average="macro", vectorized=False
     )
     time_standard = time.time() - start
 
     # Time vectorized implementation
     start = time.time()
     thresholds_vectorized = get_optimal_multiclass_thresholds(
-        y_true, y_prob, "f1", "smart_brute", average="macro", vectorized=True
+        y_true, y_prob, "f1", "unique_scan", average="macro", vectorized=True
     )
     time_vectorized = time.time() - start
 
@@ -211,7 +211,7 @@ def demonstrate_practical_implications(y_true, y_prob, class_counts):
 
         try:
             thresholds = get_optimal_multiclass_thresholds(
-                y_true, y_prob, "f1", "smart_brute", average=strategy
+                y_true, y_prob, "f1", "unique_scan", average=strategy
             )
 
             # Evaluate performance with these thresholds
@@ -246,7 +246,7 @@ def compare_with_sklearn_metrics(y_true, y_prob):
 
     # Get predictions using optimized thresholds
     optimal_thresholds = get_optimal_multiclass_thresholds(
-        y_true, y_prob, "f1", "smart_brute", average="macro"
+        y_true, y_prob, "f1", "unique_scan", average="macro"
     )
 
     # Make predictions with optimized thresholds

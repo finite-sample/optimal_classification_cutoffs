@@ -23,7 +23,7 @@ class TestMethodConsistency:
         y_true = [0, 0, 0, 1, 1, 1]
         pred_prob = [0.1, 0.2, 0.3, 0.7, 0.8, 0.9]
 
-        methods = ["smart_brute", "minimize", "gradient"]
+        methods = ["unique_scan", "minimize", "gradient"]
         thresholds = {}
         scores = {}
 
@@ -48,7 +48,7 @@ class TestMethodConsistency:
         pred_prob = [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
 
         # Methods that should agree for piecewise metrics
-        methods = ["smart_brute", "sort_scan", "minimize"]
+        methods = ["unique_scan", "sort_scan", "minimize"]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             thresholds = {}
@@ -89,7 +89,7 @@ class TestMethodConsistency:
             ([0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5]),
         ]
 
-        methods = ["smart_brute", "minimize", "gradient"]
+        methods = ["unique_scan", "minimize", "gradient"]
 
         for y_true, pred_prob in edge_cases:
             for method in methods:
@@ -142,7 +142,7 @@ class TestPerformanceCharacteristics:
         y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
-        methods_to_test = ["smart_brute", "sort_scan", "minimize"]
+        methods_to_test = ["unique_scan", "sort_scan", "minimize"]
 
         timing_results = {}
 
@@ -163,12 +163,12 @@ class TestPerformanceCharacteristics:
                 print(f"Method {method} failed with {n_samples} samples: {e}")
 
         # Sort_scan should be faster for large datasets
-        if "sort_scan" in timing_results and "smart_brute" in timing_results:
+        if "sort_scan" in timing_results and "unique_scan" in timing_results:
             if n_samples >= 1000:
                 # For large datasets, sort_scan should be competitive or faster
-                ratio = timing_results["sort_scan"] / timing_results["smart_brute"]
+                ratio = timing_results["sort_scan"] / timing_results["unique_scan"]
                 assert ratio < 2.0, (
-                    f"Sort_scan too slow compared to smart_brute: {ratio}"
+                    f"Sort_scan too slow compared to unique_scan: {ratio}"
                 )
 
     def test_memory_usage_scaling(self):
@@ -180,7 +180,7 @@ class TestPerformanceCharacteristics:
 
         # Should complete without memory issues
         threshold = get_optimal_threshold(
-            y_true, pred_prob, metric="f1", method="smart_brute"
+            y_true, pred_prob, metric="f1", method="unique_scan"
         )
         assert 0.0 <= threshold <= 1.0
 
@@ -197,7 +197,7 @@ class TestPerformanceCharacteristics:
 
         start_time = time.time()
         threshold = get_optimal_threshold(
-            y_true, pred_prob, metric="f1", method="smart_brute"
+            y_true, pred_prob, metric="f1", method="unique_scan"
         )
         end_time = time.time()
 
@@ -214,7 +214,7 @@ class TestMulticlassMethodConsistency:
         pred_prob = np.random.RandomState(42).uniform(0, 1, (9, 3))
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
-        methods = ["smart_brute", "minimize"]
+        methods = ["unique_scan", "minimize"]
         thresholds = {}
 
         for method in methods:
@@ -265,7 +265,7 @@ class TestComparisonOperatorConsistency:
         y_true = [0, 1, 0, 1, 1, 0]
         pred_prob = [0.4, 0.6, 0.4, 0.6, 0.6, 0.4]  # Some tied values
 
-        methods = ["smart_brute", "minimize"]
+        methods = ["unique_scan", "minimize"]
 
         for method in methods:
             try:

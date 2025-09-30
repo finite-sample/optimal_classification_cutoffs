@@ -220,7 +220,7 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Test through wrapper
-        optimizer = ThresholdOptimizer(objective="f1", method="coord_ascent")
+        optimizer = ThresholdOptimizer(metric="f1", method="coord_ascent")
         optimizer.fit(y_true, P)
 
         # Check that thresholds were learned
@@ -249,7 +249,7 @@ class TestCoordinateAscentIntegration:
         y_pred_manual = _assign_labels_shifted(P, tau)
 
         # Prediction via wrapper
-        optimizer = ThresholdOptimizer(objective="f1", method="coord_ascent")
+        optimizer = ThresholdOptimizer(metric="f1", method="coord_ascent")
         optimizer.fit(y_true, P)
         y_pred_wrapper = optimizer.predict(P)
 
@@ -278,7 +278,7 @@ class TestCoordinateAscentPerformance:
 
         # Compare OvR vs coordinate ascent
         tau_ovr = get_optimal_multiclass_thresholds(
-            y_true, P, metric="f1", method="smart_brute"
+            y_true, P, metric="f1", method="unique_scan"
         )
         y_pred_ovr = _assign_labels_shifted(P, tau_ovr)
         macro_f1_ovr = _macro_f1_from_assignments(y_true, y_pred_ovr, 3)

@@ -17,7 +17,16 @@ except Exception:
     else:
         __version__ = "unknown"
 
+from .bayes import (
+    bayes_decision_from_utility_matrix,
+    bayes_threshold_from_costs_scalar,
+    bayes_thresholds_from_costs_vector,
+)
 from .cv import cv_threshold_optimization, nested_cv_threshold_optimization
+from .expected import (
+    dinkelbach_expected_fbeta_binary,
+    dinkelbach_expected_fbeta_multilabel,
+)
 from .metrics import (
     METRIC_REGISTRY,
     VECTORIZED_REGISTRY,
@@ -36,19 +45,22 @@ from .metrics import (
     should_maximize_metric,
 )
 from .optimizers import (
-    bayes_threshold_from_costs,
-    bayes_threshold_from_utility,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
-    get_probability,
 )
 from .types import MulticlassMetricReturn
 from .wrapper import ThresholdOptimizer
 
 __all__ = [
     "__version__",
-    "bayes_threshold_from_costs",
-    "bayes_threshold_from_utility",
+    # Enhanced Bayes functions
+    "bayes_decision_from_utility_matrix",
+    "bayes_thresholds_from_costs_vector",
+    "bayes_threshold_from_costs_scalar",
+    # Enhanced expected functions
+    "dinkelbach_expected_fbeta_binary",
+    "dinkelbach_expected_fbeta_multilabel",
+    # Metrics and confusion matrix
     "get_confusion_matrix",
     "get_multiclass_confusion_matrix",
     "make_cost_metric",
@@ -64,11 +76,14 @@ __all__ = [
     "needs_probability_scores",
     "get_vectorized_metric",
     "has_vectorized_implementation",
-    "get_probability",
+    # Core optimization functions
     "get_optimal_threshold",
     "get_optimal_multiclass_thresholds",
+    # Cross-validation
     "cv_threshold_optimization",
     "nested_cv_threshold_optimization",
+    # High-level wrapper
     "ThresholdOptimizer",
+    # Types
     "MulticlassMetricReturn",
 ]

@@ -440,7 +440,7 @@ class TestWrapperEdgeCases:
         labels = np.array([0, 0, 0, 0])
         probabilities = np.array([0.1, 0.3, 0.5, 0.7])
 
-        optimizer = ThresholdOptimizer(objective="accuracy")
+        optimizer = ThresholdOptimizer(metric="accuracy")
 
         # Should handle gracefully (might issue warnings)
         with warnings.catch_warnings():
@@ -461,7 +461,7 @@ class TestWrapperEdgeCases:
         labels = np.array([0, 0, 0])
         probabilities = np.array([[1.0], [1.0], [1.0]])
 
-        optimizer = ThresholdOptimizer(objective="f1")
+        optimizer = ThresholdOptimizer(metric="f1")
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

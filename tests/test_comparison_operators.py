@@ -139,8 +139,8 @@ class TestComparisonOperators:
         pred_probs = np.array([0.2, 0.8, 0.3, 0.7, 0.4, 0.6])
 
         # Create optimizers with different comparison operators
-        opt_gt = ThresholdOptimizer(objective="f1", comparison=">")
-        opt_gte = ThresholdOptimizer(objective="f1", comparison=">=")
+        opt_gt = ThresholdOptimizer(metric="f1", comparison=">")
+        opt_gte = ThresholdOptimizer(metric="f1", comparison=">=")
 
         # Fit both optimizers
         opt_gt.fit(true_labels, pred_probs)

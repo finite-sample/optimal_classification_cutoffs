@@ -5,6 +5,110 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2024-12-30
+
+### Added
+- **Explicit Mode Parameter**: Added `mode` parameter to `get_optimal_threshold()` for clear estimation regime specification
+  - `mode="empirical"` (default): Standard empirical optimization using the `method` parameter
+  - `mode="bayes"`: Bayes-optimal threshold under calibrated probabilities (requires `utility`)
+  - `mode="expected"`: Expected metric optimization (supports multiple metrics, binary and multiclass)
+- **Enhanced ThresholdOptimizer**: Extended wrapper class with new parameters
+  - Added `mode`, `utility`, and `minimize_cost` parameters for full API coverage
+  - Changed primary parameter from `objective` to `metric` with backward compatibility
+- **Improved Method Naming**: Renamed `"smart_brute"` to `"unique_scan"` for clarity
+  - `"unique_scan"`: Evaluates thresholds at unique probability values
+  - Better name reflects the actual algorithm behavior
+- **Auto Method Selection**: Changed default optimization method in CV functions from `"smart_brute"` to `"auto"`
+  - Automatically selects best method based on metric properties and data size
+  - Better performance out-of-the-box for most use cases
+- **Comprehensive Test Suite**: Added realistic integration tests with datasets of 100+ samples
+  - Tests now use meaningful datasets generated from scikit-learn
+  - Added performance tests with 5000+ sample datasets
+  - Enhanced test coverage for edge cases and real-world scenarios
+
+### Changed
+- **Parameter Naming**: Unified naming convention to use `metric` consistently
+  - `ThresholdOptimizer` now uses `metric` parameter instead of `objective`
+  - All documentation and examples updated to use `metric` terminology
+- **CV Function Defaults**: Cross-validation functions now default to `method="auto"`
+  - `cv_threshold_optimization()` and `nested_cv_threshold_optimization()`
+  - Provides better performance and method selection automatically
+- **Enhanced mode='expected' Support**: Extended expected optimization to support multiple metrics and multiclass
+  - Returns tuple `(threshold, expected_score)` for binary classification
+  - Returns dict with per-class information for multiclass classification
+  - ThresholdOptimizer wrapper properly handles tuple returns
+
+### Deprecated
+- **Legacy Parameters**: Several parameters deprecated with clear migration paths
+  - `bayes=True` → use `mode="bayes"` instead
+  - `method="dinkelbach"` → use `mode="expected"` instead  
+  - `method="smart_brute"` → use `method="unique_scan"` instead
+  - `objective` parameter in `ThresholdOptimizer` → use `metric` instead
+- All deprecations emit `DeprecationWarning` with migration instructions
+
+### Fixed
+- **Test Suite Robustness**: Fixed 113+ test failures related to deprecated API usage
+- **Type Annotations**: Resolved all mypy type checking errors without type ignore comments
+- **Sort-Scan Precision**: Improved tolerance handling for edge cases with extreme or tied probabilities
+- **Utility Parameter Handling**: Fixed sign convention consistency between Bayes and empirical optimization
+- **Wrapper Compatibility**: Fixed ThresholdOptimizer wrapper to handle tuple returns from mode='expected'
+
+### Migration Guide
+
+#### Mode Parameter Usage
+```python
+# Before (v0.3.x)
+threshold = get_optimal_threshold(y, p, method="dinkelbach")
+threshold = get_optimal_threshold(None, p, utility={...}, bayes=True)
+
+# After (v0.4.x)
+threshold = get_optimal_threshold(y, p, mode="expected")
+threshold = get_optimal_threshold(None, p, utility={...}, mode="bayes")
+```
+
+#### ThresholdOptimizer Parameter Changes
+```python
+# Before (v0.3.x)
+optimizer = ThresholdOptimizer(objective="f1")
+
+# After (v0.4.x)
+optimizer = ThresholdOptimizer(metric="f1")
+
+# With new features
+optimizer = ThresholdOptimizer(
+    metric="f1",
+    mode="bayes",
+    utility={"fp": -1, "fn": -5}
+)
+```
+
+#### Method Name Changes
+```python
+# Before (v0.3.x)
+threshold = get_optimal_threshold(y, p, method="smart_brute")
+
+# After (v0.4.x)
+threshold = get_optimal_threshold(y, p, method="unique_scan")
+# Or better, use auto method selection
+threshold = get_optimal_threshold(y, p, method="auto")
+```
+
+#### Cross-Validation Changes
+```python
+# Before (v0.3.x) - explicitly needed to specify method
+thresholds, scores = cv_threshold_optimization(y, p, method="smart_brute")
+
+# After (v0.4.x) - auto method selection by default
+thresholds, scores = cv_threshold_optimization(y, p)  # Uses method="auto"
+```
+
+### Technical Details
+- Full backward compatibility maintained - existing code will work unchanged
+- All deprecated parameters continue to function with warnings
+- New test suite with 50+ tests covering new features and deprecation scenarios
+- Enhanced type annotations with new `EstimationMode` type
+- Comprehensive documentation updates
+
 ## [0.3.0] - 2024-12-28
 
 ### Added

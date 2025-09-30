@@ -1,12 +1,20 @@
 """High-level wrapper for threshold optimization."""
 
-from typing import Any, Literal, Self, cast
+from typing import Any, Self, cast
 
 import numpy as np
 
 from .multiclass_coord import _assign_labels_shifted
-from .optimizers import get_optimal_threshold, get_probability
-from .types import ArrayLike, ComparisonOperator, OptimizationMethod, SampleWeightLike
+from .optimizers import get_optimal_threshold
+from .types import (
+    ArrayLike,
+    ComparisonOperator,
+    EstimationMode,
+    OptimizationMethod,
+    SampleWeightLike,
+    UtilityDict,
+    UtilityMatrix,
+)
 
 
 class ThresholdOptimizer:
@@ -18,16 +26,23 @@ class ThresholdOptimizer:
 
     def __init__(
         self,
-        objective: str = "accuracy",
+        metric: str | None = None,
         verbose: bool = False,
         method: OptimizationMethod = "auto",
         comparison: ComparisonOperator = ">",
+        *,
+        mode: EstimationMode = "empirical",
+        utility: UtilityDict | None = None,
+        utility_matrix: UtilityMatrix | None = None,
+        minimize_cost: bool | None = None,
+        beta: float = 1.0,
+        class_weight: ArrayLike | None = None,
     ) -> None:
         """Create a new optimizer.
 
         Parameters
         ----------
-        objective:
+        metric:
             Metric to optimize, e.g. ``"accuracy"``, ``"f1"``, ``"precision"``,
             ``"recall"``.
         verbose:
@@ -37,19 +52,59 @@ class ThresholdOptimizer:
             - ``"auto"``: Automatically selects best method (default)
             - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with
               vectorized implementation
-            - ``"smart_brute"``: Evaluates all unique probabilities
+            - ``"unique_scan"``: Evaluates all unique probabilities
             - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
             - ``"gradient"``: Simple gradient ascent
             - ``"coord_ascent"``: Coordinate ascent for coupled multiclass
               optimization (single-label consistent)
         comparison:
             Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
+        mode:
+            Estimation regime to use:
+            - ``"empirical"``: Use method parameter for empirical optimization (default)
+            - ``"bayes"``: Return Bayes-optimal threshold/decisions under calibrated
+              probabilities
+              (requires utility or utility_matrix, ignores method and true_labs)
+            - ``"expected"``: Use Dinkelbach method for expected F-beta optimization
+              (supports sample weights and multiclass, binary/multilabel)
+        utility:
+            Optional utility specification for cost/benefit-aware optimization.
+            Dict with keys "tp", "tn", "fp", "fn" specifying utilities/costs per
+            outcome.
+            For multiclass mode="bayes", can contain per-class vectors.
+            Example: ``{"tp": 0, "tn": 0, "fp": -1, "fn": -5}`` for cost-sensitive.
+        utility_matrix:
+            Alternative to utility dict for multiclass Bayes decisions.
+            Shape (D, K) array where D=decisions, K=classes.
+            If provided with mode="bayes", returns class decisions rather than
+            thresholds.
+        minimize_cost:
+            If True, interpret utility values as costs and minimize total cost. This
+            automatically negates fp/fn values if they're positive.
+        beta:
+            F-beta parameter for expected mode (beta >= 0). beta=1 gives F1,
+            beta < 1 emphasizes precision, beta > 1 emphasizes recall.
+            Only used when mode="expected".
+        class_weight:
+            Optional per-class weights for weighted averaging in expected mode.
+            Shape (K,) array. Only used when mode="expected" and average="weighted".
         """
-        self.objective = objective
+        if metric is None:
+            metric = "accuracy"
+
+        self.metric = metric
         self.verbose = verbose
         self.method = method
         self.comparison = comparison
-        self.threshold_: float | np.ndarray[Any, Any] | None = None
+        self.mode = mode
+        self.utility = utility
+        self.utility_matrix = utility_matrix
+        self.minimize_cost = minimize_cost
+        self.beta = beta
+        self.class_weight = class_weight
+        self.threshold_: (
+            float | np.ndarray[Any, Any] | dict[str, Any] | tuple[float, float] | None
+        ) = None
         self.is_multiclass_: bool = False
 
     def fit(
@@ -84,26 +139,42 @@ class ThresholdOptimizer:
 
         if (
             self.is_multiclass_
-            or self.objective not in ["accuracy", "f1"]
+            or self.metric not in ["accuracy", "f1"]
             or sample_weight is not None
+            or self.mode != "empirical"
+            or self.utility is not None
+            or self.utility_matrix is not None
+            or self.minimize_cost is not None
         ):
             # Use the more general optimizer
-            self.threshold_ = get_optimal_threshold(
+            result = get_optimal_threshold(
                 true_labs,
                 pred_prob,
-                self.objective,
+                self.metric,
                 self.method,
                 sample_weight,
                 self.comparison,
+                mode=self.mode,
+                utility=self.utility,
+                utility_matrix=self.utility_matrix,
+                minimize_cost=self.minimize_cost,
+                beta=self.beta,
+                class_weight=self.class_weight,
             )
+
+            # Handle tuple return from mode='expected'
+            if isinstance(result, tuple):
+                self.threshold_, self.expected_score_ = result
+            else:
+                self.threshold_ = result
         else:
-            # Use legacy optimizer for backward compatibility (only when no sample
-            # weights)
-            self.threshold_ = get_probability(
+            # Use standard optimizer for simple binary cases
+            self.threshold_ = get_optimal_threshold(
                 true_labs,
                 pred_prob,
-                cast(Literal["accuracy", "f1"], self.objective),
-                self.verbose,
+                self.metric,
+                self.method,
+                comparison=self.comparison,
             )
 
         return self

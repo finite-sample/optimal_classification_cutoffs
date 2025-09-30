@@ -252,8 +252,8 @@ class TestComparisonThreading:
         assert tp_ex + tn_ex + fp_ex + fn_ex == len(labels)
         assert tp_in + tn_in + fp_in + fn_in == len(labels)
 
-    def test_smart_brute_threading(self):
-        """Test that smart_brute correctly handles comparison operators."""
+    def test_unique_scan_threading(self):
+        """Test that unique_scan correctly handles comparison operators."""
         probs = np.array([0.3, 0.5, 0.5, 0.7])
         labels = np.array([0, 1, 0, 1])
 
@@ -263,7 +263,7 @@ class TestComparisonThreading:
                 labels,
                 probs,
                 metric="accuracy",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
             )
 

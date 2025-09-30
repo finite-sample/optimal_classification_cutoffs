@@ -96,7 +96,7 @@ class TestRegistryIntegration:
 
     def test_method_compatibility_across_algorithms(self):
         """Test that different methods give compatible results."""
-        methods = ["auto", "sort_scan", "smart_brute"]
+        methods = ["auto", "sort_scan", "unique_scan"]
         thresholds = {}
 
         for method in methods:
@@ -140,7 +140,7 @@ class TestRegistryIntegration:
     def test_validation_of_new_methods(self):
         """Test validation of new optimization methods."""
         # Valid methods should work
-        valid_methods = ["auto", "sort_scan", "smart_brute", "minimize", "gradient"]
+        valid_methods = ["auto", "sort_scan", "unique_scan", "minimize", "gradient"]
 
         for method in valid_methods:
             # Should not raise validation error
@@ -164,8 +164,8 @@ class TestRegistryIntegration:
 class TestPerformanceComparison:
     """Test performance differences between methods."""
 
-    def test_sort_scan_vs_smart_brute_performance(self):
-        """Test that sort_scan is faster than smart_brute for large datasets."""
+    def test_sort_scan_vs_unique_scan_performance(self):
+        """Test that sort_scan is faster than unique_scan for large datasets."""
         import time
 
         # Create larger dataset
@@ -181,26 +181,26 @@ class TestPerformanceComparison:
         )
         time_sort_scan = time.time() - start
 
-        # Time smart_brute
+        # Time unique_scan
         start = time.time()
-        thresh_smart_brute = get_optimal_threshold(
-            y_true, pred_prob, metric="f1", method="smart_brute"
+        thresh_unique_scan = get_optimal_threshold(
+            y_true, pred_prob, metric="f1", method="unique_scan"
         )
-        time_smart_brute = time.time() - start
+        time_unique_scan = time.time() - start
 
         print(f"Sort_scan time: {time_sort_scan:.4f}s")
-        print(f"Smart_brute time: {time_smart_brute:.4f}s")
-        print(f"Speedup: {time_smart_brute / time_sort_scan:.2f}x")
+        print(f"Unique_scan time: {time_unique_scan:.4f}s")
+        print(f"Speedup: {time_unique_scan / time_sort_scan:.2f}x")
 
         # Results should be very similar
-        assert abs(thresh_sort_scan - thresh_smart_brute) < 0.1
+        assert abs(thresh_sort_scan - thresh_unique_scan) < 0.1
 
         # For small execution times, timing can be highly variable in CI environments
         # The main goal is to ensure both methods work and produce similar results
         # Performance comparison is more meaningful for much larger datasets
-        if time_smart_brute > 0.01 and time_sort_scan > 0.01:
+        if time_unique_scan > 0.01 and time_sort_scan > 0.01:
             # Only assert performance advantage when times are large enough to be meaningful
-            assert time_sort_scan < time_smart_brute * 1.5  # Allow some variability
+            assert time_sort_scan < time_unique_scan * 1.5  # Allow some variability
         # Otherwise, just ensure both complete successfully (which they did to get here)
 
 

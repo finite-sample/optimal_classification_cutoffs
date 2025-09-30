@@ -1,10 +1,19 @@
 """Threshold search strategies for optimizing classification metrics."""
 
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 from scipy import optimize  # type: ignore[import-untyped]
 
+from .bayes import (
+    bayes_decision_from_utility_matrix,
+    bayes_threshold_from_costs_scalar,
+    bayes_thresholds_from_costs_vector,
+)
+from .expected import (
+    dinkelbach_expected_fbeta_binary,
+    dinkelbach_expected_fbeta_multilabel,
+)
 from .metrics import (
     METRIC_REGISTRY,
     get_confusion_matrix,
@@ -18,104 +27,22 @@ from .metrics import (
 )
 from .multiclass_coord import optimal_multiclass_thresholds_coord_ascent
 from .piecewise import optimal_threshold_sortscan
-from .types import ArrayLike, AveragingMethod, ComparisonOperator, OptimizationMethod
+from .types import (
+    ArrayLike,
+    AveragingMethod,
+    ComparisonOperator,
+    EstimationMode,
+    ExpectedResult,
+    OptimizationMethod,
+    UtilityDict,
+    UtilityMatrix,
+)
 from .validation import (
     _validate_comparison_operator,
     _validate_inputs,
     _validate_metric_name,
     _validate_optimization_method,
 )
-
-
-def _accuracy(
-    prob: np.ndarray[Any, Any],
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    verbose: bool = False,
-) -> float:
-    tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, prob[0])
-    accuracy = (tp + tn) / (tp + tn + fp + fn)
-    if verbose:
-        print(f"Probability: {prob[0]:0.4f} Accuracy: {accuracy:0.4f}")
-    return 1 - accuracy
-
-
-def _f1(
-    prob: np.ndarray[Any, Any],
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    verbose: bool = False,
-) -> float:
-    tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, prob[0])
-    precision = tp / (tp + fp) if tp + fp > 0 else 0.0
-    recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
-    )
-    if verbose:
-        print(f"Probability: {prob[0]:0.4f} F1 score: {f1:0.4f}")
-    return 1 - f1
-
-
-def get_probability(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    objective: Literal["accuracy", "f1"] = "accuracy",
-    verbose: bool = False,
-) -> float:
-    """Brute-force search for a simple metric's best threshold.
-
-    .. deprecated:: 1.0.0
-        :func:`get_probability` is deprecated and will be removed in a future version.
-        Use :func:`get_optimal_threshold` instead, which provides a unified API for
-        both binary and multiclass classification with more optimization methods
-        and additional features like sample weights.
-
-    Parameters
-    ----------
-    true_labs:
-        Array of true binary labels.
-    pred_prob:
-        Predicted probabilities from a classifier.
-    objective:
-        Metric to optimize. Supported values are ``"accuracy"`` and ``"f1"``.
-    verbose:
-        If ``True``, print intermediate metric values during the search.
-
-    Returns
-    -------
-    float
-        Threshold that maximizes the specified metric.
-    """
-    import warnings
-
-    warnings.warn(
-        "get_probability is deprecated and will be removed in a future version. "
-        "Use get_optimal_threshold instead, which provides a unified API for "
-        "both binary and multiclass classification with more optimization methods "
-        "and additional features like sample weights.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    if objective == "accuracy":
-        prob = optimize.brute(
-            _accuracy,
-            (slice(0.1, 0.9, 0.1),),
-            args=(true_labs, pred_prob, verbose),
-            disp=verbose,
-        )
-    elif objective == "f1":
-        prob = optimize.brute(
-            _f1,
-            (slice(0.1, 0.9, 0.1),),
-            args=(true_labs, pred_prob, verbose),
-            disp=verbose,
-        )
-    else:
-        raise ValueError(f"Unknown objective: {objective}")
-    return float(prob[0] if isinstance(prob, np.ndarray) else prob)
 
 
 def _metric_score(
@@ -462,24 +389,28 @@ def _dinkelbach_expected_fbeta(
 
 
 def get_optimal_threshold(
-    true_labs: ArrayLike,
+    true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
     metric: str = "f1",
     method: OptimizationMethod = "auto",
     sample_weight: ArrayLike | None = None,
     comparison: ComparisonOperator = ">",
     *,
-    utility: dict[str, float] | None = None,
+    mode: EstimationMode = "empirical",
+    utility: UtilityDict | None = None,
+    utility_matrix: UtilityMatrix | None = None,
     minimize_cost: bool | None = None,
-    bayes: bool = False,
-) -> float | np.ndarray[Any, Any]:
+    beta: float = 1.0,
+    average: AveragingMethod = "macro",
+    class_weight: ArrayLike | None = None,
+) -> float | np.ndarray[Any, Any] | ExpectedResult | tuple[float, float]:
     """Find the threshold that optimizes a metric or utility function.
 
     Parameters
     ----------
     true_labs:
         Array of true binary labels or multiclass labels (0, 1, 2, ..., n_classes-1).
-        Not required when bayes=True.
+        Not required when mode="bayes".
     pred_prob:
         Predicted probabilities from a classifier. For binary: 1D array (n_samples,).
         For multiclass: 2D array (n_samples, n_classes).
@@ -491,31 +422,59 @@ def get_optimal_threshold(
         - ``"auto"``: Automatically selects best method (default)
         - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with
           vectorized implementation
-        - ``"smart_brute"``: Evaluates all unique probabilities
+        - ``"unique_scan"``: Evaluates all unique probabilities
         - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
         - ``"gradient"``: Simple gradient ascent
-        - ``"dinkelbach"``: Exact expected F-beta optimization (F1 only)
+        - ``"coord_ascent"``: Coordinate ascent for coupled multiclass optimization
     sample_weight:
         Optional array of sample weights for handling imbalanced datasets.
     comparison:
         Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
+    mode:
+        Estimation regime to use:
+        - ``"empirical"``: Use method parameter for empirical optimization (default)
+        - ``"bayes"``: Return Bayes-optimal threshold/decisions under calibrated
+          probabilities
+          (requires utility or utility_matrix, ignores method and true_labs)
+        - ``"expected"``: Use Dinkelbach method for expected F-beta optimization
+          (supports sample weights and multiclass, binary/multilabel)
     utility:
         Optional utility specification for cost/benefit-aware optimization.
         Dict with keys "tp", "tn", "fp", "fn" specifying utilities/costs per outcome.
-        Positive values are benefits, negative values are costs.
+        For multiclass mode="bayes", can contain per-class vectors.
         Example: ``{"tp": 0, "tn": 0, "fp": -1, "fn": -5}`` for cost-sensitive.
+    utility_matrix:
+        Alternative to utility dict for multiclass Bayes decisions.
+        Shape (D, K) array where D=decisions, K=classes.
+        If provided, returns class decisions rather than thresholds.
     minimize_cost:
         If True, interpret utility values as costs and minimize total cost. This
         automatically negates fp/fn values if they're positive.
-    bayes:
-        If True, return the Bayes-optimal threshold under calibrated probabilities
-        instead of empirical optimization. Does not require true_labs.
+    beta:
+        F-beta parameter for expected mode (beta >= 0). beta=1 gives F1,
+        beta < 1 emphasizes precision, beta > 1 emphasizes recall.
+        Only used when mode="expected".
+    average:
+        Averaging strategy for multiclass expected mode:
+        - "macro": per-class thresholds, unweighted mean F-beta
+        - "weighted": per-class thresholds, class-weighted mean F-beta
+        - "micro": single global threshold across all classes/instances
+    class_weight:
+        Optional per-class weights for weighted averaging in expected mode.
+        Shape (K,) array. Only used when mode="expected" and average="weighted".
 
     Returns
     -------
-    float | np.ndarray
-        For binary: The threshold that maximizes the chosen metric or utility.
-        For multiclass: Array of per-class thresholds.
+    float | np.ndarray | dict
+        - mode="empirical": float (binary) or ndarray (multiclass thresholds)
+        - mode="bayes":
+          * float (binary threshold) or ndarray (OvR thresholds) if using utility dict
+          * ndarray (class decisions) if using utility_matrix
+        - mode="expected":
+          * tuple (threshold, f_beta) for binary
+          * dict with "thresholds", "f_beta_per_class", "f_beta" for multiclass
+            macro/weighted
+          * dict with "threshold", "f_beta" for multiclass micro
 
     Examples
     --------
@@ -527,9 +486,126 @@ def get_optimal_threshold(
 
     >>> # Bayes-optimal for cost scenario (calibrated)
     >>> threshold = get_optimal_threshold(None, p,
-    ...     utility={"fp": -1, "fn": -5}, bayes=True)
+    ...     utility={"fp": -1, "fn": -5}, mode="bayes")
+
+    >>> # Expected F1 optimization under calibration
+    >>> threshold, f_beta = get_optimal_threshold(y, p, mode="expected", beta=1.0)
+
+    >>> # Multiclass expected F-beta with macro averaging
+    >>> result = get_optimal_threshold(y, p_multiclass, mode="expected",
+    ...                              beta=2.0, average="macro")
+    >>> print(result["thresholds"])  # Per-class thresholds
+    >>> print(result["f_beta"])      # Macro-averaged F-beta
+
+    >>> # Multiclass Bayes decisions with utility matrix
+    >>> U = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0.5, 0.5, 0.5]])  # with abstain
+    >>> decisions = get_optimal_threshold(None, p_multiclass,
+    ...                                  utility_matrix=U, mode="bayes")
     """
-    # Handle utility/cost-based optimization first
+
+    # Handle mode-based routing
+    if mode == "bayes":
+        # Convert probabilities to numpy array
+        pred_prob = np.asarray(pred_prob, dtype=float)
+        is_binary = (pred_prob.ndim == 1) or (
+            pred_prob.ndim == 2 and pred_prob.shape[1] == 1
+        )
+
+        # Handle utility matrix case (multiclass decisions)
+        if utility_matrix is not None:
+            result = bayes_decision_from_utility_matrix(pred_prob, utility_matrix)
+            return result  # type: ignore[return-value]
+
+        # Handle utility dict case
+        if utility is None:
+            raise ValueError(
+                "mode='bayes' requires utility parameter or utility_matrix to be "
+                "specified"
+            )
+
+        if is_binary:
+            # Binary case - use scalar closed-form
+            u = {"tp": 0.0, "tn": 0.0, "fp": 0.0, "fn": 0.0}
+            u.update({k: float(v) for k, v in utility.items()})
+            if minimize_cost:
+                u["fp"] = -abs(u["fp"])
+                u["fn"] = -abs(u["fn"])
+
+            # Handle single-column probability case
+            if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
+                pred_prob = pred_prob[:, 0]  # Flatten single column
+
+            return bayes_threshold_from_costs_scalar(
+                u["fp"], u["fn"], u["tp"], u["tn"], comparison=comparison
+            )
+        else:
+            # Multiclass OvR (including 2-class as multiclass) - expect per-class
+            # vectors in utility
+            fp_costs = utility.get("fp", None)
+            fn_costs = utility.get("fn", None)
+            tp_benefits = utility.get("tp", None)
+            tn_benefits = utility.get("tn", None)
+
+            if fp_costs is None or fn_costs is None:
+                raise ValueError(
+                    "Multiclass Bayes requires 'fp' and 'fn' as arrays in utility dict"
+                )
+
+            # Convert to arrays if needed
+            fp_array = np.asarray(fp_costs) if fp_costs is not None else fp_costs
+            fn_array = np.asarray(fn_costs) if fn_costs is not None else fn_costs
+            tp_array = (
+                np.asarray(tp_benefits) if tp_benefits is not None else tp_benefits
+            )
+            tn_array = (
+                np.asarray(tn_benefits) if tn_benefits is not None else tn_benefits
+            )
+
+            return bayes_thresholds_from_costs_vector(
+                fp_array, fn_array, tp_array, tn_array
+            )
+
+    if mode == "expected":
+        # Convert probabilities to numpy array
+        pred_prob = np.asarray(pred_prob, dtype=float)
+        is_binary = (pred_prob.ndim == 1) or (
+            pred_prob.ndim == 2 and pred_prob.shape[1] == 1
+        )
+
+        if is_binary:
+            # Binary case (1D array or 2D with 1 column)
+            if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
+                pred_prob = pred_prob[:, 0]  # Flatten single column
+
+            # Convert sample_weight to array if needed
+            sw = np.asarray(sample_weight) if sample_weight is not None else None
+
+            binary_result: tuple[float, float] = dinkelbach_expected_fbeta_binary(
+                pred_prob,
+                beta=beta,
+                sample_weight=sw,
+                comparison=comparison,
+            )
+            return binary_result
+        else:
+            # Multiclass/multilabel case (including 2-class as multiclass)
+            # Convert "none" to "macro" for expected mode
+            avg = "macro" if average == "none" else average
+
+            # Convert sample_weight and class_weight to arrays if needed
+            sw = np.asarray(sample_weight) if sample_weight is not None else None
+            cw = np.asarray(class_weight) if class_weight is not None else class_weight
+
+            return dinkelbach_expected_fbeta_multilabel(
+                pred_prob,
+                beta=beta,
+                average=avg,
+                sample_weight=sw,
+                class_weight=cw,
+                comparison=comparison,
+            )
+
+    # mode="empirical" - handle utility/cost-based optimization first
     if utility is not None or minimize_cost:
         # Convert probabilities to numpy array
         pred_prob = np.asarray(pred_prob, dtype=float)
@@ -549,12 +625,6 @@ def get_optimal_threshold(
             raise NotImplementedError(
                 "Utility/cost-based optimization not yet implemented for multiclass. "
                 "Binary classification only for now."
-            )
-
-        # Bayes closed-form if requested (does not need y)
-        if bayes:
-            return bayes_threshold_from_utility(
-                u["tp"], u["tn"], u["fp"], u["fn"], comparison=comparison
             )
 
         # Empirical optimum via sort-scan on linear counts objective
@@ -580,6 +650,9 @@ def get_optimal_threshold(
         return float(thr)
 
     # Validate inputs for standard metric-based optimization
+    if true_labs is None:
+        raise ValueError("true_labs is required for empirical optimization")
+
     true_labs, pred_prob, sample_weight = _validate_inputs(
         true_labs, pred_prob, sample_weight=sample_weight
     )
@@ -606,7 +679,7 @@ def get_optimal_threshold(
         if is_piecewise_metric(metric) and has_vectorized_implementation(metric):
             method = "sort_scan"
         else:
-            method = "smart_brute"
+            method = "unique_scan"
 
     if method == "sort_scan":
         # Use O(n log n) sort-and-scan optimization for vectorized piecewise metrics
@@ -626,7 +699,7 @@ def get_optimal_threshold(
         )
         return threshold
 
-    if method == "smart_brute":
+    if method == "unique_scan":
         # Use fast piecewise optimization for piecewise-constant metrics
         if is_piecewise_metric(metric):
             return _optimal_threshold_piecewise(
@@ -653,9 +726,9 @@ def get_optimal_threshold(
         )
         # ``minimize_scalar`` may return a threshold that is suboptimal for
         # piecewise-constant metrics like F1. To provide a more robust
-        # solution, use the same enhanced candidate generation as smart_brute.
+        # solution, use the same enhanced candidate generation as unique_scan.
         if is_piecewise_metric(metric) and has_vectorized_implementation(metric):
-            # For piecewise metrics, use the same optimal threshold as smart_brute
+            # For piecewise metrics, use the same optimal threshold as unique_scan
             piecewise_threshold = _optimal_threshold_piecewise(
                 true_labs, pred_prob, metric, sample_weight, comparison
             )
@@ -713,20 +786,6 @@ def get_optimal_threshold(
         # Final safety clip to ensure numerical precision doesn't cause issues
         return float(np.clip(threshold, 0.0, 1.0))
 
-    if method == "dinkelbach":
-        # Use Dinkelbach method for exact expected F-beta optimization
-        if metric == "f1":
-            beta = 1.0
-        else:
-            raise ValueError(
-                f"dinkelbach method currently only supports F1 metric, got '{metric}'"
-            )
-
-        if sample_weight is not None:
-            raise ValueError("dinkelbach method does not support sample weights")
-
-        return _dinkelbach_expected_fbeta(true_labs, pred_prob, beta, comparison)
-
     raise ValueError(f"Unknown method: {method}")
 
 
@@ -756,7 +815,7 @@ def get_optimal_multiclass_thresholds(
         - ``"auto"``: Automatically selects best method (default)
         - ``"sort_scan"``: O(n log n) algorithm for piecewise metrics with
           vectorized implementation
-        - ``"smart_brute"``: Evaluates all unique probabilities
+        - ``"unique_scan"``: Evaluates all unique probabilities
         - ``"minimize"``: Uses ``scipy.optimize.minimize_scalar``
         - ``"gradient"``: Simple gradient ascent
         - ``"coord_ascent"``: Coordinate ascent for coupled multiclass
@@ -858,7 +917,7 @@ def get_optimal_multiclass_thresholds(
         return tau
     else:
         # For macro, weighted, none: optimize each class independently
-        if vectorized and method == "smart_brute" and is_piecewise_metric(metric):
+        if vectorized and method in ["unique_scan"] and is_piecewise_metric(metric):
             return _optimize_thresholds_vectorized(
                 true_labs, pred_prob, metric, sample_weight, comparison
             )
@@ -920,8 +979,8 @@ def _optimize_micro_averaged_thresholds(
             )
         return -float(score)
 
-    if method == "smart_brute":
-        # For micro-averaging with smart_brute, we need to search over combinations
+    if method in ["unique_scan"]:
+        # For micro-averaging with unique_scan, we need to search over combinations
         # of thresholds. Start with independent optimization as initial guess.
         initial_thresholds = np.zeros(n_classes)
         for class_idx in range(n_classes):
@@ -931,12 +990,12 @@ def _optimize_micro_averaged_thresholds(
                 true_binary,
                 pred_binary_prob,
                 metric,
-                "smart_brute",
+                "unique_scan",
                 sample_weight,
                 comparison,
             )
 
-        # LIMITATION: For smart_brute with micro averaging, we currently return
+        # LIMITATION: For unique_scan with micro averaging, we currently return
         # independent per-class optimization results (OvR initialization).
         # True joint optimization would require searching over threshold combinations,
         # which is computationally expensive. For joint optimization, use
@@ -944,7 +1003,7 @@ def _optimize_micro_averaged_thresholds(
         import warnings
 
         warnings.warn(
-            "smart_brute with micro averaging uses independent per-class optimization "
+            "unique_scan with micro averaging uses independent per-class optimization "
             "(OvR initialization), not true joint optimization. For joint optimization "
             "of micro-averaged metrics, use method='minimize'.",
             UserWarning,
@@ -1019,137 +1078,7 @@ def _optimize_thresholds_vectorized(
     return optimal_thresholds
 
 
-# Bayes-optimal threshold calculation for cost/benefit scenarios
-def bayes_threshold_from_utility(
-    U_tp: float, U_tn: float, U_fp: float, U_fn: float, comparison: str = ">"
-) -> float:
-    """
-    Calculate the Bayes-optimal threshold under calibrated probabilities.
-
-    For an instance with probability p = P(y=1|x), choose positive prediction iff
-    p >= t*, where t* = (U_tn - U_fp) / [(U_tn - U_fp) + (U_tp - U_fn)]
-
-    This assumes perfect calibration. For finite samples or miscalibration,
-    use empirical optimization instead.
-
-    Parameters
-    ----------
-    U_tp : float
-        Utility/benefit for true positives
-    U_tn : float
-        Utility/benefit for true negatives
-    U_fp : float
-        Utility/cost for false positives (typically negative)
-    U_fn : float
-        Utility/cost for false negatives (typically negative)
-    comparison : str, default=">"
-        Comparison operator: ">" (exclusive) or ">=" (inclusive)
-
-    Returns
-    -------
-    float
-        Optimal threshold in [0, 1] range, adjusted for comparison operator
-
-    Examples
-    --------
-    >>> # Classic cost case: FP costs 1, FN costs 5
-    >>> threshold = bayes_threshold_from_utility(0, 0, -1, -5)
-    >>> print(f"{threshold:.3f}")  # Should be ~0.167 = 1/(1+5)
-
-    >>> # With benefits for correct predictions
-    >>> threshold = bayes_threshold_from_utility(2, 1, -1, -5)
-    >>> print(f"{threshold:.3f}")
-
-    Notes
-    -----
-    If the denominator is <= 0 (degenerate case where one action dominates),
-    returns an extreme threshold that implements the dominant action.
-    """
-    a = float(U_tn - U_fp)
-    b = float((U_tn - U_fp) + (U_tp - U_fn))
-
-    if b > 0:
-        t = a / b
-        # Clip to [0,1] and handle boundary cases consistent with comparison operator
-        if t <= 0.0:
-            return np.nextafter(0.0, -np.inf) if comparison == ">" else 0.0
-        if t >= 1.0:
-            return 1.0 if comparison == ">" else np.nextafter(1.0, +np.inf)
-        return float(t)
-
-    # Degenerate case: one action dominates for all p
-    # Compare utilities at p=0 and p=1 to decide which action is always better
-    u_pos_p0 = U_fp  # Expected utility of positive prediction at p=0
-    u_neg_p0 = U_tn  # Expected utility of negative prediction at p=0
-    u_pos_p1 = U_tp  # Expected utility of positive prediction at p=1
-    u_neg_p1 = U_fn  # Expected utility of negative prediction at p=1
-
-    # If positive prediction is never worse at both extremes, make everyone positive
-    pos_dominates = (u_pos_p0 >= u_neg_p0) and (u_pos_p1 >= u_neg_p1)
-
-    if pos_dominates:
-        # Set threshold below min possible probability to predict all as positive
-        return np.nextafter(0.0, -np.inf) if comparison == ">" else 0.0
-    else:
-        # Set threshold above max possible probability to predict all as negative
-        return 1.0 if comparison == ">" else np.nextafter(1.0, +np.inf)
-
-
-def bayes_threshold_from_costs(
-    fp_cost: float,
-    fn_cost: float,
-    tp_benefit: float = 0.0,
-    tn_benefit: float = 0.0,
-    comparison: str = ">",
-) -> float:
-    """
-    Calculate Bayes-optimal threshold from cost/benefit specification.
-
-    Convenience wrapper around bayes_threshold_from_utility() that converts
-    costs to utilities (cost -> negative utility).
-
-    Parameters
-    ----------
-    fp_cost : float
-        Cost of false positive errors (positive value)
-    fn_cost : float
-        Cost of false negative errors (positive value)
-    tp_benefit : float, default=0.0
-        Benefit/reward for true positives (positive value)
-    tn_benefit : float, default=0.0
-        Benefit/reward for true negatives (positive value)
-    comparison : str, default=">"
-        Comparison operator: ">" (exclusive) or ">=" (inclusive)
-
-    Returns
-    -------
-    float
-        Optimal threshold for cost-sensitive classification
-
-    Examples
-    --------
-    >>> # Standard case: FN costs 5x more than FP
-    >>> threshold = bayes_threshold_from_costs(fp_cost=1.0, fn_cost=5.0)
-    >>> print(f"{threshold:.3f}")  # Should be ~0.167
-
-    >>> # With rewards for correct predictions
-    >>> threshold = bayes_threshold_from_costs(
-    ...     fp_cost=1.0, fn_cost=5.0, tp_benefit=2.0, tn_benefit=0.5
-    ... )
-    """
-    return bayes_threshold_from_utility(
-        U_tp=tp_benefit,
-        U_tn=tn_benefit,
-        U_fp=-fp_cost,
-        U_fn=-fn_cost,
-        comparison=comparison,
-    )
-
-
 __all__ = [
-    "bayes_threshold_from_costs",
-    "bayes_threshold_from_utility",
-    "get_probability",
     "get_optimal_threshold",
     "get_optimal_multiclass_thresholds",
 ]

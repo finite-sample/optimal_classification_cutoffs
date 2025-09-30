@@ -84,7 +84,7 @@ def test_get_optimal_multiclass_thresholds():
     pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
     # Test different methods
-    for method in ["smart_brute", "minimize", "gradient"]:
+    for method in ["unique_scan", "minimize", "gradient"]:
         thresholds = get_optimal_multiclass_thresholds(
             true_labs, pred_prob, metric="f1", method=method
         )
@@ -133,7 +133,7 @@ def test_threshold_optimizer_multiclass():
         ]
     )
 
-    optimizer = ThresholdOptimizer(objective="f1")
+    optimizer = ThresholdOptimizer(metric="f1")
     optimizer.fit(true_labs, pred_prob)
 
     # Check that multiclass mode was detected
@@ -153,7 +153,7 @@ def test_threshold_optimizer_binary_compatibility():
     true_labs = np.array([0, 1, 1, 0, 1])
     pred_prob = np.array([0.2, 0.8, 0.7, 0.3, 0.9])
 
-    optimizer = ThresholdOptimizer(objective="f1")
+    optimizer = ThresholdOptimizer(metric="f1")
     optimizer.fit(true_labs, pred_prob)
 
     # Check that binary mode was detected

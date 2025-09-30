@@ -82,9 +82,9 @@ class TestMinimizeFallbackRegression:
             true_labels, pred_probs, threshold_minimize, "precision"
         )
 
-        # Test smart_brute (our reference implementation)
+        # Test unique_scan (our reference implementation)
         threshold_brute = get_optimal_threshold(
-            true_labels, pred_probs, "precision", method="smart_brute"
+            true_labels, pred_probs, "precision", method="unique_scan"
         )
         score_brute = _metric_score(
             true_labels, pred_probs, threshold_brute, "precision"
@@ -108,9 +108,9 @@ class TestMinimizeFallbackRegression:
             true_labels, pred_probs, threshold_minimize, "recall"
         )
 
-        # Test smart_brute (our reference)
+        # Test unique_scan (our reference)
         threshold_brute = get_optimal_threshold(
-            true_labels, pred_probs, "recall", method="smart_brute"
+            true_labels, pred_probs, "recall", method="unique_scan"
         )
         score_brute = _metric_score(true_labels, pred_probs, threshold_brute, "recall")
 
@@ -134,7 +134,7 @@ class TestMinimizeFallbackRegression:
 
         # Test reference method
         threshold_brute = get_optimal_threshold(
-            true_labels, pred_probs, "accuracy", method="smart_brute"
+            true_labels, pred_probs, "accuracy", method="unique_scan"
         )
         score_brute = _metric_score(
             true_labels, pred_probs, threshold_brute, "accuracy"
@@ -237,9 +237,9 @@ class TestMinimizeFallbackRegression:
                 true_labels, pred_probs, metric, method="minimize"
             )
 
-            # Test that smart_brute works as reference
+            # Test that unique_scan works as reference
             threshold_brute = get_optimal_threshold(
-                true_labels, pred_probs, metric, method="smart_brute"
+                true_labels, pred_probs, metric, method="unique_scan"
             )
 
             # Both should produce valid thresholds
@@ -352,10 +352,10 @@ class TestFallbackEdgeCases:
         )
         minimize_time = time.time() - start_time
 
-        # Time the smart_brute method
+        # Time the unique_scan method
         start_time = time.time()
         threshold_brute = get_optimal_threshold(
-            true_labels, pred_probs, "f1", method="smart_brute"
+            true_labels, pred_probs, "f1", method="unique_scan"
         )
         brute_time = time.time() - start_time
 

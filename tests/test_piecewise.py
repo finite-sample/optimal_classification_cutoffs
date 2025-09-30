@@ -387,8 +387,8 @@ class TestBackwardCompatibility:
                     f"Invalid threshold for {metric}: {threshold_new}"
                 )
 
-    def test_piecewise_vs_smart_brute(self):
-        """Test piecewise optimization matches smart_brute method."""
+    def test_piecewise_vs_unique_scan(self):
+        """Test piecewise optimization matches unique_scan method."""
         np.random.seed(123)
 
         y_true = [0, 1, 0, 1, 0, 1]
@@ -399,7 +399,7 @@ class TestBackwardCompatibility:
                 y_true, pred_prob, metric
             )
             threshold_smart = get_optimal_threshold(
-                y_true, pred_prob, metric, method="smart_brute"
+                y_true, pred_prob, metric, method="unique_scan"
             )
 
             # Should get very close results (allowing for midpoint vs exact probability differences)

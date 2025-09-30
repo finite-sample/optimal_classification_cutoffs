@@ -74,12 +74,12 @@ class TestInclusiveExclusiveBugFix:
             except Exception:
                 sort_available = False
 
-            # Get threshold from fallback (smart_brute)
+            # Get threshold from fallback (unique_scan)
             thresh_fallback = get_optimal_threshold(
                 y_true,
                 pred_prob,
                 metric="f1",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
             )
 
@@ -111,7 +111,7 @@ class TestWeightedMetricsBugFix:
             y_true,
             pred_prob,
             metric="f1",
-            method="smart_brute",
+            method="unique_scan",
             sample_weight=sample_weight,
         )
 
@@ -151,11 +151,11 @@ class TestWeightedMetricsBugFix:
             y_true,
             pred_prob,
             metric="accuracy",
-            method="smart_brute",
+            method="unique_scan",
             sample_weight=sample_weight,
         )
         thresh_expanded = get_optimal_threshold(
-            y_expanded, pred_expanded, metric="accuracy", method="smart_brute"
+            y_expanded, pred_expanded, metric="accuracy", method="unique_scan"
         )
 
         # Thresholds should be reasonably close
@@ -177,7 +177,7 @@ class TestDegenerateClassesBugFix:
                 y_true,
                 pred_prob,
                 metric="accuracy",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
             )
 
@@ -206,7 +206,7 @@ class TestDegenerateClassesBugFix:
                 y_true,
                 pred_prob,
                 metric="accuracy",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
             )
 
@@ -232,7 +232,7 @@ class TestDegenerateClassesBugFix:
         pred_prob_neg = [0.2, 0.7, 0.8]
 
         thresh_neg = get_optimal_threshold(
-            y_true_neg, pred_prob_neg, metric="f1", method="smart_brute"
+            y_true_neg, pred_prob_neg, metric="f1", method="unique_scan"
         )
 
         # Should NOT be 0.5 (the old bug)
@@ -243,7 +243,7 @@ class TestDegenerateClassesBugFix:
         pred_prob_pos = [0.2, 0.7, 0.8]
 
         thresh_pos = get_optimal_threshold(
-            y_true_pos, pred_prob_pos, metric="f1", method="smart_brute"
+            y_true_pos, pred_prob_pos, metric="f1", method="unique_scan"
         )
 
         # Should NOT be 0.5 (the old bug)
@@ -336,7 +336,7 @@ class TestStabilityEnhancements:
         thresholds = []
         for _ in range(5):
             thresh = get_optimal_threshold(
-                y_true, pred_prob, metric="f1", method="smart_brute"
+                y_true, pred_prob, metric="f1", method="unique_scan"
             )
             thresholds.append(thresh)
 
@@ -357,7 +357,7 @@ class TestStabilityEnhancements:
                 y_true,
                 pred_prob,
                 metric="f1",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
             )
 
@@ -386,7 +386,7 @@ class TestCriticalBugFixesIntegration:
                 y_true,
                 pred_prob,
                 metric="f1",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
                 sample_weight=sample_weight,
             )
@@ -411,7 +411,7 @@ class TestCriticalBugFixesIntegration:
         y_true = [0, 1, 0, 1, 1, 0]
         pred_prob = [0.2, 0.7, 0.4, 0.8, 0.6, 0.3]
 
-        methods = ["smart_brute", "minimize"]
+        methods = ["unique_scan", "minimize"]
         try:
             methods.append("sort_scan")  # If vectorized F1 available
             get_optimal_threshold(y_true, pred_prob, metric="f1", method="sort_scan")

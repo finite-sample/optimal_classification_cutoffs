@@ -14,18 +14,30 @@ MetricFunc: TypeAlias = Callable[
 ]
 OptimizationMethod: TypeAlias = Literal[
     "auto",
-    "smart_brute",
+    "unique_scan",
     "sort_scan",
     "minimize",
     "gradient",
     "coord_ascent",
-    "dinkelbach",
 ]
 AveragingMethod: TypeAlias = Literal["macro", "micro", "weighted", "none"]
 ComparisonOperator: TypeAlias = Literal[">", ">="]
+EstimationMode: TypeAlias = Literal["empirical", "bayes", "expected"]
 MulticlassMetricReturn: TypeAlias = (
     float | np.ndarray[Any, Any]
 )  # float for averaged, array for average="none"
+
+# Type aliases for enhanced Bayes and expected functionality
+UtilityMatrix: TypeAlias = np.ndarray[
+    Any, Any
+]  # Shape (D, K) for D decisions, K classes
+UtilityDict: TypeAlias = dict[
+    str, float
+]  # Binary utility: {"tp": ..., "tn": ..., "fp": ..., "fn": ...}
+CostVector: TypeAlias = np.ndarray[Any, Any] | list[float]  # Per-class costs/benefits
+ExpectedResult: TypeAlias = dict[
+    str, float | np.ndarray[Any, Any]
+]  # Expected mode results
 
 # Enhanced type aliases for validation
 BinaryLabels: TypeAlias = np.ndarray[Any, Any]  # Shape (n_samples,), values {0, 1}

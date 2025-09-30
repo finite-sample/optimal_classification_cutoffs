@@ -54,7 +54,7 @@ class TestBasicDeterminism:
         labels = np.array([0, 1, 1, 0, 1, 0, 1, 1, 0, 0])
         probs = np.array([0.2, 0.8, 0.7, 0.3, 0.9, 0.1, 0.6, 0.75, 0.25, 0.4])
 
-        methods_to_test = ["sort_scan", "smart_brute", "minimize"]
+        methods_to_test = ["sort_scan", "unique_scan", "minimize"]
 
         for method in methods_to_test:
             thresholds = []
@@ -333,7 +333,7 @@ class TestNumericalStability:
         labels = np.array([0, 1, 0, 1])
         probs = np.array([1e-15, 1 - 1e-15, 1e-14, 1 - 1e-14])  # Extreme values
 
-        methods_to_test = ["sort_scan", "smart_brute"]
+        methods_to_test = ["sort_scan", "unique_scan"]
 
         for method in methods_to_test:
             results = []

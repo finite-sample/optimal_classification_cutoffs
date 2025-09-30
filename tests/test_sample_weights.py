@@ -141,7 +141,7 @@ def test_threshold_optimizer_with_sample_weights():
     pred_prob = np.array([0.2, 0.3, 0.6, 0.7, 0.8])
     sample_weight = np.array([1.0, 1.0, 2.0, 2.0, 2.0])  # Weight positive class more
 
-    optimizer = ThresholdOptimizer(objective="f1")
+    optimizer = ThresholdOptimizer(metric="f1")
     optimizer.fit(true_labs, pred_prob, sample_weight=sample_weight)
 
     assert optimizer.threshold_ is not None
@@ -241,7 +241,7 @@ def test_sample_weights_piecewise_optimization():
 
     # F1 is piecewise, so should use the fast algorithm
     threshold = get_optimal_threshold(
-        true_labs, pred_prob, "f1", method="smart_brute", sample_weight=sample_weight
+        true_labs, pred_prob, "f1", method="unique_scan", sample_weight=sample_weight
     )
 
     assert 0 <= threshold <= 1

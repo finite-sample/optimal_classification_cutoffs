@@ -20,7 +20,7 @@ tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, best_threshold)
 print(f"Confusion matrix - TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
 
 # Using ThresholdOptimizer class
-optimizer = ThresholdOptimizer(objective="accuracy")
+optimizer = ThresholdOptimizer(metric="accuracy")
 optimizer.fit(y_true, y_prob)
 pred_labels = optimizer.predict(y_prob)
 print("Predictions:", pred_labels.astype(int))

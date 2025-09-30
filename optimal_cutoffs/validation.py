@@ -276,12 +276,11 @@ def _validate_optimization_method(method: str) -> None:
     """
     valid_methods = {
         "auto",
-        "smart_brute",
+        "unique_scan",
         "sort_scan",
         "minimize",
         "gradient",
         "coord_ascent",
-        "dinkelbach",
     }
     if method not in valid_methods:
         raise ValueError(

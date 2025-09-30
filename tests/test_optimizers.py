@@ -11,7 +11,7 @@ from optimal_cutoffs.optimizers import _optimal_threshold_piecewise
 def test_get_optimal_threshold_methods():
     y_true = np.array([0, 0, 0, 1, 1, 1])
     y_prob = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 0.9])
-    for method in ["smart_brute", "minimize", "gradient"]:
+    for method in ["unique_scan", "minimize", "gradient"]:
         thr = get_optimal_threshold(y_true, y_prob, method=method)
         assert 0.0 <= thr <= 1.0
         assert thr == pytest.approx(0.5, abs=0.2)
@@ -22,7 +22,7 @@ def test_cv_threshold_optimization():
     y_prob = rng.random(100)
     y_true = (y_prob > 0.5).astype(int)
     thresholds, scores = cv_threshold_optimization(
-        y_true, y_prob, method="smart_brute", cv=5, random_state=0
+        y_true, y_prob, method="unique_scan", cv=5, random_state=0
     )
     assert thresholds.shape == (5,)
     assert scores.shape == (5,)
@@ -44,9 +44,9 @@ def test_piecewise_optimization_correctness():
             # Get result from piecewise optimization
             threshold_piecewise = _optimal_threshold_piecewise(y_true, y_prob, metric)
 
-            # Get result from smart_brute (which now uses piecewise for piecewise metrics)
+            # Get result from unique_scan (which now uses piecewise for piecewise metrics)
             threshold_smart = get_optimal_threshold(
-                y_true, y_prob, metric, method="smart_brute"
+                y_true, y_prob, metric, method="unique_scan"
             )
 
             # They should be identical
@@ -113,8 +113,8 @@ def test_piecewise_known_optimal():
 def test_piecewise_vs_original_brute_force():
     """Compare piecewise optimization with original brute force approach."""
 
-    def _original_smart_brute(true_labs, pred_prob, metric):
-        """Original smart_brute implementation for comparison."""
+    def _original_unique_scan(true_labs, pred_prob, metric):
+        """Original unique_scan implementation for comparison."""
         from optimal_cutoffs.optimizers import _metric_score
 
         thresholds = np.unique(pred_prob)
@@ -133,7 +133,7 @@ def test_piecewise_vs_original_brute_force():
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             threshold_piecewise = _optimal_threshold_piecewise(y_true, y_prob, metric)
-            threshold_original = _original_smart_brute(y_true, y_prob, metric)
+            threshold_original = _original_unique_scan(y_true, y_prob, metric)
 
             # Scores should be identical (thresholds may differ due to midpoint calculation)
             score_piecewise = _metric_score(y_true, y_prob, threshold_piecewise, metric)

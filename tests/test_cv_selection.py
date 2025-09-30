@@ -513,7 +513,7 @@ class TestCVEdgeCases:
         if labels.sum() >= labels.size - 2:
             labels[-3:] = [1, 0, 0]
 
-        methods_to_test = ["sort_scan", "smart_brute"]
+        methods_to_test = ["sort_scan", "unique_scan"]
         method_scores = {}
 
         for method in methods_to_test:

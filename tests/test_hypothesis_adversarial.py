@@ -116,7 +116,7 @@ class TestWeightedEqualsExpanded:
             )
 
         # Test multiple methods that support weights
-        for method in ["smart_brute", "sort_scan"]:
+        for method in ["unique_scan", "sort_scan"]:
             if method == "sort_scan":
                 metric = "f1"  # sort_scan requires vectorized metrics
             else:
@@ -182,11 +182,11 @@ class TestWeightedEqualsExpanded:
             labels,
             probs,
             metric="accuracy",
-            method="smart_brute",
+            method="unique_scan",
             sample_weight=uniform_weights,
         )
         threshold_unweighted = get_optimal_threshold(
-            labels, probs, metric="accuracy", method="smart_brute"
+            labels, probs, metric="accuracy", method="unique_scan"
         )
 
         # Should be identical (uniform weights don't change relative importance)
@@ -217,7 +217,7 @@ class TestTieSemantics:
         probs[tie_indices] = tie_prob
 
         # Test different methods and comparison operators
-        methods_to_test = ["smart_brute"]
+        methods_to_test = ["unique_scan"]
         if np.sum(labels) > 0 and np.sum(1 - labels) > 0:  # Avoid degenerate cases
             methods_to_test.append("sort_scan")
 
@@ -261,10 +261,10 @@ class TestTieSemantics:
                     continue
 
         # Verify consistency between methods
-        if ("smart_brute", ">") in results and ("smart_brute", ">=") in results:
+        if ("unique_scan", ">") in results and ("unique_scan", ">=") in results:
             # For same method, different comparison operators should handle ties appropriately
-            gt_result = results[("smart_brute", ">")]
-            gte_result = results[("smart_brute", ">=")]
+            gt_result = results[("unique_scan", ">")]
+            gte_result = results[("unique_scan", ">=")]
 
             # Both should produce valid results
             assert 0 <= gt_result["score"] <= 1
@@ -294,9 +294,10 @@ class TestTieSemantics:
         # Test both comparison operators
         for comparison in [">", ">="]:
             try:
-                threshold = get_optimal_threshold(
-                    labels, probs, method="dinkelbach", comparison=comparison
+                result = get_optimal_threshold(
+                    labels, probs, mode="expected", metric="f1", comparison=comparison
                 )
+                threshold, _ = result  # Extract threshold from tuple
 
                 # Should produce valid threshold
                 assert 0 <= threshold <= 1
@@ -335,7 +336,7 @@ class TestOneClassEdge:
                 labels,
                 probs,
                 metric="accuracy",
-                method="smart_brute",
+                method="unique_scan",
                 comparison=comparison,
             )
 
@@ -383,7 +384,7 @@ class TestOneClassEdge:
                     labels,
                     probs,
                     metric="accuracy",
-                    method="smart_brute",
+                    method="unique_scan",
                     comparison=comparison,
                 )
 
@@ -540,9 +541,10 @@ class TestDinkelbachCalibration:
             return
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
-                labels, probs, method="dinkelbach", comparison=comparison
+            result = get_optimal_threshold(
+                labels, probs, mode="expected", metric="f1", comparison=comparison
             )
+            threshold, _ = result  # Extract threshold from tuple
 
             # Threshold should be reasonable
             assert 0 <= threshold <= 1
@@ -587,9 +589,10 @@ class TestDinkelbachCalibration:
                 continue
 
             try:
-                threshold = get_optimal_threshold(
-                    labels, probs, method="dinkelbach", comparison=">"
+                result = get_optimal_threshold(
+                    labels, probs, mode="expected", metric="f1", comparison=">"
                 )
+                threshold, _ = result  # Extract threshold from tuple
 
                 # Compute empirical F1
                 tp, tn, fp, fn = get_confusion_matrix(labels, probs, threshold)
@@ -641,9 +644,10 @@ class TestDinkelbachCalibration:
             return
 
         try:
-            optimal_threshold = get_optimal_threshold(
-                labels, probs, method="dinkelbach", comparison=">"
+            result = get_optimal_threshold(
+                labels, probs, mode="expected", metric="f1", comparison=">"
             )
+            optimal_threshold, _ = result  # Extract threshold from tuple
 
             # Compute F1 at optimal threshold
             tp, tn, fp, fn = get_confusion_matrix(labels, probs, optimal_threshold)

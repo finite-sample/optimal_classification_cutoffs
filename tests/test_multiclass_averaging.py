@@ -211,16 +211,16 @@ class TestMulticlassOptimizationAveraging:
 
         # Get thresholds (should be identical for balanced data)
         thresholds_macro = get_optimal_multiclass_thresholds(
-            true_labs_balanced, pred_prob_balanced, "f1", "smart_brute", average="macro"
+            true_labs_balanced, pred_prob_balanced, "f1", "unique_scan", average="macro"
         )
         thresholds_none = get_optimal_multiclass_thresholds(
-            true_labs_balanced, pred_prob_balanced, "f1", "smart_brute", average="none"
+            true_labs_balanced, pred_prob_balanced, "f1", "unique_scan", average="none"
         )
         thresholds_weighted = get_optimal_multiclass_thresholds(
             true_labs_balanced,
             pred_prob_balanced,
             "f1",
-            "smart_brute",
+            "unique_scan",
             average="weighted",
         )
 
@@ -234,7 +234,7 @@ class TestMulticlassOptimizationAveraging:
             self.true_labs,
             self.pred_prob,
             "f1",
-            "smart_brute",
+            "unique_scan",
             average="macro",
             vectorized=False,
         )
@@ -242,7 +242,7 @@ class TestMulticlassOptimizationAveraging:
             self.true_labs,
             self.pred_prob,
             "f1",
-            "smart_brute",
+            "unique_scan",
             average="macro",
             vectorized=True,
         )
@@ -264,7 +264,7 @@ class TestMulticlassOptimizationAveraging:
 
         for average in averages:
             thresholds = get_optimal_multiclass_thresholds(
-                self.true_labs, self.pred_prob, "f1", "smart_brute", average=average
+                self.true_labs, self.pred_prob, "f1", "unique_scan", average=average
             )
 
             assert isinstance(thresholds, np.ndarray)
@@ -312,7 +312,7 @@ class TestPerformanceImprovements:
 
         # Should work without errors
         thresholds = get_optimal_multiclass_thresholds(
-            true_labs, pred_prob, "f1", "smart_brute", average="macro", vectorized=True
+            true_labs, pred_prob, "f1", "unique_scan", average="macro", vectorized=True
         )
 
         assert isinstance(thresholds, np.ndarray)
@@ -332,7 +332,7 @@ class TestPerformanceImprovements:
 
         # Should complete without errors on larger datasets
         thresholds = get_optimal_multiclass_thresholds(
-            true_labs, pred_prob, "f1", "smart_brute", average="macro", vectorized=True
+            true_labs, pred_prob, "f1", "unique_scan", average="macro", vectorized=True
         )
 
         assert isinstance(thresholds, np.ndarray)
