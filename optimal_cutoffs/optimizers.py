@@ -3,7 +3,7 @@
 from typing import Any, cast
 
 import numpy as np
-from scipy import optimize  # type: ignore[import-untyped]
+from scipy import optimize
 
 from .bayes import (
     bayes_decision_from_utility_matrix,
@@ -631,7 +631,7 @@ def get_optimal_threshold(
 
             # Try generalized framework first
             try:
-                result = dinkelbach_expected_fractional_ovr(
+                result_dict = dinkelbach_expected_fractional_ovr(
                     pred_prob,
                     metric,
                     beta=beta,
@@ -645,10 +645,13 @@ def get_optimal_threshold(
 
                 if avg == "micro":
                     # Return single threshold and score for micro averaging
-                    return (float(result["threshold"]), float(result["score"]))  # type: ignore[return-value]
+                    return (
+                        float(result_dict["threshold"]),
+                        float(result_dict["score"]),
+                    )
                 else:
                     # Return thresholds array and averaged score for macro/weighted
-                    return (result["thresholds"], float(result["score"]))  # type: ignore[return-value]
+                    return (result_dict["thresholds"], float(result_dict["score"]))  # type: ignore[return-value]
 
             except ValueError:
                 # Fallback to F-beta specific implementation for unsupported metrics
@@ -1075,7 +1078,7 @@ def _optimize_micro_averaged_thresholds(
 
     elif method in ["minimize", "gradient"]:
         # Use scipy optimization for joint threshold optimization
-        from scipy.optimize import minimize  # type: ignore[import-untyped]
+        from scipy.optimize import minimize
 
         # Initial guess: independent optimization per class
         initial_guess = np.zeros(n_classes)
