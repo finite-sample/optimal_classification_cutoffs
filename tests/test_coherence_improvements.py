@@ -1,6 +1,5 @@
 """Tests for the code coherence improvements implemented in v0.4.0."""
 
-
 import numpy as np
 import pytest
 
