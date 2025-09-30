@@ -3,7 +3,7 @@
 from typing import Any, cast
 
 import numpy as np
-from scipy import optimize
+from scipy import optimize  # type: ignore[import-untyped]
 
 from .bayes import (
     bayes_decision_from_utility_matrix,
@@ -644,14 +644,22 @@ def get_optimal_threshold(
                 )
 
                 if avg == "micro":
-                    # Return single threshold and score for micro averaging
-                    return (
-                        float(result_dict["threshold"]),
-                        float(result_dict["score"]),
-                    )
+                    # Return dictionary for micro averaging (backward compatibility)
+                    return {
+                        "threshold": float(result_dict["threshold"]),
+                        "f_beta": float(result_dict["score"]),
+                    }
                 else:
-                    # Return thresholds array and averaged score for macro/weighted
-                    return (result_dict["thresholds"], float(result_dict["score"]))  # type: ignore[return-value]
+                    # Return dict for macro/weighted averaging (backward compatibility)
+                    return {
+                        "thresholds": cast(
+                            np.ndarray[Any, Any], result_dict["thresholds"]
+                        ),
+                        "f_beta_per_class": cast(
+                            np.ndarray[Any, Any], result_dict["per_class"]
+                        ),
+                        "f_beta": float(result_dict["score"]),
+                    }
 
             except ValueError:
                 # Fallback to F-beta specific implementation for unsupported metrics
@@ -1078,7 +1086,7 @@ def _optimize_micro_averaged_thresholds(
 
     elif method in ["minimize", "gradient"]:
         # Use scipy optimization for joint threshold optimization
-        from scipy.optimize import minimize
+        from scipy.optimize import minimize  # type: ignore[import-untyped]
 
         # Initial guess: independent optimization per class
         initial_guess = np.zeros(n_classes)

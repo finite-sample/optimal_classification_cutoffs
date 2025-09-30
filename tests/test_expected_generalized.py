@@ -646,9 +646,13 @@ class TestGeneralizedAPIIntegration:
                 y_true, y_prob, mode="expected", metric=metric
             )
 
-            assert isinstance(result, tuple)
-            assert len(result) == 2
-            thresholds, score = result
+            assert isinstance(result, dict)
+            assert "thresholds" in result
+            assert "f_beta" in result
+            assert "f_beta_per_class" in result
+
+            thresholds = result["thresholds"]
+            score = result["f_beta"]
 
             assert isinstance(thresholds, np.ndarray)
             assert isinstance(score, float)

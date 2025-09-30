@@ -3,7 +3,7 @@
 from typing import Any
 
 import numpy as np
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold  # type: ignore[import-untyped]
 
 from .optimizers import _metric_score, get_optimal_threshold
 from .types import ArrayLike, OptimizationMethod, SampleWeightLike
