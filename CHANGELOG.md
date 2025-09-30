@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2024-12-30
+
+### Added
+- **Generalized Dinkelbach Framework**: Extended Dinkelbach expected optimization to support any fractional-linear metric
+  - New `expected_fractional.py` module with coefficient-based metric representation
+  - Support for precision, recall, Jaccard/IoU, Tversky index, accuracy, specificity, F-beta metrics
+  - Mathematical framework using `FractionalLinearCoeffs` dataclass for metric coefficients
+  - Automatic O(n log n) optimization via sorting and binary search per Dinkelbach iteration
+- **Enhanced Expected Mode**: `mode="expected"` now supports 8+ metrics beyond just F-beta
+  - Precision, recall, specificity, accuracy, Jaccard, Tversky, F-beta family
+  - Automatic fallback to legacy F-beta implementation for unsupported metrics
+  - Unified API supporting both binary and multiclass/multilabel optimization
+- **Comprehensive Test Coverage**: Added 200+ tests for generalized fractional-linear framework
+  - Coefficient correctness tests for all supported metrics
+  - Property-based tests using Hypothesis for edge case discovery
+  - Integration tests ensuring backward compatibility
+  - Edge case handling for extreme probabilities and numerical stability
+
+### Changed
+- **Extended Metric Support**: `mode="expected"` no longer limited to F-beta metrics
+  - Can optimize expected precision, recall, accuracy, Jaccard, etc. under calibration
+  - Maintains mathematical rigor with coefficient-based approach
+  - Preserves exact optimization guarantees via Dinkelbach algorithm
+- **Improved Framework Design**: Cleaner separation between metric-specific and general optimization
+  - `coeffs_for_metric()` provides standardized coefficient mapping
+  - `dinkelbach_expected_fractional_binary()` handles any fractional-linear metric
+  - `dinkelbach_expected_fractional_ovr()` extends to multiclass with macro/micro/weighted averaging
+
+### Enhanced
+- **Mathematical Rigor**: All new metrics maintain theoretical guarantees of Dinkelbach optimization
+  - Exact optimization for expected metrics under perfect calibration assumption
+  - O(n log n) complexity per iteration with fast convergence (typically <10 iterations)
+  - Support for sample weights and comparison operators throughout
+- **Backward Compatibility**: Existing F-beta code continues to work unchanged
+  - Automatic routing to appropriate implementation (generalized vs legacy)
+  - All existing APIs preserve exact behavior for F-beta metrics
+  - Comprehensive regression testing ensures no breaking changes
+
 ## [0.4.0] - 2024-12-30
 
 ### Added

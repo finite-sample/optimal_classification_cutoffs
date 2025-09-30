@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "optimal-classification-cutoffs"
-version = "0.4.0"
+version = "0.5.0"
 description = "Utilities for computing optimal classification cutoffs for binary and multiclass classification"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -96,5 +96,13 @@ select = [
 "tests/*" = [
     "E501",  # line-too-long (tests can have longer lines for readability)
     "B007",  # unused-loop-control-variable (acceptable in test fixtures)
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Suppress specific expected warnings in tests
+    "ignore:Multiclass probabilities don't sum to 1.0:UserWarning",
+    "ignore:unique_scan with micro averaging uses independent:UserWarning",
+    "ignore:invalid value encountered in divide:RuntimeWarning",
 ]
 

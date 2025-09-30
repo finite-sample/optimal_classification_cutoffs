@@ -325,8 +325,13 @@ class TestStatisticalProperties:
         # Check if the original probabilities are already well-separated
         # If the correlation between labels and probabilities is already very high, skip
         if len(labels) > 3:  # Need enough samples for correlation
-            correlation = abs(np.corrcoef(labels, probabilities)[0, 1])
-            if correlation >= 0.9:  # Already highly correlated
+            # Handle case where variance is zero (all values identical)
+            if np.std(labels) > 1e-10 and np.std(probabilities) > 1e-10:
+                correlation = abs(np.corrcoef(labels, probabilities)[0, 1])
+                if correlation >= 0.9:  # Already highly correlated
+                    return
+            else:
+                # If either has zero variance, skip (no meaningful correlation)
                 return
 
         # Create perfect separation version

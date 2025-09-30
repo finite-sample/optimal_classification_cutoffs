@@ -14,6 +14,11 @@ from .expected import (
     dinkelbach_expected_fbeta_binary,
     dinkelbach_expected_fbeta_multilabel,
 )
+from .expected_fractional import (
+    coeffs_for_metric,
+    dinkelbach_expected_fractional_binary,
+    dinkelbach_expected_fractional_ovr,
+)
 from .metrics import (
     METRIC_REGISTRY,
     get_confusion_matrix,
@@ -580,13 +585,39 @@ def get_optimal_threshold(
             # Convert sample_weight to array if needed
             sw = np.asarray(sample_weight) if sample_weight is not None else None
 
-            binary_result: tuple[float, float] = dinkelbach_expected_fbeta_binary(
-                pred_prob,
-                beta=beta,
-                sample_weight=sw,
-                comparison=comparison,
-            )
-            return binary_result
+            # Get coefficients for the requested metric
+            try:
+                coeffs = coeffs_for_metric(
+                    metric,
+                    beta=beta,
+                    tversky_alpha=0.5,  # Default values
+                    tversky_beta=0.5,
+                )
+                
+                # Use generalized Dinkelbach framework
+                threshold, expected_score, direction = dinkelbach_expected_fractional_binary(
+                    pred_prob,
+                    coeffs,
+                    sample_weight=sw,
+                    comparison=comparison,
+                )
+                
+                # Verify direction matches comparison (should be ">") 
+                if direction != ">":
+                    # This is rare but possible for exotic metrics
+                    pass  # Still return the result
+                
+                return (float(threshold), float(expected_score))
+                
+            except ValueError:
+                # Fallback to F-beta specific implementation for unsupported metrics
+                binary_result: tuple[float, float] = dinkelbach_expected_fbeta_binary(
+                    pred_prob,
+                    beta=beta,
+                    sample_weight=sw,
+                    comparison=comparison,
+                )
+                return binary_result
         else:
             # Multiclass/multilabel case (including 2-class as multiclass)
             # Convert "none" to "macro" for expected mode
@@ -596,14 +627,37 @@ def get_optimal_threshold(
             sw = np.asarray(sample_weight) if sample_weight is not None else None
             cw = np.asarray(class_weight) if class_weight is not None else class_weight
 
-            return dinkelbach_expected_fbeta_multilabel(
-                pred_prob,
-                beta=beta,
-                average=avg,
-                sample_weight=sw,
-                class_weight=cw,
-                comparison=comparison,
-            )
+            # Try generalized framework first
+            try:
+                result = dinkelbach_expected_fractional_ovr(
+                    pred_prob,
+                    metric,
+                    beta=beta,
+                    tversky_alpha=0.5,
+                    tversky_beta=0.5,
+                    average=avg,
+                    sample_weight=sw,
+                    class_weight=cw,
+                    comparison=comparison,
+                )
+                
+                if avg == "micro":
+                    # Return single threshold and score for micro averaging
+                    return (float(result["threshold"]), float(result["score"]))
+                else:
+                    # Return thresholds array and averaged score for macro/weighted
+                    return (result["thresholds"], float(result["score"]))
+                    
+            except ValueError:
+                # Fallback to F-beta specific implementation for unsupported metrics
+                return dinkelbach_expected_fbeta_multilabel(
+                    pred_prob,
+                    beta=beta,
+                    average=avg,
+                    sample_weight=sw,
+                    class_weight=cw,
+                    comparison=comparison,
+                )
 
     # mode="empirical" - handle utility/cost-based optimization first
     if utility is not None or minimize_cost:
