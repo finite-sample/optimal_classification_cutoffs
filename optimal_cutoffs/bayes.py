@@ -99,6 +99,7 @@ def bayes_thresholds_from_costs_vector(
     fn_cost: np.ndarray[Any, Any] | list[float],
     tp_benefit: np.ndarray[Any, Any] | list[float] | None = None,
     tn_benefit: np.ndarray[Any, Any] | list[float] | None = None,
+    comparison: str = ">",
 ) -> np.ndarray[Any, Any]:
     """
     Per-class Bayes thresholds for OvR (multi-label/multiclass-OvR) under calibration.
@@ -117,6 +118,8 @@ def bayes_thresholds_from_costs_vector(
     tp_benefit, tn_benefit : array-like of shape (K,), optional
         Benefits per class for true positives and true negatives.
         Defaults to 0 if None. Typically positive values (benefits).
+    comparison : {">" or ">="}, default=">"
+        Comparison operator for threshold application.
 
     Returns
     -------
@@ -175,8 +178,16 @@ def bayes_thresholds_from_costs_vector(
         # If (tp - fn) > 0: always predict positive -> tau=0
         tau[mask] = np.where((tp - fn)[mask] <= 0.0, 1.0, 0.0)
 
-    clipped_result: np.ndarray[Any, Any] = np.clip(tau, 0.0, 1.0)
-    return clipped_result
+    # Clip to valid range
+    tau = np.clip(tau, 0.0, 1.0)
+
+    # Handle comparison operator adjustment (for boundary cases)
+    if comparison == ">=":
+        # For inclusive comparison, slightly reduce threshold to handle edge cases
+        mask = tau > 0
+        tau[mask] = np.nextafter(tau[mask], 0.0, dtype=np.float64)
+
+    return np.asarray(tau)
 
 
 def bayes_threshold_from_costs_scalar(

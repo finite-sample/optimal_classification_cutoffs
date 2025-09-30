@@ -228,7 +228,20 @@ class TestRealisticMulticlassOptimization:
                 y_true, y_prob, metric="f1", average=average
             )
 
-            assert len(thresholds) == n_classes, f"Should return {n_classes} thresholds"
+            if average == "micro":
+                # Micro averaging can return either single threshold or per-class thresholds
+                if isinstance(thresholds, float):
+                    # Single global threshold for exact micro-averaging
+                    assert 0.0 <= thresholds <= 1.0, "Threshold should be valid"
+                    # Convert to per-class for consistency with test logic
+                    thresholds = np.full(n_classes, thresholds)
+                else:
+                    # Per-class thresholds
+                    assert len(thresholds) == n_classes, f"Should return {n_classes} thresholds"
+            else:
+                # Macro averaging should always return per-class thresholds
+                assert len(thresholds) == n_classes, f"Should return {n_classes} thresholds"
+            
             assert all(0.0 <= t <= 1.0 for t in thresholds), (
                 "All thresholds should be valid"
             )
@@ -264,7 +277,13 @@ class TestRealisticMulticlassOptimization:
         )
 
         assert len(thresholds_macro) == n_classes
-        assert len(thresholds_micro) == n_classes
+        
+        # Micro averaging can return single threshold or per-class thresholds
+        if isinstance(thresholds_micro, float):
+            # Convert single threshold to per-class for consistency
+            thresholds_micro = np.full(n_classes, thresholds_micro)
+        else:
+            assert len(thresholds_micro) == n_classes
 
         # Thresholds may be different due to different averaging (but not always)
         # We mainly test that both averaging methods work and produce valid results

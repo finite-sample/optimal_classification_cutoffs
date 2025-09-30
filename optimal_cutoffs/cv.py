@@ -3,9 +3,10 @@
 from typing import Any
 
 import numpy as np
-from sklearn.model_selection import KFold  # type: ignore[import-untyped]
+from sklearn.model_selection import KFold
 
-from .optimizers import _metric_score, get_optimal_threshold
+from .binary_optimization import metric_score
+from .optimizers import get_optimal_threshold
 from .types import ArrayLike, OptimizationMethod, SampleWeightLike
 
 
@@ -70,7 +71,7 @@ def cv_threshold_optimization(
         if not isinstance(thr_float, float):
             # For multiclass, we need to adjust this
             thr_float = 0.5  # fallback
-        score = _metric_score(
+        score = metric_score(
             true_labs[test_idx], pred_prob[test_idx], thr_float, metric, test_weights
         )
         scores.append(score)
@@ -141,7 +142,7 @@ def nested_cv_threshold_optimization(
         best_idx = int(np.argmax(inner_scores))
         thr = float(inner_thresholds[best_idx])
         outer_thresholds.append(thr)
-        score = _metric_score(
+        score = metric_score(
             true_labs[test_idx], pred_prob[test_idx], thr, metric, test_weights
         )
         outer_scores.append(score)

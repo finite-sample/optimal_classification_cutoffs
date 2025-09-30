@@ -44,10 +44,8 @@ from .metrics import (
     register_metrics,
     should_maximize_metric,
 )
-from .optimizers import (
-    get_optimal_multiclass_thresholds,
-    get_optimal_threshold,
-)
+from .multiclass_optimization import get_optimal_multiclass_thresholds
+from .optimizers import get_optimal_threshold
 from .types import MulticlassMetricReturn
 from .wrapper import ThresholdOptimizer
 

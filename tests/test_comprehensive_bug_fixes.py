@@ -22,7 +22,6 @@ from optimal_cutoffs.metrics import (
     multiclass_metric_exclusive,
 )
 from optimal_cutoffs.optimizers import (
-    _dinkelbach_expected_fbeta,
     _optimize_micro_averaged_thresholds,
     get_optimal_multiclass_thresholds,
 )

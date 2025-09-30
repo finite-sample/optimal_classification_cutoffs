@@ -8,6 +8,7 @@ from .multiclass_coord import _assign_labels_shifted
 from .optimizers import get_optimal_threshold
 from .types import (
     ArrayLike,
+    AveragingMethod,
     ComparisonOperator,
     EstimationMode,
     OptimizationMethod,
@@ -37,6 +38,7 @@ class ThresholdOptimizer:
         minimize_cost: bool | None = None,
         beta: float = 1.0,
         class_weight: ArrayLike | None = None,
+        average: AveragingMethod = "macro",
     ) -> None:
         """Create a new optimizer.
 
@@ -88,6 +90,12 @@ class ThresholdOptimizer:
         class_weight:
             Optional per-class weights for weighted averaging in expected mode.
             Shape (K,) array. Only used when mode="expected" and average="weighted".
+        average:
+            Averaging strategy for multiclass:
+            - "macro": per-class thresholds, unweighted mean metric
+            - "weighted": per-class thresholds, class-weighted mean metric
+            - "micro": single global threshold across all classes/instances
+            - "none": per-class thresholds without averaging (same as macro)
         """
         if metric is None:
             metric = "accuracy"
@@ -102,10 +110,17 @@ class ThresholdOptimizer:
         self.minimize_cost = minimize_cost
         self.beta = beta
         self.class_weight = class_weight
+        self.average = average
         self.threshold_: (
             float | np.ndarray[Any, Any] | dict[str, Any] | tuple[float, float] | None
         ) = None
         self.is_multiclass_: bool = False
+        self.expected_score_: float | None = None
+        self.n_classes_: int | None = None
+        # Flag for utility_matrix with mode='bayes' - prediction uses U @ p -> argmax
+        self._use_utility_matrix_in_predict = (
+            mode == "bayes" and utility_matrix is not None
+        )
 
     def fit(
         self,
@@ -134,10 +149,19 @@ class ThresholdOptimizer:
         """
         pred_prob = np.asarray(pred_prob)
 
-        # Check if multiclass
-        self.is_multiclass_ = pred_prob.ndim == 2
+        # Validate probabilities for bayes/expected modes
+        if self.mode in ("bayes", "expected"):
+            self._require_probs01(pred_prob, "fit")
 
-        if (
+        # Check if multiclass (treat (n,1) as binary)
+        self.is_multiclass_ = pred_prob.ndim == 2 and pred_prob.shape[1] > 1
+        self.n_classes_ = (pred_prob.shape[1] if self.is_multiclass_ else 2)
+
+        # Flatten (n,1) arrays to 1D for binary classification
+        if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
+            pred_prob = pred_prob.ravel()
+
+        use_general = (
             self.is_multiclass_
             or self.metric not in ["accuracy", "f1"]
             or sample_weight is not None
@@ -145,7 +169,14 @@ class ThresholdOptimizer:
             or self.utility is not None
             or self.utility_matrix is not None
             or self.minimize_cost is not None
-        ):
+        )
+        if self.verbose:
+            path = "general optimizer" if use_general else "simple binary optimizer"
+            print(
+                f"[ThresholdOptimizer] Using {path} "
+                f"(mode={self.mode}, method={self.method}, metric={self.metric})"
+            )
+        if use_general:
             # Use the more general optimizer
             result = get_optimal_threshold(
                 true_labs,
@@ -160,11 +191,33 @@ class ThresholdOptimizer:
                 minimize_cost=self.minimize_cost,
                 beta=self.beta,
                 class_weight=self.class_weight,
+                average=self.average,
             )
 
-            # Handle tuple return from mode='expected'
+            if self._use_utility_matrix_in_predict:
+                # Nothing to learn; we'll apply U at prediction time.
+                self.threshold_ = "bayes/utility_matrix"  # type: ignore[assignment]
+                self.expected_score_ = None
+                return self
+
+            # Normalize results
             if isinstance(result, tuple):
+                # expected mode, binary: (threshold, score)
                 self.threshold_, self.expected_score_ = result
+            elif isinstance(result, dict):
+                # expected mode, multiclass
+                if "thresholds" in result:           # macro/weighted/none
+                    self.threshold_ = cast(np.ndarray[Any, Any], result["thresholds"])
+                    self.expected_score_ = float(
+                        result.get("f_beta", result.get("score", np.nan))
+                    )
+                elif "threshold" in result:          # micro (single global threshold)
+                    self.threshold_ = float(result["threshold"])
+                    self.expected_score_ = float(
+                        result.get("f_beta", result.get("score", np.nan))
+                    )
+                else:
+                    raise RuntimeError("Unknown result dict format from optimizer.")
             else:
                 self.threshold_ = result
         else:
@@ -179,6 +232,13 @@ class ThresholdOptimizer:
 
         return self
 
+    def _require_probs01(self, arr: np.ndarray[Any, Any], where: str) -> None:
+        """Validate that probabilities are in [0,1] for bayes/expected modes."""
+        if np.any(~np.isfinite(arr)) or np.any((arr < 0) | (arr > 1)):
+            raise ValueError(
+                f"{where}: pred_prob must be finite probabilities in [0,1]."
+            )
+
     def predict(self, pred_prob: ArrayLike) -> np.ndarray[Any, Any]:
         """Convert probabilities to class predictions using the learned threshold(s).
 
@@ -190,13 +250,50 @@ class ThresholdOptimizer:
         Returns
         -------
         np.ndarray[Any, Any]
-            For binary: Boolean array of predicted class labels.
+            For binary: Integer array of predicted class labels (0, 1).
             For multiclass: Integer array of predicted class labels.
         """
         if self.threshold_ is None:
             raise RuntimeError("ThresholdOptimizer has not been fitted.")
 
         pred_prob = np.asarray(pred_prob)
+
+        # Validate probabilities for bayes/expected modes
+        if self.mode in ("bayes", "expected"):
+            self._require_probs01(pred_prob, "predict")
+
+        # Bayes with utility_matrix: predict directly via U @ p
+        if self._use_utility_matrix_in_predict:
+            U = np.asarray(self.utility_matrix, dtype=float)
+            if pred_prob.ndim != 2 or pred_prob.shape[1] != U.shape[1]:
+                raise ValueError(
+                    "pred_prob shape must be (n_samples, K) matching utility_matrix "
+                    "columns."
+                )
+            # decisions = argmax over rows of U @ p_i
+            scores = pred_prob @ U.T   # shape (n_samples, D)
+            return np.argmax(scores, axis=1)
+
+        # Enforce same "multiclassness" as training
+        is_multi_now = pred_prob.ndim == 2 and pred_prob.shape[1] > 1
+        if is_multi_now != self.is_multiclass_:
+            raise ValueError(
+                "Prediction data dimensionality does not match fit: "
+                f"is_multiclass_={self.is_multiclass_}, "
+                f"got pred_prob.ndim={pred_prob.ndim} shape={pred_prob.shape}"
+            )
+        if (
+            self.is_multiclass_ and
+            self.n_classes_ is not None and
+            pred_prob.shape[1] != self.n_classes_
+        ):
+            raise ValueError(
+                f"Expected {self.n_classes_} classes, got {pred_prob.shape[1]}."
+            )
+
+        # Flatten (n,1) arrays to 1D for binary classification
+        if not self.is_multiclass_ and pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
+            pred_prob = pred_prob.ravel()
 
         if self.is_multiclass_:
             # Multiclass prediction strategy depends on optimization method
@@ -208,10 +305,25 @@ class ThresholdOptimizer:
             else:
                 # One-vs-Rest prediction using per-class thresholds
                 n_samples, n_classes = pred_prob.shape
+                # Allow scalar (global) or per-class thresholds
+                thr = self.threshold_
+                if isinstance(thr, dict):
+                    # Should not happen after normalization in fit, but guard:
+                    thr = thr.get("thresholds", thr.get("threshold"))
+                if isinstance(thr, (float, int, np.floating)):
+                    tarr = float(thr)
+                else:
+                    tarr = np.asarray(thr)
+                    if tarr.shape != (n_classes,):
+                        raise ValueError(
+                            f"Per-class threshold shape must be ({n_classes},), "
+                            f"got {tarr.shape}."
+                        )
+
                 if self.comparison == ">":
-                    binary_predictions = pred_prob > self.threshold_
+                    binary_predictions = pred_prob > tarr
                 else:  # ">="
-                    binary_predictions = pred_prob >= self.threshold_
+                    binary_predictions = pred_prob >= tarr
 
                 # For each sample, predict the class with highest probability among
                 # those above threshold
@@ -234,7 +346,62 @@ class ThresholdOptimizer:
                 return predictions
         else:
             # Binary prediction
-            if self.comparison == ">":
-                return pred_prob > self.threshold_
-            else:  # ">="
-                return pred_prob >= self.threshold_
+            thr = float(self.threshold_)  # type: ignore[arg-type]
+            out = (pred_prob > thr) if self.comparison == ">" else (pred_prob >= thr)
+            # sklearn-style: return class labels not booleans
+            return out.astype(int)
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Get parameters for this estimator.
+
+        Parameters
+        ----------
+        deep : bool, default=True
+            If True, will return the parameters for this estimator and
+            contained subobjects that are estimators.
+
+        Returns
+        -------
+        dict[str, Any]
+            Parameter names mapped to their values.
+        """
+        params = {
+            "metric": self.metric,
+            "verbose": self.verbose,
+            "method": self.method,
+            "comparison": self.comparison,
+            "mode": self.mode,
+            "utility": self.utility,
+            "utility_matrix": self.utility_matrix,
+            "minimize_cost": self.minimize_cost,
+            "beta": self.beta,
+            "class_weight": self.class_weight,
+            "average": self.average,
+        }
+        return params
+
+    def set_params(self, **params: Any) -> Self:
+        """Set the parameters of this estimator.
+
+        Parameters
+        ----------
+        **params : dict
+            Estimator parameters.
+
+        Returns
+        -------
+        Self
+            Estimator instance.
+        """
+        valid_params = self.get_params(deep=False)
+        for key, value in params.items():
+            if key not in valid_params:
+                raise ValueError(f"Invalid parameter {key!r}")
+            setattr(self, key, value)
+
+        # Update the utility matrix flag if relevant parameters changed
+        self._use_utility_matrix_in_predict = (
+            self.mode == "bayes" and self.utility_matrix is not None
+        )
+
+        return self

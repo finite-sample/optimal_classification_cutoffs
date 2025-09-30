@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.optimizers import _dinkelbach_expected_fbeta
+# Removed _dinkelbach_expected_fbeta import as it was dead code
 
 
 class TestDinkelbachMethod:
