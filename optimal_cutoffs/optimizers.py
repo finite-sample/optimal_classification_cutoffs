@@ -937,6 +937,7 @@ def get_optimal_multiclass_thresholds(
                     method,
                     sample_weight,
                     comparison,
+                    mode="empirical",
                 )
             return optimal_thresholds
 
@@ -993,6 +994,7 @@ def _optimize_micro_averaged_thresholds(
                 "unique_scan",
                 sample_weight,
                 comparison,
+                mode="empirical",
             )
 
         # LIMITATION: For unique_scan with micro averaging, we currently return
@@ -1027,6 +1029,7 @@ def _optimize_micro_averaged_thresholds(
                 "minimize",
                 sample_weight,
                 comparison,
+                mode="empirical",
             )
 
         # Joint optimization
