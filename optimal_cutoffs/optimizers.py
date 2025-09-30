@@ -611,15 +611,22 @@ def get_optimal_threshold(
 
                 return (float(threshold), float(expected_score))
 
-            except ValueError:
-                # Fallback to F-beta specific implementation for unsupported metrics
-                binary_result: tuple[float, float] = dinkelbach_expected_fbeta_binary(
-                    pred_prob,
-                    beta=beta,
-                    sample_weight=sw,
-                    comparison=comparison,
-                )
-                return binary_result
+            except ValueError as e:
+                # Only fallback for F-beta metrics, re-raise for unsupported metrics
+                if metric.lower() in {"f1", "f2", "fbeta", "f_beta"}:
+                    # Fallback to F-beta specific implementation
+                    binary_result: tuple[float, float] = (
+                        dinkelbach_expected_fbeta_binary(
+                            pred_prob,
+                            beta=beta,
+                            sample_weight=sw,
+                            comparison=comparison,
+                        )
+                    )
+                    return binary_result
+                else:
+                    # Re-raise the error for truly unsupported metrics
+                    raise e
         else:
             # Multiclass/multilabel case (including 2-class as multiclass)
             # Convert "none" to "macro" for expected mode
@@ -661,16 +668,21 @@ def get_optimal_threshold(
                         "f_beta": float(result_dict["score"]),
                     }
 
-            except ValueError:
-                # Fallback to F-beta specific implementation for unsupported metrics
-                return dinkelbach_expected_fbeta_multilabel(
-                    pred_prob,
-                    beta=beta,
-                    average=avg,
-                    sample_weight=sw,
-                    class_weight=cw,
-                    comparison=comparison,
-                )
+            except ValueError as e:
+                # Only fallback for F-beta metrics, re-raise for unsupported metrics
+                if metric.lower() in {"f1", "f2", "fbeta", "f_beta"}:
+                    # Fallback to F-beta specific implementation
+                    return dinkelbach_expected_fbeta_multilabel(
+                        pred_prob,
+                        beta=beta,
+                        average=avg,
+                        sample_weight=sw,
+                        class_weight=cw,
+                        comparison=comparison,
+                    )
+                else:
+                    # Re-raise the error for truly unsupported metrics
+                    raise e
 
     # mode="empirical" - handle utility/cost-based optimization first
     if utility is not None or minimize_cost:

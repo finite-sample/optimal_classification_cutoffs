@@ -463,8 +463,8 @@ class TestDinkelbachEdgeCases:
         threshold_f1, _ = result_f1  # Extract threshold from tuple
         assert 0 <= threshold_f1 <= 1
 
-        # Should also work with other metrics
-        for metric in ["accuracy", "precision", "recall", "f2"]:
+        # Should also work with supported metrics
+        for metric in ["precision", "f2", "jaccard"]:
             result = get_optimal_threshold(
                 labels, probs, metric=metric, mode="expected"
             )
@@ -473,3 +473,10 @@ class TestDinkelbachEdgeCases:
             assert 0 <= expected_score <= 1, (
                 f"Invalid score for {metric}: {expected_score}"
             )
+
+        # Test that degenerate metrics raise ValueError
+        for metric in ["accuracy", "recall"]:
+            with pytest.raises(
+                ValueError, match="constant denominator under calibration"
+            ):
+                get_optimal_threshold(labels, probs, metric=metric, mode="expected")

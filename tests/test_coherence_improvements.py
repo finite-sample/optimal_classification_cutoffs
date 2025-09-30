@@ -61,12 +61,12 @@ class TestModeParameter:
         assert 0 <= f1_score <= 1
 
         # Note: mode='expected' now supports other metrics as well
-        # Test that it works with accuracy too
-        result_acc = get_optimal_threshold(
-            y_true, y_prob, metric="accuracy", mode="expected"
+        # Test that it works with precision too
+        result_prec = get_optimal_threshold(
+            y_true, y_prob, metric="precision", mode="expected"
         )
-        assert isinstance(result_acc, tuple)
-        assert len(result_acc) == 2
+        assert isinstance(result_prec, tuple)
+        assert len(result_prec) == 2
 
     def test_mode_expected_supports_multiclass(self):
         """Test that mode='expected' works with multiclass classification."""
@@ -340,8 +340,8 @@ class TestErrorMessages:
         y_true = np.array([0, 0, 1, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
-        # Should work with different metrics
-        for metric in ["f1", "accuracy", "precision", "recall"]:
+        # Should work with different supported metrics
+        for metric in ["f1", "precision", "jaccard"]:
             result = get_optimal_threshold(
                 y_true, y_prob, metric=metric, mode="expected"
             )
@@ -350,6 +350,13 @@ class TestErrorMessages:
             threshold, score = result
             assert 0 <= threshold <= 1
             assert 0 <= score <= 1
+
+        # Test that unsupported metrics raise ValueError
+        for metric in ["accuracy", "recall", "specificity"]:
+            with pytest.raises(
+                ValueError, match="constant denominator under calibration"
+            ):
+                get_optimal_threshold(y_true, y_prob, metric=metric, mode="expected")
 
     def test_mode_expected_multiclass_support(self):
         """Test that mode='expected' supports multiclass classification."""

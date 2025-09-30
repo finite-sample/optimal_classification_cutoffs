@@ -58,8 +58,9 @@ def coeffs_for_metric(
     Parameters
     ----------
     metric : str
-        Name of the metric. Supported: 'precision', 'recall', 'specificity',
-        'jaccard', 'iou', 'fbeta', 'f1', 'f2', 'tversky', 'accuracy'.
+        Name of the metric. Supported: 'precision', 'jaccard', 'iou', 'fbeta',
+        'f1', 'f2', 'tversky'. Note: 'recall', 'specificity', 'accuracy' are not
+        supported as they have degenerate solutions under calibration.
     beta : float, default=1.0
         Beta parameter for F-beta score. beta=1 gives F1, beta<1 emphasizes precision,
         beta>1 emphasizes recall.
@@ -96,12 +97,23 @@ def coeffs_for_metric(
 
     if m in {"recall", "sensitivity", "tpr", "true_positive_rate"}:
         # Recall = TP / (TP + FN)
-        # Note: denominator is constant across selections, making this trivial
-        return FractionalLinearCoeffs(alpha_tp=1.0, beta_tp=1.0, beta_fn=1.0)
+        # MATHEMATICAL ISSUE: Under calibration, E[TP + FN] = Σ(w_i * p_i) is constant
+        # This makes optimization degenerate (always select all or none)
+        raise ValueError(
+            f"Metric '{metric}' has constant denominator under calibration assumption. "
+            f"Expected optimization gives trivial solutions (threshold=0 or 1). "
+            f"Use mode='empirical' instead for meaningful threshold optimization."
+        )
 
     if m in {"specificity", "tnr", "true_negative_rate"}:
         # Specificity = TN / (TN + FP)
-        return FractionalLinearCoeffs(alpha_tn=1.0, beta_tn=1.0, beta_fp=1.0)
+        # MATHEMATICAL ISSUE: Under calibration, E[TN + FP] = Σ(w_i * (1-p_i)) constant
+        # This makes optimization degenerate (always select all or none)
+        raise ValueError(
+            f"Metric '{metric}' has constant denominator under calibration assumption. "
+            f"Expected optimization gives trivial solutions (threshold=0 or 1). "
+            f"Use mode='empirical' instead for meaningful threshold optimization."
+        )
 
     if m in {"jaccard", "iou", "intersection_over_union"}:
         # Jaccard = TP / (TP + FP + FN)
@@ -110,7 +122,9 @@ def coeffs_for_metric(
         )
 
     if m in {"fbeta", "f_beta"}:
-        # F_beta = (1+beta^2)*TP / ((1+beta^2)*TP + beta^2*FN + FP)
+        # F_beta = (1+beta^2)*TP / ((1+beta^2)*TP + FP + beta^2*FN)
+        # Derived from F_beta = (1+beta^2)*prec*recall / (beta^2*prec + recall)
+        # where precision = TP/(TP+FP) and recall = TP/(TP+FN)
         if beta < 0:
             raise ValueError(f"Beta parameter must be non-negative, got {beta}")
         b2 = float(beta) ** 2
@@ -146,20 +160,21 @@ def coeffs_for_metric(
 
     if m in {"accuracy", "acc"}:
         # Accuracy = (TP + TN) / (TP + TN + FP + FN)
-        # Note: denominator is constant across selections for binary classification
-        return FractionalLinearCoeffs(
-            alpha_tp=1.0,
-            alpha_tn=1.0,
-            beta_tp=1.0,
-            beta_tn=1.0,
-            beta_fp=1.0,
-            beta_fn=1.0,
+        # MATHEMATICAL ISSUE: Under calibration, denominator = Σ(w_i) is constant
+        # This makes optimization degenerate (always select all or none)
+        # For multiclass, accuracy requires exclusive predictions, not OvR
+        raise ValueError(
+            f"Metric '{metric}' has constant denominator under calibration assumption. "
+            f"Expected optimization gives trivial solutions (threshold=0 or 1). "
+            f"For multiclass accuracy, the OvR approach is also inappropriate. "
+            f"Use mode='empirical' instead for meaningful threshold optimization."
         )
 
     raise ValueError(
-        f"Metric '{metric}' not supported as fractional-linear. "
-        f"Supported: precision, recall, specificity, jaccard, iou, fbeta, f1, f2, "
-        f"tversky, accuracy."
+        f"Metric '{metric}' not supported for expected optimization. "
+        f"Supported: precision, jaccard, iou, fbeta, f1, f2, tversky. "
+        f"Note: recall, specificity, accuracy have degenerate solutions. "
+        f"Use mode='empirical' for these metrics."
     )
 
 

@@ -42,8 +42,8 @@ class TestDinkelbachMethod:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([0.2, 0.8, 0.3, 0.7])
 
-        # Should work with different metrics
-        for metric in ["f1", "accuracy"]:
+        # Should work with supported metrics
+        for metric in ["f1", "precision"]:
             result = get_optimal_threshold(
                 y_true, y_prob, metric=metric, mode="expected"
             )

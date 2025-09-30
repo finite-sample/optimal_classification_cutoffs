@@ -416,22 +416,10 @@ class TestMetricCoefficients:
         assert coeffs.beta_fn == 0.0
         assert coeffs.beta0 == 0.0
 
-    def test_recall_coefficients(self):
-        """Recall = TP / (TP + FN) should have correct coefficients."""
-        coeffs = coeffs_for_metric("recall")
-
-        # Recall: numerator = TP, denominator = TP + FN
-        assert coeffs.alpha_tp == 1.0
-        assert coeffs.alpha_tn == 0.0
-        assert coeffs.alpha_fp == 0.0
-        assert coeffs.alpha_fn == 0.0
-        assert coeffs.alpha0 == 0.0
-
-        assert coeffs.beta_tp == 1.0
-        assert coeffs.beta_tn == 0.0
-        assert coeffs.beta_fp == 0.0
-        assert coeffs.beta_fn == 1.0
-        assert coeffs.beta0 == 0.0
+    def test_recall_not_supported(self):
+        """Recall should raise ValueError due to degenerate optimization."""
+        with pytest.raises(ValueError, match="constant denominator under calibration"):
+            coeffs_for_metric("recall")
 
     def test_f1_coefficients(self):
         """F1 = 2*TP / (2*TP + FP + FN) should have correct coefficients."""
@@ -467,26 +455,14 @@ class TestMetricCoefficients:
         assert coeffs.beta_fn == 1.0
         assert coeffs.beta0 == 0.0
 
-    def test_accuracy_coefficients(self):
-        """Accuracy = (TP + TN) / (TP + TN + FP + FN) should have correct coefficients."""
-        coeffs = coeffs_for_metric("accuracy")
-
-        # Accuracy: numerator = TP + TN, denominator = TP + TN + FP + FN
-        assert coeffs.alpha_tp == 1.0
-        assert coeffs.alpha_tn == 1.0
-        assert coeffs.alpha_fp == 0.0
-        assert coeffs.alpha_fn == 0.0
-        assert coeffs.alpha0 == 0.0
-
-        assert coeffs.beta_tp == 1.0
-        assert coeffs.beta_tn == 1.0
-        assert coeffs.beta_fp == 1.0
-        assert coeffs.beta_fn == 1.0
-        assert coeffs.beta0 == 0.0
+    def test_accuracy_not_supported(self):
+        """Accuracy should raise ValueError due to degenerate optimization."""
+        with pytest.raises(ValueError, match="constant denominator under calibration"):
+            coeffs_for_metric("accuracy")
 
     def test_unsupported_metric_error(self):
         """Unsupported metrics should raise ValueError."""
-        with pytest.raises(ValueError, match="not supported as fractional-linear"):
+        with pytest.raises(ValueError, match="not supported for expected optimization"):
             coeffs_for_metric("unsupported_metric")
 
 
@@ -500,13 +476,10 @@ class TestGeneralizedBinaryOptimization:
 
         metrics_to_test = [
             "precision",
-            "recall",
-            "specificity",
             "f1",
             "f2",
             "jaccard",
             "iou",
-            "accuracy",
         ]
 
         for metric in metrics_to_test:
@@ -553,7 +526,7 @@ class TestGeneralizedBinaryOptimization:
         y_prob = np.array([0.2, 0.5, 0.8])
         sample_weight = np.array([0.5, 2.0, 1.0])
 
-        for metric in ["f1", "precision", "accuracy"]:
+        for metric in ["f1", "precision", "jaccard"]:
             coeffs = coeffs_for_metric(metric)
             threshold, score, direction = dinkelbach_expected_fractional_binary(
                 y_prob, coeffs, sample_weight=sample_weight
@@ -571,7 +544,7 @@ class TestGeneralizedMulticlassOptimization:
         y_prob = np.random.rand(20, 3)
         y_prob = y_prob / y_prob.sum(axis=1, keepdims=True)
 
-        metrics_to_test = ["f1", "precision", "recall", "accuracy", "jaccard"]
+        metrics_to_test = ["f1", "precision", "jaccard"]
 
         for metric in metrics_to_test:
             for average in ["macro", "weighted"]:
@@ -598,7 +571,7 @@ class TestGeneralizedMulticlassOptimization:
         y_prob = np.random.rand(15, 4)
         y_prob = y_prob / y_prob.sum(axis=1, keepdims=True)
 
-        for metric in ["f1", "precision", "accuracy"]:
+        for metric in ["f1", "precision", "jaccard"]:
             result = dinkelbach_expected_fractional_ovr(y_prob, metric, average="micro")
 
             assert "threshold" in result
@@ -619,7 +592,7 @@ class TestGeneralizedAPIIntegration:
         y_prob = np.array([0.2, 0.8, 0.3, 0.7, 0.9, 0.1])
 
         # Test various metrics through main API
-        for metric in ["f1", "precision", "recall", "accuracy", "jaccard"]:
+        for metric in ["f1", "precision", "jaccard"]:
             result = get_optimal_threshold(
                 y_true, y_prob, mode="expected", metric=metric
             )
@@ -641,7 +614,7 @@ class TestGeneralizedAPIIntegration:
         y_prob = y_prob / y_prob.sum(axis=1, keepdims=True)
 
         # Test various metrics through main API
-        for metric in ["f1", "precision", "accuracy"]:
+        for metric in ["f1", "precision", "jaccard"]:
             result = get_optimal_threshold(
                 y_true, y_prob, mode="expected", metric=metric
             )
@@ -695,7 +668,7 @@ class TestGeneralizedEdgeCases:
         """Test optimization with extreme probabilities."""
         y_prob = np.array([0.0, 0.001, 0.999, 1.0])
 
-        for metric in ["f1", "precision", "accuracy"]:
+        for metric in ["f1", "precision", "jaccard"]:
             coeffs = coeffs_for_metric(metric)
             threshold, score, direction = dinkelbach_expected_fractional_binary(
                 y_prob, coeffs
