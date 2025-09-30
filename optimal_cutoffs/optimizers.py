@@ -593,22 +593,24 @@ def get_optimal_threshold(
                     tversky_alpha=0.5,  # Default values
                     tversky_beta=0.5,
                 )
-                
+
                 # Use generalized Dinkelbach framework
-                threshold, expected_score, direction = dinkelbach_expected_fractional_binary(
-                    pred_prob,
-                    coeffs,
-                    sample_weight=sw,
-                    comparison=comparison,
+                threshold, expected_score, direction = (
+                    dinkelbach_expected_fractional_binary(
+                        pred_prob,
+                        coeffs,
+                        sample_weight=sw,
+                        comparison=comparison,
+                    )
                 )
-                
-                # Verify direction matches comparison (should be ">") 
+
+                # Verify direction matches comparison (should be ">")
                 if direction != ">":
                     # This is rare but possible for exotic metrics
                     pass  # Still return the result
-                
+
                 return (float(threshold), float(expected_score))
-                
+
             except ValueError:
                 # Fallback to F-beta specific implementation for unsupported metrics
                 binary_result: tuple[float, float] = dinkelbach_expected_fbeta_binary(
@@ -640,14 +642,14 @@ def get_optimal_threshold(
                     class_weight=cw,
                     comparison=comparison,
                 )
-                
+
                 if avg == "micro":
                     # Return single threshold and score for micro averaging
-                    return (float(result["threshold"]), float(result["score"]))
+                    return (float(result["threshold"]), float(result["score"]))  # type: ignore[return-value]
                 else:
                     # Return thresholds array and averaged score for macro/weighted
-                    return (result["thresholds"], float(result["score"]))
-                    
+                    return (result["thresholds"], float(result["score"]))  # type: ignore[return-value]
+
             except ValueError:
                 # Fallback to F-beta specific implementation for unsupported metrics
                 return dinkelbach_expected_fbeta_multilabel(
