@@ -180,8 +180,12 @@ class TestDinkelbachComparisonSupport:
         thresh_main_incl, _ = result_main_incl
 
         # Allow some tolerance for numerical differences between internal and main API
-        assert abs(thresh_main_excl - thresh_excl) < 0.05, f"Thresholds should be close: {thresh_main_excl} vs {thresh_excl}"
-        assert abs(thresh_main_incl - thresh_incl) < 0.05, f"Thresholds should be close: {thresh_main_incl} vs {thresh_incl}"
+        assert abs(thresh_main_excl - thresh_excl) < 0.05, (
+            f"Thresholds should be close: {thresh_main_excl} vs {thresh_excl}"
+        )
+        assert abs(thresh_main_incl - thresh_incl) < 0.05, (
+            f"Thresholds should be close: {thresh_main_incl} vs {thresh_incl}"
+        )
 
     def test_dinkelbach_tied_probabilities(self):
         """Dinkelbach should handle tied probabilities correctly based on comparison."""
@@ -196,7 +200,7 @@ class TestDinkelbachComparisonSupport:
 
             # Extract threshold from tuple
             threshold, expected_f1 = result
-            
+
             # Should produce valid threshold
             assert 0 <= threshold <= 1
             assert 0 <= expected_f1 <= 1

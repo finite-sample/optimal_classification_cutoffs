@@ -28,9 +28,7 @@ class TestDinkelbachMethod:
         y_prob = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Should work for F1 metric and return a tuple
-        result = get_optimal_threshold(
-            y_true, y_prob, mode="expected", metric="f1"
-        )
+        result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
         assert isinstance(result, tuple)
         assert len(result) == 2
         threshold, f1_score = result

@@ -73,28 +73,33 @@ class TestBayesThresholds:
         # U_tp=2, U_tn=1, U_fp=-1, U_fn=-5
         # t* = (U_tn - U_fp) / [(U_tn - U_fp) + (U_tp - U_fn)]
         # t* = (1 - (-1)) / [(1 - (-1)) + (2 - (-5))] = 2 / (2 + 7) = 2/9
-        threshold = bayes_threshold_from_costs_scalar(fp_cost=-1, fn_cost=-5, tp_benefit=2, tn_benefit=1)
+        threshold = bayes_threshold_from_costs_scalar(
+            fp_cost=-1, fn_cost=-5, tp_benefit=2, tn_benefit=1
+        )
         expected = 2.0 / 9.0
         assert abs(threshold - expected) < 1e-10
 
     def test_bayes_threshold_degenerate_cases(self):
         """Test degenerate cases where one action dominates."""
         # Case 1: Positive always better (very high TP benefit, no costs)
-        threshold = bayes_threshold_from_costs_scalar(fp_cost=0, fn_cost=0, tp_benefit=100, tn_benefit=0)
+        threshold = bayes_threshold_from_costs_scalar(
+            fp_cost=0, fn_cost=0, tp_benefit=100, tn_benefit=0
+        )
         # Should predict all as positive -> very low threshold
         assert threshold < 1e-10
 
         # Case 2: Negative always better (U_fn >= U_tp to get threshold >= 1.0)
         # Make false negative utility higher than true positive utility
-        threshold = bayes_threshold_from_costs_scalar(fp_cost=-100, fn_cost=0, tp_benefit=-10, tn_benefit=1)
+        threshold = bayes_threshold_from_costs_scalar(
+            fp_cost=-100, fn_cost=0, tp_benefit=-10, tn_benefit=1
+        )
         # Should predict all as negative -> very high threshold
         assert threshold >= 1.0
 
     def test_bayes_threshold_comparison_operators(self):
         """Test that comparison operators are handled correctly."""
         # Simple case where threshold should be exactly 0.5
-        U_tp = U_tn = 1.0
-        U_fp = U_fn = 0.0
+        # U_tp = U_tn = 1.0, U_fp = U_fn = 0.0
         # t* = (1-0) / [(1-0) + (1-0)] = 1/2 = 0.5
 
         thresh_excl = bayes_threshold_from_costs_scalar(
@@ -294,7 +299,9 @@ class TestEdgeCases:
         with pytest.raises(
             ValueError, match="true_labs is required for empirical utility optimization"
         ):
-            get_optimal_threshold(None, p, utility={"fp": -1, "fn": -5}, mode="empirical")
+            get_optimal_threshold(
+                None, p, utility={"fp": -1, "fn": -5}, mode="empirical"
+            )
 
     def test_empty_utility_dict(self):
         """Test with empty or minimal utility specification."""

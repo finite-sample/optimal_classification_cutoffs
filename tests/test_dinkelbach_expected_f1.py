@@ -278,7 +278,7 @@ class TestDinkelbachTieHandling:
         result_inclusive = get_optimal_threshold(
             labels, probs, mode="expected", metric="f1", comparison=">="
         )
-        
+
         # Extract thresholds from tuples
         threshold_exclusive, _ = result_exclusive
         threshold_inclusive, _ = result_inclusive
@@ -447,7 +447,7 @@ class TestDinkelbachEdgeCases:
         result = get_optimal_threshold(
             labels, probs, mode="expected", metric="f1", sample_weight=weights
         )
-        
+
         # Extract threshold from tuple and verify it's valid
         threshold, expected_f1 = result
         assert 0 <= threshold <= 1
@@ -459,15 +459,17 @@ class TestDinkelbachEdgeCases:
         labels = np.array([0, 1])
 
         # Should work with F1
-        result_f1 = get_optimal_threshold(
-            labels, probs, mode="expected", metric="f1"
-        )
+        result_f1 = get_optimal_threshold(labels, probs, mode="expected", metric="f1")
         threshold_f1, _ = result_f1  # Extract threshold from tuple
         assert 0 <= threshold_f1 <= 1
 
         # Should also work with other metrics
         for metric in ["accuracy", "precision", "recall", "f2"]:
-            result = get_optimal_threshold(labels, probs, metric=metric, mode="expected")
+            result = get_optimal_threshold(
+                labels, probs, metric=metric, mode="expected"
+            )
             threshold, expected_score = result
             assert 0 <= threshold <= 1, f"Invalid threshold for {metric}: {threshold}"
-            assert 0 <= expected_score <= 1, f"Invalid score for {metric}: {expected_score}"
+            assert 0 <= expected_score <= 1, (
+                f"Invalid score for {metric}: {expected_score}"
+            )

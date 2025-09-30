@@ -1,6 +1,5 @@
 """Tests for the code coherence improvements implemented in v0.4.0."""
 
-import warnings
 
 import numpy as np
 import pytest
@@ -64,7 +63,9 @@ class TestModeParameter:
 
         # Note: mode='expected' now supports other metrics as well
         # Test that it works with accuracy too
-        result_acc = get_optimal_threshold(y_true, y_prob, metric="accuracy", mode="expected")
+        result_acc = get_optimal_threshold(
+            y_true, y_prob, metric="accuracy", mode="expected"
+        )
         assert isinstance(result_acc, tuple)
         assert len(result_acc) == 2
 
@@ -277,7 +278,9 @@ class TestGoldenTests:
         utility = {"tp": 2, "tn": 1, "fp": -1, "fn": -5}
 
         # Direct call to Bayes function (use negative costs to match utility convention)
-        threshold1 = bayes_threshold_from_costs_scalar(fp_cost=-1, fn_cost=-5, tp_benefit=2, tn_benefit=1)
+        threshold1 = bayes_threshold_from_costs_scalar(
+            fp_cost=-1, fn_cost=-5, tp_benefit=2, tn_benefit=1
+        )
 
         # Via get_optimal_threshold API
         threshold2 = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
@@ -306,16 +309,14 @@ class TestGoldenTests:
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
         # Both calls should work and give same result
-        result1 = get_optimal_threshold(
-            y_true, y_prob, mode="expected", metric="f1"
-        )
+        result1 = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
 
         result2 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
 
         # Both should return tuples
         assert isinstance(result1, tuple)  # Expected mode returns (threshold, f1_score)
         assert isinstance(result2, tuple)  # Expected mode returns (threshold, f1_score)
-        
+
         # Extract thresholds and compare
         threshold1, f1_score1 = result1
         threshold2, f1_score2 = result2
@@ -342,7 +343,9 @@ class TestErrorMessages:
 
         # Should work with different metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(y_true, y_prob, metric=metric, mode="expected")
+            result = get_optimal_threshold(
+                y_true, y_prob, metric=metric, mode="expected"
+            )
             assert isinstance(result, tuple)
             assert len(result) == 2
             threshold, score = result

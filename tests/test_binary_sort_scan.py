@@ -279,7 +279,9 @@ class TestSortScanMatchesBruteForce:
         has_many_ties = (len(p) - len(unique_p)) / len(p) > 0.7  # More than 70% ties
         has_few_unique = len(unique_p) <= 5  # 5 or fewer unique values
 
-        if (has_few_unique and (has_extremes or has_many_ties)) or (has_extremes and has_many_ties):  # Edge cases
+        if (has_few_unique and (has_extremes or has_many_ties)) or (
+            has_extremes and has_many_ties
+        ):  # Edge cases
             tolerance = 0.5  # More lenient for edge cases
         elif has_extremes or has_many_ties:  # Moderate edge cases
             tolerance = 0.1  # Moderately lenient
@@ -327,7 +329,9 @@ class TestSortScanMatchesBruteForce:
         has_many_ties = (len(p) - len(unique_p)) / len(p) > 0.7
         has_few_unique = len(unique_p) <= 5
 
-        if (has_few_unique and (has_extremes or has_many_ties)) or (has_extremes and has_many_ties):  # Edge cases
+        if (has_few_unique and (has_extremes or has_many_ties)) or (
+            has_extremes and has_many_ties
+        ):  # Edge cases
             tolerance = 0.5  # More lenient for edge cases
         elif has_extremes or has_many_ties:  # Moderate edge cases
             tolerance = 0.1  # Moderately lenient
