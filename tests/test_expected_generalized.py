@@ -499,8 +499,14 @@ class TestGeneralizedBinaryOptimization:
         y_prob = np.array([0.1, 0.3, 0.4, 0.6, 0.7, 0.9])
 
         metrics_to_test = [
-            "precision", "recall", "specificity", "f1", "f2",
-            "jaccard", "iou", "accuracy"
+            "precision",
+            "recall",
+            "specificity",
+            "f1",
+            "f2",
+            "jaccard",
+            "iou",
+            "accuracy",
         ]
 
         for metric in metrics_to_test:
@@ -509,9 +515,13 @@ class TestGeneralizedBinaryOptimization:
                 y_prob, coeffs
             )
 
-            assert 0.0 <= threshold <= 1.0, f"Invalid threshold for {metric}: {threshold}"
+            assert 0.0 <= threshold <= 1.0, (
+                f"Invalid threshold for {metric}: {threshold}"
+            )
             assert 0.0 <= score <= 1.0, f"Invalid score for {metric}: {score}"
-            assert direction in [">", "<"], f"Invalid direction for {metric}: {direction}"
+            assert direction in [">", "<"], (
+                f"Invalid direction for {metric}: {direction}"
+            )
 
     def test_binary_with_parameters(self):
         """Test binary optimization with metric parameters."""
@@ -529,7 +539,9 @@ class TestGeneralizedBinaryOptimization:
         # Test Tversky with different alpha/beta values
         for alpha in [0.3, 0.5, 0.7]:
             for beta in [0.2, 0.5, 0.8]:
-                coeffs = coeffs_for_metric("tversky", tversky_alpha=alpha, tversky_beta=beta)
+                coeffs = coeffs_for_metric(
+                    "tversky", tversky_alpha=alpha, tversky_beta=beta
+                )
                 threshold, score, direction = dinkelbach_expected_fractional_binary(
                     y_prob, coeffs
                 )
@@ -587,9 +599,7 @@ class TestGeneralizedMulticlassOptimization:
         y_prob = y_prob / y_prob.sum(axis=1, keepdims=True)
 
         for metric in ["f1", "precision", "accuracy"]:
-            result = dinkelbach_expected_fractional_ovr(
-                y_prob, metric, average="micro"
-            )
+            result = dinkelbach_expected_fractional_ovr(y_prob, metric, average="micro")
 
             assert "threshold" in result
             assert "score" in result
@@ -657,9 +667,7 @@ class TestGeneralizedBackwardCompatibility:
         y_prob = np.array([0.1, 0.8, 0.2, 0.9, 0.7, 0.3, 0.6])
 
         # Get result from main API (uses new framework)
-        result_new = get_optimal_threshold(
-            y_true, y_prob, mode="expected", metric="f1"
-        )
+        result_new = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
         threshold_new, f1_new = result_new
 
         # Results should be reasonable
