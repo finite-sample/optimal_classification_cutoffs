@@ -1,6 +1,6 @@
 """Threshold search strategies for optimizing classification metrics."""
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from scipy import optimize  # type: ignore[import-untyped]
@@ -930,7 +930,7 @@ def get_optimal_multiclass_thresholds(
                 pred_binary_prob = pred_prob[:, class_idx]
 
                 # Optimize threshold for this class
-                optimal_thresholds[class_idx] = get_optimal_threshold(
+                result = get_optimal_threshold(
                     true_binary,
                     pred_binary_prob,
                     metric,
@@ -939,6 +939,8 @@ def get_optimal_multiclass_thresholds(
                     comparison,
                     mode="empirical",
                 )
+                # mode="empirical" guarantees float return for binary classification
+                optimal_thresholds[class_idx] = cast(float, result)
             return optimal_thresholds
 
 
@@ -987,7 +989,7 @@ def _optimize_micro_averaged_thresholds(
         for class_idx in range(n_classes):
             true_binary = (true_labs == class_idx).astype(int)
             pred_binary_prob = pred_prob[:, class_idx]
-            initial_thresholds[class_idx] = get_optimal_threshold(
+            result = get_optimal_threshold(
                 true_binary,
                 pred_binary_prob,
                 metric,
@@ -996,6 +998,8 @@ def _optimize_micro_averaged_thresholds(
                 comparison,
                 mode="empirical",
             )
+            # mode="empirical" guarantees float return for binary classification
+            initial_thresholds[class_idx] = cast(float, result)
 
         # LIMITATION: For unique_scan with micro averaging, we currently return
         # independent per-class optimization results (OvR initialization).
@@ -1022,7 +1026,7 @@ def _optimize_micro_averaged_thresholds(
         for class_idx in range(n_classes):
             true_binary = (true_labs == class_idx).astype(int)
             pred_binary_prob = pred_prob[:, class_idx]
-            initial_guess[class_idx] = get_optimal_threshold(
+            result = get_optimal_threshold(
                 true_binary,
                 pred_binary_prob,
                 metric,
@@ -1031,6 +1035,8 @@ def _optimize_micro_averaged_thresholds(
                 comparison,
                 mode="empirical",
             )
+            # mode="empirical" guarantees float return for binary classification
+            initial_guess[class_idx] = cast(float, result)
 
         # Joint optimization
         result = minimize(
