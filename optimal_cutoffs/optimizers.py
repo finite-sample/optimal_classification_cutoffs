@@ -349,7 +349,12 @@ def _optimize_expected(
         sw = np.asarray(sample_weight) if sample_weight is not None else None
         cw = np.asarray(class_weight) if class_weight is not None else None
         return dinkelbach_expected_fbeta_multilabel(
-            pred_prob, beta, avg_method, sw, cw, comparison  # type: ignore[arg-type]
+            pred_prob,
+            beta,
+            avg_method,  # type: ignore[arg-type]
+            sw,
+            cw,
+            comparison,
         )
     else:
         if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
