@@ -395,9 +395,7 @@ class TestBackwardCompatibility:
         pred_prob = [0.1, 0.3, 0.4, 0.6, 0.8, 0.9]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold_piecewise = optimal_threshold_piecewise(
-                y_true, pred_prob, metric
-            )
+            threshold_piecewise = optimal_threshold_piecewise(y_true, pred_prob, metric)
             threshold_smart = get_optimal_threshold(
                 y_true, pred_prob, metric, method="unique_scan"
             )

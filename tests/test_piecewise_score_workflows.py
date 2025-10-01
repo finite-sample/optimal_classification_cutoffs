@@ -68,12 +68,16 @@ class TestScoreBasedWorkflows:
         scores_sorted = np.array([5.0, 2.0, -1.0, -3.0])
 
         # With require_proba=False, no clamping should occur
-        threshold = _compute_threshold_midpoint(scores_sorted, 2, False, require_proba=False)
+        threshold = _compute_threshold_midpoint(
+            scores_sorted, 2, False, require_proba=False
+        )
         expected = (2.0 + (-1.0)) / 2.0  # Midpoint = 0.5
         assert abs(threshold - expected) < 1e-10
 
         # Contrast with require_proba=True (would clamp to [0,1])
-        threshold_clamped = _compute_threshold_midpoint(scores_sorted, 2, False, require_proba=True)
+        threshold_clamped = _compute_threshold_midpoint(
+            scores_sorted, 2, False, require_proba=True
+        )
         assert 0.0 <= threshold_clamped <= 1.0
 
     def test_edge_cases_with_scores(self):
@@ -109,8 +113,7 @@ class TestScoreBasedWorkflows:
         weights = [1.0, 3.0, 1.0, 2.0]  # Weight positive samples more
 
         threshold, score, k = optimal_threshold_sortscan(
-            y_true, scores, f1_vectorized,
-            sample_weight=weights, require_proba=False
+            y_true, scores, f1_vectorized, sample_weight=weights, require_proba=False
         )
 
         # Should be valid threshold and score
@@ -131,13 +134,13 @@ class TestNewVectorizedMetrics:
         iou_scores = iou_vectorized(tp, tn, fp, fn)
 
         # Case 0: IoU = 2/(2+1+0) = 2/3
-        assert abs(iou_scores[0] - 2/3) < 1e-10
+        assert abs(iou_scores[0] - 2 / 3) < 1e-10
 
         # Case 1: IoU = 0/(0+0+1) = 0.0
         assert abs(iou_scores[1] - 0.0) < 1e-10
 
         # Case 2: IoU = 1/(1+2+0) = 1/3
-        assert abs(iou_scores[2] - 1/3) < 1e-10
+        assert abs(iou_scores[2] - 1 / 3) < 1e-10
 
     def test_iou_zero_denominator(self):
         """Test IoU with zero denominator (no positives predicted or actual)."""

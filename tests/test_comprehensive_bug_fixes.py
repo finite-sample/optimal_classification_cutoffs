@@ -158,8 +158,12 @@ class TestDinkelbachComparisonSupport:
         pred_prob = [0.2, 0.4, 0.4, 0.6, 0.6, 0.3, 0.7, 0.1]
 
         # Both should work without error
-        thresh_excl, _ = dinkelbach_expected_fbeta_binary(pred_prob, 1.0, comparison=">")
-        thresh_incl, _ = dinkelbach_expected_fbeta_binary(pred_prob, 1.0, comparison=">=")
+        thresh_excl, _ = dinkelbach_expected_fbeta_binary(
+            pred_prob, 1.0, comparison=">"
+        )
+        thresh_incl, _ = dinkelbach_expected_fbeta_binary(
+            pred_prob, 1.0, comparison=">="
+        )
 
         assert 0 <= thresh_excl <= 1
         assert 0 <= thresh_incl <= 1
@@ -321,8 +325,13 @@ class TestMicroOptimizationDocumentation:
             warnings.simplefilter("always")
 
             get_optimal_threshold(
-                y_true, pred_prob, metric="f1", method="unique_scan",
-                sample_weight=None, comparison=">", average="micro"
+                y_true,
+                pred_prob,
+                metric="f1",
+                method="unique_scan",
+                sample_weight=None,
+                comparison=">",
+                average="micro",
             )
 
             # Should raise warning about limitation
@@ -344,8 +353,13 @@ class TestMicroOptimizationDocumentation:
             warnings.simplefilter("always")
 
             get_optimal_threshold(
-                y_true, pred_prob, metric="f1", method="minimize",
-                sample_weight=None, comparison=">", average="micro"
+                y_true,
+                pred_prob,
+                metric="f1",
+                method="minimize",
+                sample_weight=None,
+                comparison=">",
+                average="micro",
             )
 
             # Should not warn about micro optimization

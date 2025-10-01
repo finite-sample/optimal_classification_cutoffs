@@ -267,10 +267,15 @@ class TestBayesEdgeCases:
         # B = tn - fp = -20 - (-10) = -10
         # D = A + B = 1 + (-10) = -9 < 0
         tau, dirn = bayes_thresholds_from_costs_vector(
-            fp_cost=[-10], fn_cost=[-1], tp_benefit=[0], tn_benefit=[-20],
-            return_directions=True
+            fp_cost=[-10],
+            fn_cost=[-1],
+            tp_benefit=[0],
+            tn_benefit=[-20],
+            return_directions=True,
         )
-        assert dirn[0] == "<", f"Expected direction '<' for negative denominator, got '{dirn[0]}'"
+        assert dirn[0] == "<", (
+            f"Expected direction '<' for negative denominator, got '{dirn[0]}'"
+        )
         assert 0 <= tau[0] <= 1, f"Threshold {tau[0]} should be in [0,1]"
 
     def test_zero_denominator_b_sign_drives_decision(self):
@@ -278,43 +283,68 @@ class TestBayesEdgeCases:
         # D = (tn - fp) + (tp - fn) = 0
         # Case 1: B = tn - fp = 0 -> always positive (tau=0, '>'):
         tau1, dirn1 = bayes_thresholds_from_costs_vector(
-            fp_cost=[0], fn_cost=[0], tp_benefit=[0], tn_benefit=[0],
-            return_directions=True
+            fp_cost=[0],
+            fn_cost=[0],
+            tp_benefit=[0],
+            tn_benefit=[0],
+            return_directions=True,
         )
-        assert tau1[0] == 0.0 and dirn1[0] == ">", f"Expected tau=0, '>' for B=0, got tau={tau1[0]}, '{dirn1[0]}'"
+        assert tau1[0] == 0.0 and dirn1[0] == ">", (
+            f"Expected tau=0, '>' for B=0, got tau={tau1[0]}, '{dirn1[0]}'"
+        )
 
         # Case 2: B = tn - fp = 1 > 0 -> never positive (tau=1, '>'):
         tau2, dirn2 = bayes_thresholds_from_costs_vector(
-            fp_cost=[-1], fn_cost=[-1], tp_benefit=[0], tn_benefit=[0],
-            return_directions=True
+            fp_cost=[-1],
+            fn_cost=[-1],
+            tp_benefit=[0],
+            tn_benefit=[0],
+            return_directions=True,
         )
         # A = 0 - (-1) = 1, B = 0 - (-1) = 1, D = 1 + 1 = 2 (not zero)
         # Let me try a different example:
         # A = 1 - 1 = 0, B = 0 - 0 = 0, D = 0 + 0 = 0, so this should be always positive
         tau3, dirn3 = bayes_thresholds_from_costs_vector(
-            fp_cost=[0], fn_cost=[1], tp_benefit=[1], tn_benefit=[0],
-            return_directions=True
+            fp_cost=[0],
+            fn_cost=[1],
+            tp_benefit=[1],
+            tn_benefit=[0],
+            return_directions=True,
         )
         # A = 1 - 1 = 0, B = 0 - 0 = 0, D = 0 + 0 = 0
-        assert tau3[0] == 0.0 and dirn3[0] == ">", f"Expected tau=0, '>' for B=0 (zero denom), got tau={tau3[0]}, '{dirn3[0]}'"
+        assert tau3[0] == 0.0 and dirn3[0] == ">", (
+            f"Expected tau=0, '>' for B=0 (zero denom), got tau={tau3[0]}, '{dirn3[0]}'"
+        )
 
     def test_auto_convert_positive_costs(self):
         """Test automatic conversion of positive costs to negative utilities."""
         # Positive costs should convert to negative utilities automatically
-        tau1 = bayes_thresholds_from_costs_vector([1, 1], [5, 5], [0, 0], [0, 0])  # costs
-        tau2 = bayes_thresholds_from_costs_vector([-1, -1], [-5, -5], [0, 0], [0, 0])  # utilities
+        tau1 = bayes_thresholds_from_costs_vector(
+            [1, 1], [5, 5], [0, 0], [0, 0]
+        )  # costs
+        tau2 = bayes_thresholds_from_costs_vector(
+            [-1, -1], [-5, -5], [0, 0], [0, 0]
+        )  # utilities
         np.testing.assert_allclose(tau1, tau2, rtol=1e-10)
 
         # Test that auto-conversion can be disabled with benefits to show difference
-        tau3 = bayes_thresholds_from_costs_vector([1], [5], [2], [1], auto_convert_costs=False)
-        tau4 = bayes_thresholds_from_costs_vector([1], [5], [2], [1], auto_convert_costs=True)
+        tau3 = bayes_thresholds_from_costs_vector(
+            [1], [5], [2], [1], auto_convert_costs=False
+        )
+        tau4 = bayes_thresholds_from_costs_vector(
+            [1], [5], [2], [1], auto_convert_costs=True
+        )
         # With auto_convert_costs=False: fp=1, fn=5, tp=2, tn=1 (all treated as utilities)
         # With auto_convert_costs=True: fp=-1, fn=-5, tp=2, tn=1 (costs converted)
         assert not np.allclose(tau3, tau4)
 
         # Mixed positive/negative should not auto-convert (mixed signals, treated as explicit utilities)
-        tau5 = bayes_thresholds_from_costs_vector([-1, 1], [-5, 5], auto_convert_costs=True)
-        tau6 = bayes_thresholds_from_costs_vector([-1, 1], [-5, 5], auto_convert_costs=False)
+        tau5 = bayes_thresholds_from_costs_vector(
+            [-1, 1], [-5, 5], auto_convert_costs=True
+        )
+        tau6 = bayes_thresholds_from_costs_vector(
+            [-1, 1], [-5, 5], auto_convert_costs=False
+        )
         # Should be the same since mixed values don't trigger auto-conversion
         np.testing.assert_allclose(tau5, tau6, rtol=1e-10)
 
@@ -335,10 +365,14 @@ class TestBayesEdgeCases:
         # Test row sum validation
         P_bad3 = np.array([[0.6, 0.6], [0.4, 0.3]])  # rows don't sum to 1
         with pytest.raises(ValueError, match="Rows of y_prob must sum to 1"):
-            bayes_decision_from_utility_matrix(P_bad3, U, validate=True, normalize_rows=False)
+            bayes_decision_from_utility_matrix(
+                P_bad3, U, validate=True, normalize_rows=False
+            )
 
         # Test that normalize_rows fixes the issue
-        dec = bayes_decision_from_utility_matrix(P_bad3, U, validate=True, normalize_rows=True)
+        dec = bayes_decision_from_utility_matrix(
+            P_bad3, U, validate=True, normalize_rows=True
+        )
         assert dec.shape == (2,)
 
     def test_tie_break_rules(self):
@@ -349,7 +383,9 @@ class TestBayesEdgeCases:
         d_first = bayes_decision_from_utility_matrix(P, U, tie_break="first")
         d_last = bayes_decision_from_utility_matrix(P, U, tie_break="last")
 
-        assert d_first[0] == 0, f"Expected first tie-break to choose 0, got {d_first[0]}"
+        assert d_first[0] == 0, (
+            f"Expected first tie-break to choose 0, got {d_first[0]}"
+        )
         assert d_last[0] == 1, f"Expected last tie-break to choose 1, got {d_last[0]}"
 
     def test_utility_matrix_validation(self):

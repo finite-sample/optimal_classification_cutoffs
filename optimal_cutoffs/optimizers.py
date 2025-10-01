@@ -355,9 +355,7 @@ def _optimize_expected(
         if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
             pred_prob = pred_prob.ravel()
         sw_array = np.asarray(sample_weight) if sample_weight is not None else None
-        return dinkelbach_expected_fbeta_binary(
-            pred_prob, beta, sw_array, comparison
-        )
+        return dinkelbach_expected_fbeta_binary(pred_prob, beta, sw_array, comparison)
 
 
 def _optimize_bayes(

@@ -672,7 +672,9 @@ class TestCVModuleRefactor:
         assert len(scores) == 3
         assert all(0.0 <= score <= 1.0 for score in scores)
         # Thresholds should be arrays for multiclass
-        assert all(isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds)
+        assert all(
+            isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds
+        )
 
     def test_cv_multiclass_micro(self):
         """Test multiclass CV with micro averaging (single threshold)."""
@@ -692,7 +694,9 @@ class TestCVModuleRefactor:
         assert all(0.0 <= score <= 1.0 for score in scores)
         # For micro averaging, thresholds might still be arrays (per-class with same values)
         # This is acceptable behavior
-        assert all(isinstance(t, (int, float, np.number, np.ndarray)) for t in thresholds)
+        assert all(
+            isinstance(t, (int, float, np.number, np.ndarray)) for t in thresholds
+        )
 
     def test_cv_multiclass_accuracy(self):
         """Test multiclass CV with exclusive accuracy metric."""
@@ -710,7 +714,9 @@ class TestCVModuleRefactor:
         assert len(thresholds) == 2
         assert len(scores) == 2
         assert all(0.0 <= score <= 1.0 for score in scores)
-        assert all(isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds)
+        assert all(
+            isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds
+        )
 
     def test_cv_with_sample_weights(self):
         """Test CV with sample weights."""
@@ -739,6 +745,7 @@ class TestCVModuleRefactor:
 
         # Force regular KFold
         from sklearn.model_selection import KFold
+
         kf = KFold(n_splits=3, shuffle=True, random_state=42)
         t2, s2 = cv_threshold_optimization(
             y_true, y_prob, metric="f1", cv=kf, random_state=42
@@ -773,14 +780,21 @@ class TestCVModuleRefactor:
         y_prob = np.random.dirichlet([1, 1, 1], n_samples)
 
         thresholds, scores = nested_cv_threshold_optimization(
-            y_true, y_prob, metric="f1", average="macro",
-            inner_cv=2, outer_cv=2, random_state=42
+            y_true,
+            y_prob,
+            metric="f1",
+            average="macro",
+            inner_cv=2,
+            outer_cv=2,
+            random_state=42,
         )
 
         assert len(thresholds) == 2
         assert len(scores) == 2
         assert all(0.0 <= score <= 1.0 for score in scores)
-        assert all(isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds)
+        assert all(
+            isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds
+        )
 
     def test_threshold_extraction_edge_cases(self):
         """Test threshold extraction with various return formats."""
@@ -800,8 +814,7 @@ class TestCVModuleRefactor:
         # Test dict from expected mode
         assert _extract_thresholds({"threshold": 0.4, "score": 0.9}) == 0.4
         assert np.array_equal(
-            _extract_thresholds({"thresholds": [0.2, 0.5], "score": 0.8}),
-            [0.2, 0.5]
+            _extract_thresholds({"thresholds": [0.2, 0.5], "score": 0.8}), [0.2, 0.5]
         )
 
         # Test Bayes decisions (should raise)
@@ -817,27 +830,47 @@ class TestCVModuleRefactor:
         y_prob = [0.2, 0.8, 0.3, 0.7]
 
         score = _evaluate_threshold_on_fold(
-            y_true, y_prob, 0.5, metric="f1", average="macro",
-            sample_weight=None, comparison=">"
+            y_true,
+            y_prob,
+            0.5,
+            metric="f1",
+            average="macro",
+            sample_weight=None,
+            comparison=">",
         )
         assert 0.0 <= score <= 1.0
 
         # Multiclass case with per-class thresholds
         y_true = [0, 1, 2, 1, 0]
-        y_prob = [[0.8, 0.1, 0.1], [0.2, 0.7, 0.1], [0.1, 0.1, 0.8],
-                  [0.3, 0.6, 0.1], [0.7, 0.2, 0.1]]
+        y_prob = [
+            [0.8, 0.1, 0.1],
+            [0.2, 0.7, 0.1],
+            [0.1, 0.1, 0.8],
+            [0.3, 0.6, 0.1],
+            [0.7, 0.2, 0.1],
+        ]
 
         score = _evaluate_threshold_on_fold(
-            y_true, y_prob, [0.3, 0.4, 0.5], metric="f1", average="macro",
-            sample_weight=None, comparison=">"
+            y_true,
+            y_prob,
+            [0.3, 0.4, 0.5],
+            metric="f1",
+            average="macro",
+            sample_weight=None,
+            comparison=">",
         )
         assert 0.0 <= score <= 1.0
 
         # Test error on wrong threshold shape
         with pytest.raises(ValueError, match="Per-class thresholds must have shape"):
             _evaluate_threshold_on_fold(
-                y_true, y_prob, [0.3, 0.4], metric="f1", average="macro",
-                sample_weight=None, comparison=">"
+                y_true,
+                y_prob,
+                [0.3, 0.4],
+                metric="f1",
+                average="macro",
+                sample_weight=None,
+                comparison=">",
             )
 
     def test_cv_new_metrics(self):

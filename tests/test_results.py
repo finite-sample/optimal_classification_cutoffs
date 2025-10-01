@@ -55,7 +55,7 @@ class TestThresholdResult:
         """Test that arrays are normalized to appropriate dtypes."""
         result = ThresholdResult(
             threshold=np.array([0.3, 0.6], dtype=np.float32),
-            per_class_scores=np.array([0.8, 0.9], dtype=np.float32)
+            per_class_scores=np.array([0.8, 0.9], dtype=np.float32),
         )
         assert result.threshold.dtype == np.float64
         assert result.per_class_scores.dtype == np.float64
@@ -74,7 +74,9 @@ class TestCreateResult:
     def test_threshold_required_validation(self):
         """Test that either threshold or decisions must be provided."""
         # Both None should raise error
-        with pytest.raises(ValueError, match="either 'threshold' or 'decisions' must be provided"):
+        with pytest.raises(
+            ValueError, match="either 'threshold' or 'decisions' must be provided"
+        ):
             create_result()
 
         # Threshold only should work
@@ -114,7 +116,9 @@ class TestCreateResult:
 
         # Test with NaN values (should use nanmean)
         scores_with_nan = np.array([0.8, np.nan, 0.7])
-        result = create_result(threshold=np.array([0.3, 0.4, 0.5]), score=scores_with_nan)
+        result = create_result(
+            threshold=np.array([0.3, 0.4, 0.5]), score=scores_with_nan
+        )
         assert result.score == 0.75  # mean of 0.8 and 0.7
 
 
@@ -135,11 +139,7 @@ class TestLegacyFormat:
     def test_expected_micro_format(self):
         """Test expected micro averaging legacy format."""
         result = create_result(
-            threshold=0.42,
-            score=0.88,
-            mode="expected",
-            average="micro",
-            metric="f1"
+            threshold=0.42, score=0.88, mode="expected", average="micro", metric="f1"
         )
         legacy = result.to_legacy_format()
 
@@ -154,7 +154,7 @@ class TestLegacyFormat:
             score=0.7,
             mode="expected",
             average="macro",
-            metric="fbeta"
+            metric="fbeta",
         )
         legacy = result.to_legacy_format()
 
@@ -170,7 +170,7 @@ class TestLegacyFormat:
             threshold=np.array([0.42]),  # length-1 array
             score=0.88,
             mode="expected",
-            average="micro"
+            average="micro",
         )
         legacy = result.to_legacy_format()
 
@@ -179,7 +179,9 @@ class TestLegacyFormat:
     def test_bayes_decisions_format(self):
         """Test Bayes decisions legacy format."""
         decisions = np.array([1, 0, 2])
-        result = create_result(decisions=decisions, mode="bayes", method="utility_matrix")
+        result = create_result(
+            decisions=decisions, mode="bayes", method="utility_matrix"
+        )
         legacy = result.to_legacy_format()
 
         np.testing.assert_array_equal(legacy, decisions)
@@ -196,11 +198,7 @@ class TestLegacyFormat:
         """Test that legacy aliases only appear for F-beta metrics."""
         # F-beta metric should have aliases
         result = create_result(
-            threshold=0.5,
-            score=0.8,
-            mode="expected",
-            average="micro",
-            metric="f1"
+            threshold=0.5, score=0.8, mode="expected", average="micro", metric="f1"
         )
         legacy = result.to_legacy_format()
         assert "f_beta" in legacy
@@ -211,7 +209,7 @@ class TestLegacyFormat:
             score=0.8,
             mode="expected",
             average="micro",
-            metric="precision"
+            metric="precision",
         )
         legacy = result.to_legacy_format()
         assert "f_beta" not in legacy
@@ -230,8 +228,7 @@ class TestEdgeCases:
     def test_directions_field(self):
         """Test directions field handling."""
         result = create_result(
-            threshold=np.array([0.3, 0.6]),
-            directions=np.array([">", "<"])
+            threshold=np.array([0.3, 0.6]), directions=np.array([">", "<"])
         )
         assert result.directions is not None
 
@@ -240,8 +237,7 @@ class TestEdgeCases:
         # Test per-class scores with NaN
         per_class = np.array([0.8, np.nan, 0.7])
         result = create_result(
-            threshold=np.array([0.3, 0.4, 0.5]),
-            per_class_scores=per_class
+            threshold=np.array([0.3, 0.4, 0.5]), per_class_scores=per_class
         )
         # Should compute nanmean for overall score
         assert abs(result.score - 0.75) < 1e-10
@@ -250,16 +246,14 @@ class TestEdgeCases:
         """Test empty per-class scores."""
         result = create_result(
             threshold=0.5,
-            score=np.array([])  # empty array
+            score=np.array([]),  # empty array
         )
         assert result.score == 0.0
 
     def test_metadata_preservation(self):
         """Test that additional metadata is preserved."""
         result = create_result(
-            threshold=0.5,
-            custom_field="test_value",
-            another_field=123
+            threshold=0.5, custom_field="test_value", another_field=123
         )
         assert result.metadata["custom_field"] == "test_value"
         assert result.metadata["another_field"] == 123

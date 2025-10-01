@@ -237,10 +237,14 @@ class TestRealisticMulticlassOptimization:
                     thresholds = np.full(n_classes, thresholds)
                 else:
                     # Per-class thresholds
-                    assert len(thresholds) == n_classes, f"Should return {n_classes} thresholds"
+                    assert len(thresholds) == n_classes, (
+                        f"Should return {n_classes} thresholds"
+                    )
             else:
                 # Macro averaging should always return per-class thresholds
-                assert len(thresholds) == n_classes, f"Should return {n_classes} thresholds"
+                assert len(thresholds) == n_classes, (
+                    f"Should return {n_classes} thresholds"
+                )
 
             assert all(0.0 <= t <= 1.0 for t in thresholds), (
                 "All thresholds should be valid"

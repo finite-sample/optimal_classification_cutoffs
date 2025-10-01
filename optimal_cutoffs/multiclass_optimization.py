@@ -112,33 +112,39 @@ def multiclass_metric_score(
     )
 
     if metric == "f1":
-        return float(f1_score(
-            true_labs,
-            predictions,
-            average=average,
-            sample_weight=sample_weight,
-            zero_division=0,
-        ))
+        return float(
+            f1_score(
+                true_labs,
+                predictions,
+                average=average,
+                sample_weight=sample_weight,
+                zero_division=0,
+            )
+        )
     elif metric == "accuracy":
         return float(
             accuracy_score(true_labs, predictions, sample_weight=sample_weight)
         )
     elif metric == "precision":
-        return float(precision_score(
-            true_labs,
-            predictions,
-            average=average,
-            sample_weight=sample_weight,
-            zero_division=0,
-        ))
+        return float(
+            precision_score(
+                true_labs,
+                predictions,
+                average=average,
+                sample_weight=sample_weight,
+                zero_division=0,
+            )
+        )
     elif metric == "recall":
-        return float(recall_score(
-            true_labs,
-            predictions,
-            average=average,
-            sample_weight=sample_weight,
-            zero_division=0,
-        ))
+        return float(
+            recall_score(
+                true_labs,
+                predictions,
+                average=average,
+                sample_weight=sample_weight,
+                zero_division=0,
+            )
+        )
     else:
         raise ValueError(f"Metric '{metric}' not supported for multiclass")
 

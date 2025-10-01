@@ -32,9 +32,7 @@ class TestMinimizeFallbackRegression:
             method="bounded",
         )
         minimize_threshold = minimize_result.x
-        minimize_score = metric_score(
-            true_labels, pred_probs, minimize_threshold, "f1"
-        )
+        minimize_score = metric_score(true_labels, pred_probs, minimize_threshold, "f1")
 
         # Now find the best threshold from discrete candidates (what fallback does)
         candidates = np.unique(pred_probs)
@@ -49,9 +47,7 @@ class TestMinimizeFallbackRegression:
         fallback_threshold = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
-        fallback_score = metric_score(
-            true_labels, pred_probs, fallback_threshold, "f1"
-        )
+        fallback_score = metric_score(true_labels, pred_probs, fallback_threshold, "f1")
 
         # The fallback should be at least as good as both minimize and best candidate
         assert fallback_score >= minimize_score - 1e-10, (
@@ -136,9 +132,7 @@ class TestMinimizeFallbackRegression:
         threshold_brute = get_optimal_threshold(
             true_labels, pred_probs, "accuracy", method="unique_scan"
         )
-        score_brute = metric_score(
-            true_labels, pred_probs, threshold_brute, "accuracy"
-        )
+        score_brute = metric_score(true_labels, pred_probs, threshold_brute, "accuracy")
 
         # Should be equivalent (accuracy is piecewise-constant)
         assert score_minimize >= score_brute - 1e-10
@@ -200,9 +194,7 @@ class TestMinimizeFallbackRegression:
         )
 
         # The fallback should still produce a good result
-        fallback_score = metric_score(
-            true_labels, pred_probs, fallback_threshold, "f1"
-        )
+        fallback_score = metric_score(true_labels, pred_probs, fallback_threshold, "f1")
 
         # Should achieve high performance on this well-separated case
         assert fallback_score >= 0.8, (
@@ -254,9 +246,7 @@ class TestMinimizeFallbackRegression:
             score_minimize = metric_score(
                 true_labels, pred_probs, threshold_minimize, metric
             )
-            score_brute = metric_score(
-                true_labels, pred_probs, threshold_brute, metric
-            )
+            score_brute = metric_score(true_labels, pred_probs, threshold_brute, metric)
 
             # Minimize (with fallback) should be at least as good as brute force
             assert score_minimize >= score_brute - 1e-10, (

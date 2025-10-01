@@ -44,13 +44,15 @@ class TestBinaryVsMulticlassDetection:
     def test_multiclass_input(self):
         """Test that (n, k) with k > 1 is detected as multiclass."""
         y_true = np.array([0, 1, 2, 1, 0])
-        y_prob = np.array([
-            [0.8, 0.1, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.3, 0.6, 0.1],
-            [0.9, 0.05, 0.05]
-        ])
+        y_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.3, 0.6, 0.1],
+                [0.9, 0.05, 0.05],
+            ]
+        )
 
         optimizer = ThresholdOptimizer(metric="f1")
         optimizer.fit(y_true, y_prob)
@@ -69,13 +71,15 @@ class TestAverageParameter:
     def test_average_parameter_forwarding(self):
         """Test that average parameter is forwarded to get_optimal_threshold."""
         y_true = np.array([0, 1, 2, 1, 0])
-        y_prob = np.array([
-            [0.8, 0.1, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.3, 0.6, 0.1],
-            [0.9, 0.05, 0.05]
-        ])
+        y_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.3, 0.6, 0.1],
+                [0.9, 0.05, 0.05],
+            ]
+        )
 
         # Test macro averaging
         optimizer_macro = ThresholdOptimizer(metric="f1", average="macro")
@@ -111,16 +115,20 @@ class TestExpectedModeResults:
     def test_expected_multiclass_dict_result(self):
         """Test that multiclass expected mode returns are normalized properly."""
         y_true = np.array([0, 1, 2, 1, 0])
-        y_prob = np.array([
-            [0.8, 0.1, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.3, 0.6, 0.1],
-            [0.9, 0.05, 0.05]
-        ])
+        y_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.3, 0.6, 0.1],
+                [0.9, 0.05, 0.05],
+            ]
+        )
 
         # Test macro averaging (should return per-class thresholds)
-        optimizer_macro = ThresholdOptimizer(metric="f1", mode="expected", average="macro")
+        optimizer_macro = ThresholdOptimizer(
+            metric="f1", mode="expected", average="macro"
+        )
         optimizer_macro.fit(y_true, y_prob)
 
         assert isinstance(optimizer_macro.threshold_, np.ndarray)
@@ -128,7 +136,9 @@ class TestExpectedModeResults:
         assert isinstance(optimizer_macro.expected_score_, float)
 
         # Test micro averaging (should return single threshold)
-        optimizer_micro = ThresholdOptimizer(metric="f1", mode="expected", average="micro")
+        optimizer_micro = ThresholdOptimizer(
+            metric="f1", mode="expected", average="micro"
+        )
         optimizer_micro.fit(y_true, y_prob)
 
         # Micro mode returns a dict with single threshold
@@ -141,11 +151,7 @@ class TestBayesUtilityMatrix:
 
     def test_bayes_utility_matrix_fit_predict(self):
         """Test that utility matrix mode works correctly."""
-        y_prob = np.array([
-            [0.7, 0.2, 0.1],
-            [0.1, 0.8, 0.1],
-            [0.2, 0.3, 0.5]
-        ])
+        y_prob = np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1], [0.2, 0.3, 0.5]])
 
         # Standard identity matrix (correct=1, incorrect=0)
         U = np.eye(3)
@@ -165,18 +171,22 @@ class TestBayesUtilityMatrix:
 
     def test_bayes_utility_matrix_abstain(self):
         """Test utility matrix with abstain option."""
-        y_prob = np.array([
-            [0.4, 0.3, 0.3],  # Uncertain case
-            [0.1, 0.8, 0.1],  # Clear case
-        ])
+        y_prob = np.array(
+            [
+                [0.4, 0.3, 0.3],  # Uncertain case
+                [0.1, 0.8, 0.1],  # Clear case
+            ]
+        )
 
         # Utility matrix with abstain option (decision 3)
-        U = np.array([
-            [1, 0, 0],  # Predict class 0
-            [0, 1, 0],  # Predict class 1
-            [0, 0, 1],  # Predict class 2
-            [0.5, 0.5, 0.5]  # Abstain (conservative option)
-        ])
+        U = np.array(
+            [
+                [1, 0, 0],  # Predict class 0
+                [0, 1, 0],  # Predict class 1
+                [0, 0, 1],  # Predict class 2
+                [0.5, 0.5, 0.5],  # Abstain (conservative option)
+            ]
+        )
 
         optimizer = ThresholdOptimizer(mode="bayes", utility_matrix=U)
         optimizer.fit(None, y_prob)
@@ -259,13 +269,15 @@ class TestVerboseOutput:
     def test_verbose_general_path(self, capsys):
         """Test verbose output for general optimizer path."""
         y_true = np.array([0, 1, 2, 1, 0])
-        y_prob = np.array([
-            [0.8, 0.1, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.3, 0.6, 0.1],
-            [0.9, 0.05, 0.05]
-        ])
+        y_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.3, 0.6, 0.1],
+                [0.9, 0.05, 0.05],
+            ]
+        )
 
         optimizer = ThresholdOptimizer(metric="f1", verbose=True)
         optimizer.fit(y_true, y_prob)
@@ -281,10 +293,7 @@ class TestSklearnCompatibility:
     def test_get_params(self):
         """Test get_params method."""
         optimizer = ThresholdOptimizer(
-            metric="f1",
-            method="sort_scan",
-            average="micro",
-            beta=2.0
+            metric="f1", method="sort_scan", average="micro", beta=2.0
         )
 
         params = optimizer.get_params()
@@ -333,13 +342,15 @@ class TestThresholdTypes:
     def test_scalar_threshold_multiclass(self):
         """Test multiclass prediction with scalar threshold (micro averaging)."""
         y_true = np.array([0, 1, 2, 1, 0])
-        y_prob = np.array([
-            [0.8, 0.1, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.3, 0.6, 0.1],
-            [0.9, 0.05, 0.05]
-        ])
+        y_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.3, 0.6, 0.1],
+                [0.9, 0.05, 0.05],
+            ]
+        )
 
         optimizer = ThresholdOptimizer(metric="f1", average="micro")
         optimizer.fit(y_true, y_prob)
@@ -352,13 +363,15 @@ class TestThresholdTypes:
     def test_array_threshold_multiclass(self):
         """Test multiclass prediction with per-class thresholds."""
         y_true = np.array([0, 1, 2, 1, 0])
-        y_prob = np.array([
-            [0.8, 0.1, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.3, 0.6, 0.1],
-            [0.9, 0.05, 0.05]
-        ])
+        y_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.3, 0.6, 0.1],
+                [0.9, 0.05, 0.05],
+            ]
+        )
 
         optimizer = ThresholdOptimizer(metric="f1", average="macro")
         optimizer.fit(y_true, y_prob)
