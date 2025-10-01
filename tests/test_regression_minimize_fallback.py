@@ -9,7 +9,7 @@ import numpy as np
 from scipy import optimize
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.optimizers import _metric_score
+from optimal_cutoffs.binary_optimization import metric_score
 
 
 class TestMinimizeFallbackRegression:
@@ -27,19 +27,19 @@ class TestMinimizeFallbackRegression:
 
         # First, find what minimize_scalar alone would return
         minimize_result = optimize.minimize_scalar(
-            lambda t: -_metric_score(true_labels, pred_probs, t, "f1"),
+            lambda t: -metric_score(true_labels, pred_probs, t, "f1"),
             bounds=(0, 1),
             method="bounded",
         )
         minimize_threshold = minimize_result.x
-        minimize_score = _metric_score(
+        minimize_score = metric_score(
             true_labels, pred_probs, minimize_threshold, "f1"
         )
 
         # Now find the best threshold from discrete candidates (what fallback does)
         candidates = np.unique(pred_probs)
         candidate_scores = [
-            _metric_score(true_labels, pred_probs, t, "f1") for t in candidates
+            metric_score(true_labels, pred_probs, t, "f1") for t in candidates
         ]
         best_candidate_idx = np.argmax(candidate_scores)
         best_candidate_threshold = candidates[best_candidate_idx]  # noqa: F841
@@ -49,7 +49,7 @@ class TestMinimizeFallbackRegression:
         fallback_threshold = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
-        fallback_score = _metric_score(
+        fallback_score = metric_score(
             true_labels, pred_probs, fallback_threshold, "f1"
         )
 
@@ -78,7 +78,7 @@ class TestMinimizeFallbackRegression:
         threshold_minimize = get_optimal_threshold(
             true_labels, pred_probs, "precision", method="minimize"
         )
-        score_minimize = _metric_score(
+        score_minimize = metric_score(
             true_labels, pred_probs, threshold_minimize, "precision"
         )
 
@@ -86,7 +86,7 @@ class TestMinimizeFallbackRegression:
         threshold_brute = get_optimal_threshold(
             true_labels, pred_probs, "precision", method="unique_scan"
         )
-        score_brute = _metric_score(
+        score_brute = metric_score(
             true_labels, pred_probs, threshold_brute, "precision"
         )
 
@@ -104,7 +104,7 @@ class TestMinimizeFallbackRegression:
         threshold_minimize = get_optimal_threshold(
             true_labels, pred_probs, "recall", method="minimize"
         )
-        score_minimize = _metric_score(
+        score_minimize = metric_score(
             true_labels, pred_probs, threshold_minimize, "recall"
         )
 
@@ -112,7 +112,7 @@ class TestMinimizeFallbackRegression:
         threshold_brute = get_optimal_threshold(
             true_labels, pred_probs, "recall", method="unique_scan"
         )
-        score_brute = _metric_score(true_labels, pred_probs, threshold_brute, "recall")
+        score_brute = metric_score(true_labels, pred_probs, threshold_brute, "recall")
 
         # Minimize should perform at least as well
         assert score_minimize >= score_brute - 1e-10, (
@@ -128,7 +128,7 @@ class TestMinimizeFallbackRegression:
         threshold_minimize = get_optimal_threshold(
             true_labels, pred_probs, "accuracy", method="minimize"
         )
-        score_minimize = _metric_score(
+        score_minimize = metric_score(
             true_labels, pred_probs, threshold_minimize, "accuracy"
         )
 
@@ -136,7 +136,7 @@ class TestMinimizeFallbackRegression:
         threshold_brute = get_optimal_threshold(
             true_labels, pred_probs, "accuracy", method="unique_scan"
         )
-        score_brute = _metric_score(
+        score_brute = metric_score(
             true_labels, pred_probs, threshold_brute, "accuracy"
         )
 
@@ -151,7 +151,7 @@ class TestMinimizeFallbackRegression:
         # Manually implement what the fallback should do
         # 1. Run minimize_scalar
         minimize_result = optimize.minimize_scalar(
-            lambda t: -_metric_score(true_labels, pred_probs, t, "f1"),
+            lambda t: -metric_score(true_labels, pred_probs, t, "f1"),
             bounds=(0, 1),
             method="bounded",
         )
@@ -160,7 +160,7 @@ class TestMinimizeFallbackRegression:
         candidates = np.unique(np.append(pred_probs, minimize_result.x))
 
         # 3. Evaluate all candidates and pick best
-        scores = [_metric_score(true_labels, pred_probs, t, "f1") for t in candidates]
+        scores = [metric_score(true_labels, pred_probs, t, "f1") for t in candidates]
         expected_best_threshold = candidates[np.argmax(scores)]
 
         # 4. Compare with actual implementation
@@ -172,8 +172,8 @@ class TestMinimizeFallbackRegression:
         # for F1 metric, which can return midpoints and other optimal thresholds.
         # The key requirement is that the actual result should be at least as good as the
         # old fallback mechanism.
-        actual_score = _metric_score(true_labels, pred_probs, actual_threshold, "f1")
-        expected_score = _metric_score(
+        actual_score = metric_score(true_labels, pred_probs, actual_threshold, "f1")
+        expected_score = metric_score(
             true_labels, pred_probs, expected_best_threshold, "f1"
         )
 
@@ -190,7 +190,7 @@ class TestMinimizeFallbackRegression:
 
         # For this clean case, minimize_scalar should find a good solution
         minimize_result = optimize.minimize_scalar(  # noqa: F841
-            lambda t: -_metric_score(true_labels, pred_probs, t, "f1"),
+            lambda t: -metric_score(true_labels, pred_probs, t, "f1"),
             bounds=(0, 1),
             method="bounded",
         )
@@ -200,7 +200,7 @@ class TestMinimizeFallbackRegression:
         )
 
         # The fallback should still produce a good result
-        fallback_score = _metric_score(
+        fallback_score = metric_score(
             true_labels, pred_probs, fallback_threshold, "f1"
         )
 
@@ -221,7 +221,7 @@ class TestMinimizeFallbackRegression:
         assert 0 <= threshold <= 1
 
         # Should achieve perfect or near-perfect score
-        score = _metric_score(true_labels, pred_probs, threshold, "f1")
+        score = metric_score(true_labels, pred_probs, threshold, "f1")
         assert score >= 0.9  # Should get high score with perfect separation
 
     def test_multiple_metrics_fallback_consistency(self):
@@ -251,10 +251,10 @@ class TestMinimizeFallbackRegression:
             )
 
             # Scores should be reasonable
-            score_minimize = _metric_score(
+            score_minimize = metric_score(
                 true_labels, pred_probs, threshold_minimize, metric
             )
-            score_brute = _metric_score(
+            score_brute = metric_score(
                 true_labels, pred_probs, threshold_brute, metric
             )
 
@@ -279,7 +279,7 @@ class TestMinimizeFallbackRegression:
 
         # Should produce reasonable score (gradient method may not be as precise)
         if 0 <= threshold_gradient <= 1:  # Only test if threshold is valid
-            score = _metric_score(true_labels, pred_probs, threshold_gradient, "f1")
+            score = metric_score(true_labels, pred_probs, threshold_gradient, "f1")
             assert score >= 0, f"Negative score from gradient method: {score}"
 
 
@@ -297,7 +297,7 @@ class TestFallbackEdgeCases:
         assert 0 <= threshold <= 1
 
         # Should achieve reasonable performance with only two values
-        score = _metric_score(true_labels, pred_probs, threshold, "f1")
+        score = metric_score(true_labels, pred_probs, threshold, "f1")
         assert score >= 0.5  # Should achieve reasonable score
 
     def test_fallback_with_extreme_probabilities(self):
@@ -310,7 +310,7 @@ class TestFallbackEdgeCases:
         )
 
         # Should achieve perfect accuracy
-        score = _metric_score(true_labels, pred_probs, threshold, "accuracy")
+        score = metric_score(true_labels, pred_probs, threshold, "accuracy")
         assert abs(score - 1.0) < 1e-10, f"Expected perfect accuracy, got {score}"
 
     def test_fallback_numerical_precision(self):
@@ -365,7 +365,7 @@ class TestFallbackEdgeCases:
         )
 
         # Both should produce good results
-        score_minimize = _metric_score(true_labels, pred_probs, threshold, "f1")
-        score_brute = _metric_score(true_labels, pred_probs, threshold_brute, "f1")
+        score_minimize = metric_score(true_labels, pred_probs, threshold, "f1")
+        score_brute = metric_score(true_labels, pred_probs, threshold_brute, "f1")
 
         assert score_minimize >= score_brute - 1e-10

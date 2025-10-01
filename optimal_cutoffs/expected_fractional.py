@@ -1,9 +1,14 @@
 """Generalized Dinkelbach method for fractional-linear expected metrics.
 
 This module implements a general framework for optimizing any metric that can be
-expressed as a ratio of two affine (linear + constant) functions of confusion matrix
-counts under the calibration assumption. This includes F-beta, precision, recall,
-Jaccard/IoU, Tversky index, accuracy, and specificity.
+expressed as a ratio of two affine (linear + constant) functions of confusion-matrix
+counts under the **calibration** assumption. Supported metrics include F‑beta
+(incl. F1/F2), precision (PPV), Jaccard/IoU, and the Tversky index.
+
+**Not supported under expected calibration:** recall (TPR), specificity (TNR),
+and accuracy. For these, the expected denominator is constant, making the
+optimization degenerate (the trivial optima are "predict all positive" or
+"predict all negative"). Use `mode="empirical"` for those.
 
 The key insight is that under calibration, the expected metric optimization decomposes
 into finding a single probability threshold, which can be solved efficiently using
@@ -16,6 +21,77 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import numpy as np
+
+
+def _compute_stable_threshold(
+    t: float,
+    direction: Literal[">", "<"],
+    p_sorted: np.ndarray[Any, Any],
+    comparison: Literal[">", ">="],
+) -> float:
+    """Compute a stable threshold between data points.
+
+    Instead of returning a threshold that sits exactly on a data point,
+    return a threshold in the open interval between consecutive data points.
+    This avoids numerical instabilities when the threshold equals a probability.
+
+    Parameters
+    ----------
+    t : float
+        The mathematically optimal threshold (may be on a data point)
+    direction : Literal[">", "<"]
+        Direction of optimization
+    p_sorted : np.ndarray
+        Sorted probabilities
+    comparison : Literal[">", ">="]
+        Comparison operator used
+
+    Returns
+    -------
+    float
+        Stable threshold between data points, clamped to [0, 1]
+    """
+    if direction == ">":
+        # Find probabilities immediately below and above t
+        below_mask = p_sorted < t
+        above_mask = p_sorted > t
+
+        if np.any(below_mask) and np.any(above_mask):
+            p_below = np.max(p_sorted[below_mask])
+            p_above = np.min(p_sorted[above_mask])
+            # Return midpoint between consecutive data points
+            t_stable = (p_below + p_above) / 2.0
+        elif np.any(below_mask):
+            # t is above all data points
+            p_max = np.max(p_sorted)
+            t_stable = (p_max + 1.0) / 2.0
+        elif np.any(above_mask):
+            # t is below all data points
+            p_min = np.min(p_sorted)
+            t_stable = (0.0 + p_min) / 2.0
+        else:
+            # No data points, return original threshold
+            t_stable = t
+    else:  # direction == "<"
+        # For direction "<", we want the opposite logic
+        above_mask = p_sorted > t
+        below_mask = p_sorted < t
+
+        if np.any(above_mask) and np.any(below_mask):
+            p_above = np.min(p_sorted[above_mask])
+            p_below = np.max(p_sorted[below_mask])
+            t_stable = (p_below + p_above) / 2.0
+        elif np.any(above_mask):
+            p_min = np.min(p_sorted)
+            t_stable = (0.0 + p_min) / 2.0
+        elif np.any(below_mask):
+            p_max = np.max(p_sorted)
+            t_stable = (p_max + 1.0) / 2.0
+        else:
+            t_stable = t
+
+    # Clamp to [0, 1]
+    return float(max(0.0, min(1.0, t_stable)))
 
 
 @dataclass(frozen=True)
@@ -58,9 +134,9 @@ def coeffs_for_metric(
     Parameters
     ----------
     metric : str
-        Name of the metric. Supported: 'precision', 'jaccard', 'iou', 'fbeta',
-        'f1', 'f2', 'tversky'. Note: 'recall', 'specificity', 'accuracy' are not
-        supported as they have degenerate solutions under calibration.
+        Supported: 'precision', 'jaccard'/'iou', 'fbeta' (incl. 'f1', 'f2'), 'tversky'.
+        Not supported under calibration: 'recall', 'specificity', 'accuracy'
+        (degenerate denominators ⇒ trivial optima).
     beta : float, default=1.0
         Beta parameter for F-beta score. beta=1 gives F1, beta<1 emphasizes precision,
         beta>1 emphasizes recall.
@@ -133,16 +209,12 @@ def coeffs_for_metric(
         )
 
     if m in {"f1"}:
-        # F1 = 2*TP / (2*TP + FN + FP)
-        return FractionalLinearCoeffs(
-            alpha_tp=2.0, beta_tp=2.0, beta_fn=1.0, beta_fp=1.0
-        )
+        # F1 is F-beta with beta=1
+        return coeffs_for_metric("fbeta", beta=1.0)
 
     if m in {"f2"}:
-        # F2 = 5*TP / (5*TP + 4*FN + FP)
-        return FractionalLinearCoeffs(
-            alpha_tp=5.0, beta_tp=5.0, beta_fn=4.0, beta_fp=1.0
-        )
+        # F2 is F-beta with beta=2
+        return coeffs_for_metric("fbeta", beta=2.0)
 
     if m in {"tversky"}:
         # Tversky(alpha,beta) = TP / (TP + alpha*FP + beta*FN)
@@ -240,6 +312,8 @@ def dinkelbach_expected_fractional_binary(
     For most common metrics, direction will be ">".
     """
     p = np.asarray(y_prob, dtype=float).reshape(-1)
+    if not np.all(np.isfinite(p)):
+        raise ValueError("Probabilities must be finite.")
     if np.any((p < 0) | (p > 1)):
         raise ValueError("Probabilities must be in [0, 1].")
 
@@ -254,8 +328,12 @@ def dinkelbach_expected_fractional_binary(
     )
     if w.shape != p.shape:
         raise ValueError("sample_weight must have shape (n_samples,).")
+    if not np.all(np.isfinite(w)):
+        raise ValueError("sample_weight must be finite.")
     if np.any(w < 0):
         raise ValueError("sample_weight must be non-negative.")
+    if w.sum() == 0:
+        raise ValueError("sample_weight cannot sum to zero.")
 
     # Precompute totals and sort once (ascending p)
     order = np.argsort(p, kind="mergesort")
@@ -345,16 +423,35 @@ def dinkelbach_expected_fractional_binary(
         slope = c1 - c0
 
         if abs(slope) < 1e-18:
-            # No p-dependence -> either select all or none based on sign
-            direction = ">"  # arbitrary; t will be 0 or 1
-            if c0 > 0.0:
-                WP_S, W1M_S, _ = WP_tot, W1M_tot, W_tot
+            # No p-dependence -> evaluate all realizable extremes and pick best
+            # The mathematically optimal set is either "all" or "none", but we need
+            # to find the threshold that actually realizes the optimal choice.
+
+            # Evaluate "select all" (t=0 with ">", or any t with ">=")
+            WP_all, W1M_all, _ = WP_tot, W1M_tot, W_tot
+            lam_all = update_lambda(WP_all, W1M_all)
+
+            # Evaluate "select none" (t=1 with ">", or t>max(p) with ">=")
+            WP_none, W1M_none, _ = 0.0, 0.0, 0.0
+            lam_none = update_lambda(WP_none, W1M_none)
+
+            # Choose the realization with higher metric value
+            if lam_all >= lam_none:
+                # Select all: use threshold that includes everyone
+                direction = ">"
+                # guarantees p >= t for all p in [0,1]
+                t_star = 0.0 if comparison == ">" else -1.0
+                new_lam = lam_all
             else:
-                WP_S, W1M_S, _ = 0.0, 0.0, 0.0
-            new_lam = update_lambda(WP_S, W1M_S)
+                # Select none: use threshold that excludes everyone
+                direction = ">"
+                t_star = 1.0  # guarantees p <= t for all p in [0,1] when using ">"
+                new_lam = lam_none
+
             if abs(new_lam - lam) <= tol:
                 lam = new_lam
-                t_star = 0.0 if c0 > 0.0 else 1.0
+                # Clamp threshold to [0,1] for return
+                t_star = max(0.0, min(1.0, t_star))
                 return float(t_star), float(lam), direction
             lam = new_lam
             continue
@@ -371,11 +468,14 @@ def dinkelbach_expected_fractional_binary(
 
         if abs(new_lam - lam) <= tol:
             lam = new_lam
-            return float(t_clamped), float(lam), direction
+            # Return stable midpoint threshold between data points
+            t_stable = _compute_stable_threshold(t, direction, p_s, comparison)
+            return float(t_stable), float(lam), direction
         lam = new_lam
 
-    # Max iterations reached
-    return float(t_clamped), float(lam), direction
+    # Max iterations reached - still return stable threshold
+    t_stable = _compute_stable_threshold(t, direction, p_s, comparison)
+    return float(t_stable), float(lam), direction
 
 
 def dinkelbach_expected_fractional_ovr(
@@ -458,6 +558,13 @@ def dinkelbach_expected_fractional_ovr(
     P = np.asarray(y_prob, dtype=float)
     if P.ndim != 2:
         raise ValueError("y_prob must have shape (n_samples, K).")
+    if not np.all(np.isfinite(P)):
+        raise ValueError("y_prob must contain finite probabilities.")
+    if np.any((P < 0) | (P > 1)):
+        pmin, pmax = float(np.min(P)), float(np.max(P))
+        raise ValueError(
+            f"y_prob must be in [0,1]; got range [{pmin:.6f}, {pmax:.6f}]."
+        )
 
     n, K = P.shape
 
@@ -495,7 +602,8 @@ def dinkelbach_expected_fractional_ovr(
     # For macro and weighted averaging, solve per-class
     thresholds = np.zeros(K, dtype=float)
     scores = np.zeros(K, dtype=float)
-    directions = np.empty(K, dtype=object)
+    # Unicode strings of max length 1 for ">" or "<"
+    directions = np.empty(K, dtype="U1")
 
     for k in range(K):
         t_k, m_k, dir_k = dinkelbach_expected_fractional_binary(
@@ -524,8 +632,13 @@ def dinkelbach_expected_fractional_ovr(
         if np.any(cw < 0):
             raise ValueError("class_weight must be non-negative.")
 
+        # Check for zero-sum class weights
+        cw_sum = cw.sum()
+        if cw_sum == 0:
+            raise ValueError("class_weight cannot sum to zero.")
+
         # Normalize weights
-        w_norm = cw / (cw.sum() if cw.sum() > 0 else 1.0)
+        w_norm = cw / cw_sum
         avg_score = float(np.sum(w_norm * scores))
     else:
         raise ValueError('average must be one of {"macro", "weighted", "micro"}.')

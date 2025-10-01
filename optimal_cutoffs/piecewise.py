@@ -19,7 +19,9 @@ Array = np.ndarray[Any, Any]
 NUMERICAL_TOLERANCE = 1e-12
 
 
-def _validate_inputs(y_true: Array, pred_prob: Array) -> tuple[Array, Array]:
+def _validate_inputs(
+    y_true: Array, pred_prob: Array, require_proba: bool = True
+) -> tuple[Array, Array]:
     """Validate and convert inputs for binary classification.
 
     Parameters
@@ -27,7 +29,10 @@ def _validate_inputs(y_true: Array, pred_prob: Array) -> tuple[Array, Array]:
     y_true : Array
         True binary labels.
     pred_prob : Array
-        Predicted probabilities.
+        Predicted probabilities or scores.
+    require_proba : bool, default=True
+        If True, validate that pred_prob is in [0, 1]. If False, allow
+        arbitrary score ranges (e.g., logits).
 
     Returns
     -------
@@ -54,8 +59,13 @@ def _validate_inputs(y_true: Array, pred_prob: Array) -> tuple[Array, Array]:
     if not np.isin(y, [0, 1]).all():
         raise ValueError("y_true must be binary in {0,1}.")
 
-    if np.any(~np.isfinite(p)) or np.any((p < 0) | (p > 1)):
-        raise ValueError("pred_prob must be finite and in [0, 1].")
+    if np.any(~np.isfinite(p)):
+        raise ValueError("pred_prob must be finite.")
+
+    if require_proba and np.any((p < 0) | (p > 1)):
+        raise ValueError(
+            "pred_prob must be in [0, 1]. Use require_proba=False for scores."
+        )
 
     return y.astype(np.int8, copy=False), p.astype(np.float64, copy=False)
 
@@ -194,7 +204,7 @@ def _metric_from_counts(
 
 
 def _compute_threshold_midpoint(
-    p_sorted: Array, k_star: int, inclusive: bool = False
+    p_sorted: Array, k_star: int, inclusive: bool = False, require_proba: bool = True
 ) -> float:
     """Compute threshold as midpoint between adjacent probabilities.
 
@@ -207,11 +217,13 @@ def _compute_threshold_midpoint(
     Parameters
     ----------
     p_sorted : Array
-        Probabilities sorted in descending order.
+        Probabilities or scores sorted in descending order.
     k_star : int
         Optimal cut position with new indexing.
     inclusive : bool
         Comparison operator: False for ">" (exclusive), True for ">=" (inclusive).
+    require_proba : bool, default=True
+        If True, clamp threshold to [0, 1]. If False, allow arbitrary ranges.
 
     Returns
     -------
@@ -278,8 +290,11 @@ def _compute_threshold_midpoint(
                 # This means tied_prob >= threshold is true, including tied values
                 threshold = float(np.nextafter(tied_prob, -np.inf))
 
-    # Ensure threshold stays within valid bounds [0, 1]
-    return max(0.0, min(1.0, threshold))
+    # Clamp threshold to [0, 1] only for probabilities
+    if require_proba:
+        return max(0.0, min(1.0, threshold))
+    else:
+        return threshold
 
 
 def optimal_threshold_sortscan(
@@ -289,28 +304,32 @@ def optimal_threshold_sortscan(
     *,
     sample_weight: Array | None = None,
     inclusive: bool = False,  # True for ">=" (inclusive), False for ">" (exclusive)
+    require_proba: bool = True,  # True for probabilities [0,1], False for scores
 ) -> tuple[float, float, int]:
     """Exact optimizer for piecewise-constant metrics using O(n log n) sort-and-scan.
 
-    This algorithm sorts predictions by descending probability once, then uses
+    This algorithm sorts predictions by descending score once, then uses
     cumulative sums to compute confusion matrix elements in O(1) for each of the n
     possible cuts, resulting in O(n log n) total time complexity.
 
-    The threshold is returned as the midpoint between adjacent probabilities,
-    which is more numerically stable than returning the exact probability values.
+    The threshold is returned as the midpoint between adjacent scores,
+    which is more numerically stable than returning the exact score values.
 
     Parameters
     ----------
     y_true : Array
         True binary labels (0 or 1).
     pred_prob : Array
-        Predicted probabilities in [0, 1].
+        Predicted probabilities in [0, 1] or arbitrary scores if require_proba=False.
     metric_fn : Callable
         Metric function that accepts (tp, tn, fp, fn) arrays and returns score array.
     sample_weight : Array, optional
         Sample weights for imbalanced datasets.
     inclusive : bool, default=False
         Comparison operator: False for ">" (exclusive), True for ">=" (inclusive).
+    require_proba : bool, default=True
+        If True, validate that pred_prob is in [0, 1] and clamp thresholds.
+        If False, allow arbitrary score ranges (e.g., logits).
 
     Returns
     -------
@@ -339,45 +358,67 @@ def optimal_threshold_sortscan(
     >>> print(f"Optimal threshold: {threshold:.3f}, F1 score: {score:.3f}")
     """
     # Validate inputs
-    y, p = _validate_inputs(y_true, pred_prob)
+    y, p = _validate_inputs(y_true, pred_prob, require_proba=require_proba)
     weights = _validate_sample_weights(sample_weight, y.shape[0])
 
     n = y.shape[0]
 
     # Handle edge case: single sample
     if n == 1:
-        # For single sample, threshold doesn't matter much, use probability value
+        # For single sample, threshold doesn't matter much, use score value
+        if y[0] == 1:
+            # Single positive: TP=w, TN=0, FP=0, FN=0
+            tp_single, tn_single, fp_single, fn_single = weights[0], 0.0, 0.0, 0.0
+        else:
+            # Single negative: TP=0, TN=w, FP=0, FN=0
+            tp_single, tn_single, fp_single, fn_single = 0.0, weights[0], 0.0, 0.0
         score = float(
             metric_fn(
-                np.array([y[0]]), np.array([1 - y[0]]), np.array([0]), np.array([0])
+                np.array([tp_single]),
+                np.array([tn_single]),
+                np.array([fp_single]),
+                np.array([fn_single]),
             )[0]
         )
         return float(p[0]), score, 0
 
     # Handle edge case: all same class
     if np.all(y == 0):  # All negatives - optimal threshold should predict all negative
-        max_prob = float(np.max(p))
-        threshold = max_prob if not inclusive else float(np.nextafter(max_prob, np.inf))
+        max_score = float(np.max(p))
+        if require_proba:
+            threshold = (
+                max_score if not inclusive else float(np.nextafter(max_score, np.inf))
+            )
+        else:
+            threshold = (
+                max_score if not inclusive else float(np.nextafter(max_score, np.inf))
+            )
+        # Use weighted counts
+        total_weight = float(np.sum(weights))
         score = float(
             metric_fn(
                 np.array([0.0]),
-                np.array([float(n)]),
+                np.array([total_weight]),
                 np.array([0.0]),
                 np.array([0.0]),
             )[0]
         )
         return threshold, score, 0
     elif np.all(y == 1):  # All positives - optimal threshold predicts all positive
-        min_prob = float(np.min(p))
+        min_score = float(np.min(p))
         if not inclusive:  # exclusive ">"
-            # For exclusive comparison, need threshold < min_prob, but ensure >= 0
-            threshold = max(0.0, float(np.nextafter(min_prob, -np.inf)))
+            # For exclusive comparison, need threshold < min_score
+            threshold = float(np.nextafter(min_score, -np.inf))
+            if require_proba:
+                threshold = max(0.0, threshold)
         else:  # inclusive ">="
-            # For inclusive comparison, threshold = min_prob works
-            threshold = min_prob
+            # For inclusive comparison, threshold = min_score works
+            threshold = min_score
+        # Use weighted counts
+        total_weight = float(np.sum(weights))
         score = float(
             metric_fn(
-                np.array([float(n)]),
+                np.array([total_weight]),
                 np.array([0.0]),
                 np.array([0.0]),
                 np.array([0.0]),
@@ -392,17 +433,17 @@ def optimal_threshold_sortscan(
     weights_sorted = weights[sort_idx]
 
     # Vectorized confusion matrix counts for all cuts
-    tp, tn, fp, fn = _vectorized_counts(y_sorted, weights_sorted)
+    tp_vec, tn_vec, fp_vec, fn_vec = _vectorized_counts(y_sorted, weights_sorted)  # type: tuple[Array, Array, Array, Array]
 
     # Vectorized metric computation over all cuts
-    scores = _metric_from_counts(metric_fn, tp, tn, fp, fn)
+    scores = _metric_from_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)
 
     # Find optimal cut
     k_star = int(np.argmax(scores))
     best_score_theoretical = float(scores[k_star])
 
     # Compute stable threshold as midpoint
-    threshold = _compute_threshold_midpoint(p_sorted, k_star, inclusive)
+    threshold = _compute_threshold_midpoint(p_sorted, k_star, inclusive, require_proba)
 
     # For cases with tied probabilities, verify the achievable score
     if not inclusive:  # exclusive ">"
@@ -432,45 +473,30 @@ def optimal_threshold_sortscan(
         )[0]
     )
 
-    # If there's a large discrepancy due to ties, adjust the threshold
+    # If there's a large discrepancy due to ties, use smart local nudging
     # Use a tolerance larger than numerical precision
     if abs(actual_score - best_score_theoretical) > max(
         1e-6, NUMERICAL_TOLERANCE * 100
     ):
-        # Try alternative threshold strategies for better tie handling
-        alternative_thresholds = []
-
-        # Try thresholds that are slightly above and below tied probability values
-        unique_probs = np.unique(p)
-        for prob in unique_probs:
-            if 0.0 < prob < 1.0:  # Valid threshold range
-                alternative_thresholds.extend(
-                    [
-                        max(0.0, min(1.0, float(np.nextafter(prob, -np.inf)))),
-                        max(0.0, min(1.0, float(np.nextafter(prob, np.inf)))),
-                    ]
-                )
-
-        # Evaluate alternatives and pick the best
+        # Try simple local nudges around the optimal threshold
         best_alt_score = actual_score
         best_alt_threshold = threshold
 
-        for alt_thresh in alternative_thresholds:
+        # Try nudging the threshold by small amounts
+        nudge_eps = NUMERICAL_TOLERANCE * 10
+        alt_thresholds = [threshold - nudge_eps, threshold + nudge_eps]
+
+        for alt_thresh in alt_thresholds:
             if not inclusive:  # exclusive ">"
                 alt_pred_mask = p > alt_thresh
             else:  # inclusive ">="
                 alt_pred_mask = p >= alt_thresh
 
-            if sample_weight is not None:
-                alt_tp = float(np.sum(weights * (alt_pred_mask & (y == 1))))
-                alt_tn = float(np.sum(weights * (~alt_pred_mask & (y == 0))))
-                alt_fp = float(np.sum(weights * (alt_pred_mask & (y == 0))))
-                alt_fn = float(np.sum(weights * (~alt_pred_mask & (y == 1))))
-            else:
-                alt_tp = float(np.sum(alt_pred_mask & (y == 1)))
-                alt_tn = float(np.sum(~alt_pred_mask & (y == 0)))
-                alt_fp = float(np.sum(alt_pred_mask & (y == 0)))
-                alt_fn = float(np.sum(~alt_pred_mask & (y == 1)))
+            # Compute weighted confusion matrix
+            alt_tp = float(np.sum(weights * (alt_pred_mask & (y == 1))))
+            alt_tn = float(np.sum(weights * (~alt_pred_mask & (y == 0))))
+            alt_fp = float(np.sum(weights * (alt_pred_mask & (y == 0))))
+            alt_fn = float(np.sum(weights * (~alt_pred_mask & (y == 1))))
 
             alt_score = float(
                 metric_fn(
@@ -537,12 +563,43 @@ def recall_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
     )
 
 
+def iou_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
+    """Vectorized IoU/Jaccard index computation.
+
+    IoU = TP / (TP + FP + FN)
+    """
+    denominator = tp + fp + fn
+    return cast(
+        Array,
+        np.divide(
+            tp, denominator, out=np.zeros_like(tp, dtype=float), where=denominator > 0
+        ),
+    )
+
+
+def specificity_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
+    """Vectorized specificity (true negative rate) computation.
+
+    Specificity = TN / (TN + FP)
+    """
+    denominator = tn + fp
+    return cast(
+        Array,
+        np.divide(
+            tn, denominator, out=np.zeros_like(tn, dtype=float), where=denominator > 0
+        ),
+    )
+
+
 # Mapping from metric names to vectorized functions
 VECTORIZED_METRICS = {
     "f1": f1_vectorized,
     "accuracy": accuracy_vectorized,
     "precision": precision_vectorized,
     "recall": recall_vectorized,
+    "iou": iou_vectorized,
+    "jaccard": iou_vectorized,  # alias for IoU
+    "specificity": specificity_vectorized,
 }
 
 

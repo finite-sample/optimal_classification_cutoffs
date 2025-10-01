@@ -22,6 +22,7 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.cv import (
     cv_threshold_optimization,
+    nested_cv_threshold_optimization,
 )
 
 
@@ -613,3 +614,247 @@ class TestCVEdgeCases:
             ):
                 pytest.skip(f"Configuration not supported: {e}")
             raise
+
+
+class TestCVModuleRefactor:
+    """Test the refactored CV module with comprehensive multiclass support."""
+
+    def test_cv_binary_basic(self):
+        """Test basic binary classification CV."""
+        y_true = [0, 0, 1, 1, 0, 1, 1, 0]
+        y_prob = [0.1, 0.2, 0.7, 0.8, 0.3, 0.9, 0.6, 0.4]
+
+        thresholds, scores = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", cv=3, random_state=42
+        )
+
+        assert len(thresholds) == 3
+        assert len(scores) == 3
+        assert all(0.0 <= score <= 1.0 for score in scores)
+        assert all(isinstance(t, (int, float, np.number)) for t in thresholds)
+
+    def test_cv_binary_with_comparison(self):
+        """Test binary CV with different comparison operators."""
+        y_true = [0, 0, 1, 1, 0, 1]
+        y_prob = [0.1, 0.5, 0.5, 0.8, 0.3, 0.9]
+
+        # Test exclusive comparison
+        t1, s1 = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", comparison=">", cv=2, random_state=42
+        )
+
+        # Test inclusive comparison
+        t2, s2 = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", comparison=">=", cv=2, random_state=42
+        )
+
+        assert len(t1) == len(t2) == 2
+        assert len(s1) == len(s2) == 2
+        # Results might differ due to tied probabilities
+        assert all(0.0 <= score <= 1.0 for score in s1)
+        assert all(0.0 <= score <= 1.0 for score in s2)
+
+    def test_cv_multiclass_ovr(self):
+        """Test multiclass CV with one-vs-rest strategy."""
+        np.random.seed(42)
+        n_samples = 60
+        n_classes = 3
+
+        # Generate multiclass data
+        y_true = np.random.randint(0, n_classes, n_samples)
+        y_prob = np.random.dirichlet([1, 1, 1], n_samples)
+
+        thresholds, scores = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", average="macro", cv=3, random_state=42
+        )
+
+        assert len(thresholds) == 3
+        assert len(scores) == 3
+        assert all(0.0 <= score <= 1.0 for score in scores)
+        # Thresholds should be arrays for multiclass
+        assert all(isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds)
+
+    def test_cv_multiclass_micro(self):
+        """Test multiclass CV with micro averaging (single threshold)."""
+        np.random.seed(123)
+        n_samples = 30
+        n_classes = 3
+
+        y_true = np.random.randint(0, n_classes, n_samples)
+        y_prob = np.random.dirichlet([1, 1, 1], n_samples)
+
+        thresholds, scores = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", average="micro", cv=2, random_state=42
+        )
+
+        assert len(thresholds) == 2
+        assert len(scores) == 2
+        assert all(0.0 <= score <= 1.0 for score in scores)
+        # For micro averaging, thresholds might still be arrays (per-class with same values)
+        # This is acceptable behavior
+        assert all(isinstance(t, (int, float, np.number, np.ndarray)) for t in thresholds)
+
+    def test_cv_multiclass_accuracy(self):
+        """Test multiclass CV with exclusive accuracy metric."""
+        np.random.seed(456)
+        n_samples = 40
+        n_classes = 3
+
+        y_true = np.random.randint(0, n_classes, n_samples)
+        y_prob = np.random.dirichlet([2, 1, 1], n_samples)  # Bias toward class 0
+
+        thresholds, scores = cv_threshold_optimization(
+            y_true, y_prob, metric="accuracy", average="macro", cv=2, random_state=42
+        )
+
+        assert len(thresholds) == 2
+        assert len(scores) == 2
+        assert all(0.0 <= score <= 1.0 for score in scores)
+        assert all(isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds)
+
+    def test_cv_with_sample_weights(self):
+        """Test CV with sample weights."""
+        y_true = [0, 0, 1, 1, 0, 1, 1, 0]
+        y_prob = [0.1, 0.2, 0.7, 0.8, 0.3, 0.9, 0.6, 0.4]
+        weights = [1.0, 2.0, 1.0, 3.0, 1.5, 2.5, 1.0, 1.0]
+
+        thresholds, scores = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", sample_weight=weights, cv=2, random_state=42
+        )
+
+        assert len(thresholds) == 2
+        assert len(scores) == 2
+        assert all(0.0 <= score <= 1.0 for score in scores)
+
+    def test_cv_stratified_vs_regular(self):
+        """Test that StratifiedKFold is used by default and gives better results."""
+        # Create imbalanced data where stratification matters
+        y_true = [0] * 15 + [1] * 5  # 3:1 ratio
+        y_prob = [0.1] * 10 + [0.3] * 5 + [0.7] * 3 + [0.9] * 2
+
+        # Default should use StratifiedKFold
+        t1, s1 = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", cv=3, random_state=42
+        )
+
+        # Force regular KFold
+        from sklearn.model_selection import KFold
+        kf = KFold(n_splits=3, shuffle=True, random_state=42)
+        t2, s2 = cv_threshold_optimization(
+            y_true, y_prob, metric="f1", cv=kf, random_state=42
+        )
+
+        # Both should work, but stratified might be more stable
+        assert len(t1) == len(t2) == 3
+        assert all(0.0 <= score <= 1.0 for score in s1)
+        assert all(0.0 <= score <= 1.0 for score in s2)
+
+    def test_nested_cv_basic(self):
+        """Test basic nested CV functionality."""
+        y_true = [0, 0, 1, 1, 0, 1, 1, 0, 1, 0]
+        y_prob = [0.1, 0.2, 0.7, 0.8, 0.3, 0.9, 0.6, 0.4, 0.85, 0.25]
+
+        thresholds, scores = nested_cv_threshold_optimization(
+            y_true, y_prob, metric="f1", inner_cv=2, outer_cv=2, random_state=42
+        )
+
+        assert len(thresholds) == 2
+        assert len(scores) == 2
+        assert all(0.0 <= score <= 1.0 for score in scores)
+        assert all(isinstance(t, (int, float, np.number)) for t in thresholds)
+
+    def test_nested_cv_multiclass(self):
+        """Test nested CV with multiclass data."""
+        np.random.seed(789)
+        n_samples = 30
+        n_classes = 3
+
+        y_true = np.random.randint(0, n_classes, n_samples)
+        y_prob = np.random.dirichlet([1, 1, 1], n_samples)
+
+        thresholds, scores = nested_cv_threshold_optimization(
+            y_true, y_prob, metric="f1", average="macro",
+            inner_cv=2, outer_cv=2, random_state=42
+        )
+
+        assert len(thresholds) == 2
+        assert len(scores) == 2
+        assert all(0.0 <= score <= 1.0 for score in scores)
+        assert all(isinstance(t, np.ndarray) and t.shape == (n_classes,) for t in thresholds)
+
+    def test_threshold_extraction_edge_cases(self):
+        """Test threshold extraction with various return formats."""
+        from optimal_cutoffs.cv import _extract_thresholds
+
+        # Test scalar
+        assert _extract_thresholds(0.5) == 0.5
+
+        # Test array
+        arr = np.array([0.3, 0.6, 0.8])
+        extracted = _extract_thresholds(arr)
+        np.testing.assert_array_equal(extracted, arr)
+
+        # Test tuple (threshold, score)
+        assert _extract_thresholds((0.7, 0.85)) == 0.7
+
+        # Test dict from expected mode
+        assert _extract_thresholds({"threshold": 0.4, "score": 0.9}) == 0.4
+        assert np.array_equal(
+            _extract_thresholds({"thresholds": [0.2, 0.5], "score": 0.8}),
+            [0.2, 0.5]
+        )
+
+        # Test Bayes decisions (should raise)
+        with pytest.raises(ValueError, match="Bayes decisions cannot be used"):
+            _extract_thresholds({"decisions": [1, 0, 2]})
+
+    def test_evaluation_function_edge_cases(self):
+        """Test evaluation function with edge cases."""
+        from optimal_cutoffs.cv import _evaluate_threshold_on_fold
+
+        # Binary case
+        y_true = [0, 1, 0, 1]
+        y_prob = [0.2, 0.8, 0.3, 0.7]
+
+        score = _evaluate_threshold_on_fold(
+            y_true, y_prob, 0.5, metric="f1", average="macro",
+            sample_weight=None, comparison=">"
+        )
+        assert 0.0 <= score <= 1.0
+
+        # Multiclass case with per-class thresholds
+        y_true = [0, 1, 2, 1, 0]
+        y_prob = [[0.8, 0.1, 0.1], [0.2, 0.7, 0.1], [0.1, 0.1, 0.8],
+                  [0.3, 0.6, 0.1], [0.7, 0.2, 0.1]]
+
+        score = _evaluate_threshold_on_fold(
+            y_true, y_prob, [0.3, 0.4, 0.5], metric="f1", average="macro",
+            sample_weight=None, comparison=">"
+        )
+        assert 0.0 <= score <= 1.0
+
+        # Test error on wrong threshold shape
+        with pytest.raises(ValueError, match="Per-class thresholds must have shape"):
+            _evaluate_threshold_on_fold(
+                y_true, y_prob, [0.3, 0.4], metric="f1", average="macro",
+                sample_weight=None, comparison=">"
+            )
+
+    def test_cv_new_metrics(self):
+        """Test CV with new metrics like IoU and specificity."""
+        y_true = [0, 0, 1, 1, 0, 1, 1, 0]
+        y_prob = [0.1, 0.2, 0.7, 0.8, 0.3, 0.9, 0.6, 0.4]
+
+        # Test IoU metric
+        thresholds, scores = cv_threshold_optimization(
+            y_true, y_prob, metric="iou", cv=2, random_state=42
+        )
+        assert len(thresholds) == 2
+        assert all(0.0 <= score <= 1.0 for score in scores)
+
+        # Test specificity metric
+        thresholds, scores = cv_threshold_optimization(
+            y_true, y_prob, metric="specificity", cv=2, random_state=42
+        )
+        assert len(thresholds) == 2
+        assert all(0.0 <= score <= 1.0 for score in scores)

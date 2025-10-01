@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import cv_threshold_optimization, get_optimal_threshold
+from optimal_cutoffs.binary_optimization import optimal_threshold_piecewise
 from optimal_cutoffs.metrics import is_piecewise_metric, register_metric
-from optimal_cutoffs.optimizers import _optimal_threshold_piecewise
 
 
 def test_get_optimal_threshold_methods():
@@ -42,7 +42,7 @@ def test_piecewise_optimization_correctness():
     for metric in ["f1", "accuracy", "precision", "recall"]:
         if is_piecewise_metric(metric):
             # Get result from piecewise optimization
-            threshold_piecewise = _optimal_threshold_piecewise(y_true, y_prob, metric)
+            threshold_piecewise = optimal_threshold_piecewise(y_true, y_prob, metric)
 
             # Get result from unique_scan (which now uses piecewise for piecewise metrics)
             threshold_smart = get_optimal_threshold(
@@ -68,45 +68,45 @@ def test_piecewise_edge_cases():
 
     # Empty arrays
     with pytest.raises(ValueError):
-        _optimal_threshold_piecewise([], [], "f1")
+        optimal_threshold_piecewise([], [], "f1")
 
     # Mismatched lengths
     with pytest.raises(ValueError):
-        _optimal_threshold_piecewise([0, 1], [0.1], "f1")
+        optimal_threshold_piecewise([0, 1], [0.1], "f1")
 
     # Single sample
-    result = _optimal_threshold_piecewise([1], [0.7], "f1")
+    result = optimal_threshold_piecewise([1], [0.7], "f1")
     assert result == 0.7
 
     # All same class - should return optimal threshold, not arbitrary 0.5
-    result = _optimal_threshold_piecewise([0, 0, 0], [0.1, 0.5, 0.9], "f1")
+    result = optimal_threshold_piecewise([0, 0, 0], [0.1, 0.5, 0.9], "f1")
     assert result > 0.5  # Should predict all negative (threshold > max prob)
 
-    result = _optimal_threshold_piecewise([1, 1, 1], [0.1, 0.5, 0.9], "f1")
+    result = optimal_threshold_piecewise([1, 1, 1], [0.1, 0.5, 0.9], "f1")
     assert result < 0.5  # Should predict all positive (threshold <= min prob)
 
     # All same predictions
-    result = _optimal_threshold_piecewise([0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5], "f1")
+    result = optimal_threshold_piecewise([0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5], "f1")
     assert 0 <= result <= 1  # Should handle gracefully
 
 
 def test_piecewise_known_optimal():
     """Test piecewise optimization on cases with known optimal solutions."""
-    from optimal_cutoffs.optimizers import _metric_score
+    from optimal_cutoffs.binary_optimization import metric_score
 
     # Perfect separation case
     y_true = np.array([0, 0, 1, 1])
     y_prob = np.array([0.1, 0.2, 0.8, 0.9])
 
     # Should achieve perfect accuracy (threshold can be midpoint or boundary value)
-    threshold = _optimal_threshold_piecewise(y_true, y_prob, "accuracy")
-    accuracy = _metric_score(y_true, y_prob, threshold, "accuracy")
+    threshold = optimal_threshold_piecewise(y_true, y_prob, "accuracy")
+    accuracy = metric_score(y_true, y_prob, threshold, "accuracy")
     assert accuracy == 1.0, f"Expected perfect accuracy, got {accuracy}"
     assert 0.2 <= threshold <= 0.8, f"Unexpected threshold: {threshold}"
 
     # For F1, precision, recall - results should be reasonable
     for metric in ["f1", "precision", "recall"]:
-        threshold = _optimal_threshold_piecewise(y_true, y_prob, metric)
+        threshold = optimal_threshold_piecewise(y_true, y_prob, metric)
         assert 0 <= threshold <= 1
 
 
@@ -115,14 +115,14 @@ def test_piecewise_vs_original_brute_force():
 
     def _original_unique_scan(true_labs, pred_prob, metric):
         """Original unique_scan implementation for comparison."""
-        from optimal_cutoffs.optimizers import _metric_score
+        from optimal_cutoffs.binary_optimization import metric_score
 
         thresholds = np.unique(pred_prob)
-        scores = [_metric_score(true_labs, pred_prob, t, metric) for t in thresholds]
+        scores = [metric_score(true_labs, pred_prob, t, metric) for t in thresholds]
         return float(thresholds[int(np.argmax(scores))])
 
     # Test on several random datasets
-    from optimal_cutoffs.optimizers import _metric_score
+    from optimal_cutoffs.binary_optimization import metric_score
 
     rng = np.random.default_rng(123)
 
@@ -132,12 +132,12 @@ def test_piecewise_vs_original_brute_force():
         y_true = (y_prob + 0.3 * rng.normal(size=n_samples) > 0.7).astype(int)
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold_piecewise = _optimal_threshold_piecewise(y_true, y_prob, metric)
+            threshold_piecewise = optimal_threshold_piecewise(y_true, y_prob, metric)
             threshold_original = _original_unique_scan(y_true, y_prob, metric)
 
             # Scores should be identical (thresholds may differ due to midpoint calculation)
-            score_piecewise = _metric_score(y_true, y_prob, threshold_piecewise, metric)
-            score_original = _metric_score(y_true, y_prob, threshold_original, metric)
+            score_piecewise = metric_score(y_true, y_prob, threshold_piecewise, metric)
+            score_original = metric_score(y_true, y_prob, threshold_original, metric)
             assert abs(score_piecewise - score_original) < 1e-10, (
                 f"Score mismatch for {metric} on {n_samples} samples: "
                 f"{score_piecewise} vs {score_original}"
@@ -155,16 +155,16 @@ def test_performance_improvement():
 
     # Time piecewise optimization
     start_time = time.time()
-    threshold_piecewise = _optimal_threshold_piecewise(y_true, y_prob, "f1")
+    threshold_piecewise = optimal_threshold_piecewise(y_true, y_prob, "f1")
     piecewise_time = time.time() - start_time
 
     # Time original brute force (simulate O(n²) behavior)
-    from optimal_cutoffs.optimizers import _metric_score
+    from optimal_cutoffs.binary_optimization import metric_score
 
     start_time = time.time()
     thresholds = np.unique(y_prob)
     _ = [
-        _metric_score(y_true, y_prob, t, "f1") for t in thresholds[:100]
+        metric_score(y_true, y_prob, t, "f1") for t in thresholds[:100]
     ]  # Limit to avoid timeout
     brute_time = time.time() - start_time
 

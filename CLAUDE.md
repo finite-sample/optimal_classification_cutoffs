@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Version Information
-- **Current Version**: 0.2.1 (in development)
+- **Current Version**: 0.6.0
 - **Python Support**: 3.11, 3.12, 3.13
 
 ## Development Commands
@@ -19,7 +19,7 @@ python -m pip install -e ".[examples]"
 
 ### Testing
 ```bash
-# Run all tests (205 tests as of v0.2.0)
+# Run all tests (640+ tests as of v0.6.0)
 python -m pytest tests/ -v
 
 # Run specific test file
@@ -117,38 +117,39 @@ The multiclass prediction strategy balances threshold-based decisions with pract
 
 This approach maintains the benefits of optimized thresholds while ensuring every sample gets a prediction.
 
-## Version 0.2.0 Key Improvements
+## Version 0.6.0 Key Improvements
 
-### Performance Enhancements
-- **O(n log n) Sort-and-Scan Algorithm**: New `sort_scan` method provides exact optimization for piecewise-constant metrics (F1, accuracy, precision, recall) with significant performance improvements
-- **Vectorized Metric Registry**: Built-in metrics have optimized vectorized implementations for batch processing
-- **Auto Method Selection**: The "auto" method intelligently selects the best optimization algorithm based on metric properties
+### Enhanced Score-Based Workflows
+- **Non-Probability Support**: New `require_proba=False` parameter enables optimization on logits and arbitrary score ranges
+- **Empirical Score Optimization**: Support for raw model outputs before calibration
+- **Flexible Input Validation**: Better handling of scores outside [0,1] range
 
-### New Optimization Methods
-- **sort_scan**: O(n log n) exact optimization for piecewise metrics
-- **coord_ascent**: Coordinate ascent for single-label consistent multiclass predictions
-- **Enhanced minimize**: Improved scipy-based optimization with smart fallbacks
+### New Vectorized Metrics
+- **IoU/Jaccard Metric**: `iou_vectorized()` with proper zero-division handling
+- **Specificity Metric**: `specificity_vectorized()` for True Negative Rate optimization
+- **O(n log n) Support**: Both metrics integrated into sort-and-scan optimization
 
-### Comparison Operators
-- Support for both ">" (exclusive) and ">=" (inclusive) threshold comparisons
-- Proper handling of tied probabilities with different comparison operators
-- Consistent behavior across all optimization methods
+### Performance Optimizations
+- **Improved Tie Handling**: O(1) local nudges replace expensive O(n·u) exhaustive search
+- **Better Weight Handling**: Fixed edge cases in weighted optimization for single samples and same-class scenarios
+- **Memory Efficiency**: Reduced allocations in vectorized metric evaluation
 
-### Robustness & Testing
-- **205 comprehensive tests** including property-based testing with Hypothesis
-- **Edge case handling** for tied probabilities, extreme class imbalances, and numerical precision
-- **Input validation** with clear, informative error messages
-- **Sample weight support** across all optimization methods
+### Cross-Validation Enhancements
+- **StratifiedKFold Default**: Better class balance preservation in CV splits
+- **Multiclass Support**: Proper handling of OvR and micro/macro averaging in CV
+- **Threshold Format Handling**: Support for scalar, array, tuple, dict thresholds from all modes
+- **Error Handling**: Removed dangerous 0.5 fallback, improved error propagation
 
-### Code Quality
-- **100% ruff compliance** with comprehensive linting rules (E, W, F, I, B, C4, UP)
-- **Type annotations** with mypy support for better IDE integration
-- **Comprehensive documentation** with detailed docstrings and examples
+### Code Quality & Testing
+- **640+ Tests**: Comprehensive test suite including new functionality
+- **100% Ruff Compliance**: Fixed 140+ linting issues across all modules
+- **Improved Documentation**: Better docstrings, type annotations, and examples
+- **Numerical Stability**: Better handling of edge cases and floating-point precision
 
-### Backward Compatibility
-- All existing APIs remain unchanged
-- Legacy `get_probability()` function maintained with deprecation warnings
-- Automatic fallbacks ensure robust behavior
+### Architectural Improvements
+- **Unified Result Types**: New `ThresholdResult` class for consistent API returns
+- **Better Validation**: Enhanced input validation with clear error messages
+- **Modular Design**: Cleaner separation between optimization, metrics, and validation
 
 ## Development Notes
 

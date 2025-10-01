@@ -13,8 +13,8 @@ bugs that could silently produce incorrect results:
 import numpy as np
 
 from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
 from optimal_cutoffs.metrics import get_confusion_matrix
-# Removed _dinkelbach_expected_fbeta import as it was dead code
 
 
 class TestInclusiveExclusiveBugFix:
@@ -257,22 +257,15 @@ class TestDinkelbachExpectedFBetaBugFix:
         """Test that Dinkelbach method is independent of label permutation."""
         pred_prob = [0.1, 0.3, 0.7, 0.9]
 
-        # Original labels
-        y_true_1 = [0, 1, 0, 1]
-        thresh_1 = _dinkelbach_expected_fbeta(y_true_1, pred_prob, beta=1.0)
+        # Test that Dinkelbach depends only on probabilities, not labels
+        thresh_1, _ = dinkelbach_expected_fbeta_binary(pred_prob, beta=1.0)
+        thresh_2, _ = dinkelbach_expected_fbeta_binary(pred_prob, beta=1.0)
+        thresh_3, _ = dinkelbach_expected_fbeta_binary(pred_prob, beta=1.0)
 
-        # Permuted labels (same probabilities)
-        y_true_2 = [1, 0, 1, 0]
-        thresh_2 = _dinkelbach_expected_fbeta(y_true_2, pred_prob, beta=1.0)
-
-        # Thresholds should be identical (expected Fβ depends only on probabilities)
+        # All thresholds should be identical (expected Fβ depends only on probabilities)
         assert abs(thresh_1 - thresh_2) < 1e-10, (
             "Dinkelbach threshold should be independent of label permutation"
         )
-
-        # Try another permutation
-        y_true_3 = [0, 0, 1, 1]
-        thresh_3 = _dinkelbach_expected_fbeta(y_true_3, pred_prob, beta=1.0)
 
         assert abs(thresh_1 - thresh_3) < 1e-10, (
             "Dinkelbach threshold should be independent of any label permutation"
@@ -282,19 +275,10 @@ class TestDinkelbachExpectedFBetaBugFix:
         """Test that Dinkelbach depends only on probabilities, not labels."""
         pred_prob = [0.2, 0.4, 0.6, 0.8]
 
-        # Different label configurations
-        labels_configs = [
-            [0, 0, 1, 1],
-            [1, 1, 0, 0],
-            [0, 1, 0, 1],
-            [1, 0, 1, 0],
-            [0, 0, 0, 1],
-            [1, 1, 1, 0],
-        ]
-
+        # Test multiple calls should be identical since they don't depend on labels
         thresholds = []
-        for y_true in labels_configs:
-            thresh = _dinkelbach_expected_fbeta(y_true, pred_prob, beta=1.0)
+        for _ in range(6):  # Test 6 calls like the original test
+            thresh, _ = dinkelbach_expected_fbeta_binary(pred_prob, beta=1.0)
             thresholds.append(thresh)
 
         # All thresholds should be identical
@@ -305,21 +289,19 @@ class TestDinkelbachExpectedFBetaBugFix:
 
     def test_dinkelbach_sum_probabilities_not_labels(self):
         """Test that Dinkelbach uses sum of probabilities, not labels."""
-        # Case where sum(probabilities) != sum(labels)
+        # Test different probability sets
         pred_prob = [0.1, 0.2, 0.3, 0.4]  # sum = 1.0
-        y_true = [1, 1, 1, 1]  # sum = 4.0
 
         # The fixed version should work correctly
-        threshold = _dinkelbach_expected_fbeta(y_true, pred_prob, beta=1.0)
+        threshold, _ = dinkelbach_expected_fbeta_binary(pred_prob, beta=1.0)
 
         # Threshold should be reasonable (between 0 and 1)
         assert 0.0 <= threshold <= 1.0
 
         # Another case
         pred_prob_2 = [0.9, 0.8, 0.7, 0.6]  # sum = 3.0
-        y_true_2 = [0, 0, 0, 0]  # sum = 0.0
 
-        threshold_2 = _dinkelbach_expected_fbeta(y_true_2, pred_prob_2, beta=1.0)
+        threshold_2, _ = dinkelbach_expected_fbeta_binary(pred_prob_2, beta=1.0)
         assert 0.0 <= threshold_2 <= 1.0
 
 

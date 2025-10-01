@@ -82,6 +82,7 @@ def register_metric(
 
 def register_metrics(
     metrics: dict[str, MetricFunc],
+    vectorized_metrics: dict[str, Callable[..., Any]] | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
@@ -92,6 +93,8 @@ def register_metrics(
     ----------
     metrics:
         Mapping of metric names to callables that accept ``tp, tn, fp, fn``.
+    vectorized_metrics:
+        Optional mapping of metric names to vectorized implementations.
     is_piecewise:
         Whether the metrics are piecewise-constant with respect to threshold changes.
     maximize:
@@ -102,9 +105,11 @@ def register_metrics(
     Returns
     -------
     None
-        This function mutates the global :data:`METRIC_REGISTRY` in-place.
+        This function mutates the global registries in-place.
     """
     METRIC_REGISTRY.update(metrics)
+    if vectorized_metrics is not None:
+        VECTORIZED_REGISTRY.update(vectorized_metrics)
     for name in metrics:
         METRIC_PROPERTIES[name] = {
             "is_piecewise": is_piecewise,
@@ -201,10 +206,11 @@ def get_vectorized_metric(metric_name: str) -> Callable[..., Any]:
         If metric is not available in vectorized form.
     """
     if metric_name not in VECTORIZED_REGISTRY:
-        available = list(VECTORIZED_REGISTRY.keys())
+        available = sorted(VECTORIZED_REGISTRY.keys())
+        preview = ", ".join(available[:10])
         raise ValueError(
             f"Vectorized implementation not available for metric '{metric_name}'. "
-            f"Available: {available}"
+            f"Available (first 10): [{preview}] ... (total={len(available)})"
         )
     return VECTORIZED_REGISTRY[metric_name]
 
@@ -273,6 +279,34 @@ def _recall_vectorized(
     return cast(
         np.ndarray[Any, Any],
         np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0),
+    )
+
+
+def _iou_vectorized(
+    tp: np.ndarray[Any, Any],
+    tn: np.ndarray[Any, Any],
+    fp: np.ndarray[Any, Any],
+    fn: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
+    """Vectorized IoU/Jaccard score computation."""
+    denom = tp + fp + fn
+    return cast(
+        np.ndarray[Any, Any],
+        np.divide(tp, denom, out=np.zeros_like(tp, dtype=float), where=denom > 0),
+    )
+
+
+def _specificity_vectorized(
+    tp: np.ndarray[Any, Any],
+    tn: np.ndarray[Any, Any],
+    fp: np.ndarray[Any, Any],
+    fn: np.ndarray[Any, Any],
+) -> np.ndarray[Any, Any]:
+    """Vectorized specificity computation."""
+    denom = tn + fp
+    return cast(
+        np.ndarray[Any, Any],
+        np.divide(tn, denom, out=np.zeros_like(tn, dtype=float), where=denom > 0),
     )
 
 
@@ -355,8 +389,43 @@ def recall_score(
     return tp / (tp + fn) if tp + fn > 0 else 0.0
 
 
+def jaccard_score(
+    tp: int | float, tn: int | float, fp: int | float, fn: int | float
+) -> float:
+    """Compute the Jaccard index (IoU score).
+
+    Parameters
+    ----------
+    tp, tn, fp, fn:
+        Elements of the confusion matrix.
+
+    Returns
+    -------
+    float
+        Intersection over Union: tp / (tp + fp + fn).
+    """
+    return tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0.0
+
+
+def specificity_score(
+    tp: int | float, tn: int | float, fp: int | float, fn: int | float
+) -> float:
+    """Compute the specificity (true negative rate).
+
+    Parameters
+    ----------
+    tp, tn, fp, fn:
+        Elements of the confusion matrix.
+
+    Returns
+    -------
+    float
+        True negative rate: tn / (tn + fp).
+    """
+    return tn / (tn + fp) if (tn + fp) > 0 else 0.0
+
+
 def _compute_exclusive_predictions(
-    true_labs: np.ndarray[Any, Any],
     pred_prob: np.ndarray[Any, Any],
     thresholds: np.ndarray[Any, Any],
     comparison: str = ">",
@@ -379,10 +448,11 @@ def _compute_exclusive_predictions(
     - Users comparing with argmax-based predictions may see different results
     - This is the correct behavior for optimized per-class thresholds
 
+    **Performance**: This vectorized implementation is significantly faster than the
+    previous Python loop version, especially for large datasets.
+
     Parameters
     ----------
-    true_labs : np.ndarray
-        True class labels (n_samples,)
     pred_prob : np.ndarray
         Predicted probabilities (n_samples, n_classes)
     thresholds : np.ndarray
@@ -395,29 +465,21 @@ def _compute_exclusive_predictions(
     np.ndarray
         Predicted class labels (n_samples,)
     """
-    n_samples, n_classes = pred_prob.shape
-    predictions = np.zeros(n_samples, dtype=int)
+    n_samples, _ = pred_prob.shape
+    margins = pred_prob - thresholds  # broadcast: (n_samples, n_classes)
 
-    for i in range(n_samples):
-        # Compute margins: p_j - tau_j
-        margins = pred_prob[i] - thresholds
+    if comparison == ">":
+        mask = margins > 0
+    else:
+        mask = margins >= 0
 
-        # Find classes above threshold
-        if comparison == ">":
-            above_threshold = margins > 0
-        else:  # ">="
-            above_threshold = margins >= 0
+    # Argmax of margins where mask is True; set others to -inf
+    masked_margins = np.where(mask, margins, -np.inf)
+    best_by_margin = np.argmax(masked_margins, axis=1)
+    any_above = np.any(mask, axis=1)
+    best_by_prob = np.argmax(pred_prob, axis=1)
 
-        if np.any(above_threshold):
-            # Among classes above threshold, pick the one with highest margin
-            valid_classes = np.where(above_threshold)[0]
-            best_class = valid_classes[np.argmax(margins[valid_classes])]
-            predictions[i] = best_class
-        else:
-            # No class above threshold, pick highest probability class
-            predictions[i] = np.argmax(pred_prob[i])
-
-    return predictions
+    return np.where(any_above, best_by_margin, best_by_prob)
 
 
 def multiclass_metric_exclusive(
@@ -458,9 +520,7 @@ def multiclass_metric_exclusive(
     thresholds = np.asarray(thresholds)
 
     # Get exclusive predictions
-    pred_labels = _compute_exclusive_predictions(
-        true_labs, pred_prob, thresholds, comparison
-    )
+    pred_labels = _compute_exclusive_predictions(pred_prob, thresholds, comparison)
 
     if metric_name == "accuracy":
         # Sample-level accuracy
@@ -471,25 +531,42 @@ def multiclass_metric_exclusive(
         else:
             return float(np.mean(correct))
     else:
-        # For other metrics, compute macro-averaged over classes
-        from sklearn.metrics import (
-            f1_score,
-            precision_score,
-            recall_score,
-        )
+        # Macro-averaged precision/recall/F1 without external deps
+        # Use labels present in y_true (to mirror sklearn's default behavior)
+        labels = np.unique(true_labs.astype(int))
+        sw = None if sample_weight is None else np.asarray(sample_weight, dtype=float)
 
-        kwargs = {"average": "macro", "zero_division": 0}
-        if sample_weight is not None:
-            kwargs["sample_weight"] = sample_weight
-
-        if metric_name == "precision":
-            return float(precision_score(true_labs, pred_labels, **kwargs))
-        elif metric_name == "recall":
-            return float(recall_score(true_labs, pred_labels, **kwargs))
-        elif metric_name == "f1":
-            return float(f1_score(true_labs, pred_labels, **kwargs))
-        else:
-            raise ValueError(f"Metric '{metric_name}' not supported for exclusive mode")
+        per_class = []
+        for c in labels:
+            true_pos = true_labs == c
+            pred_pos = pred_labels == c
+            tp = (
+                float(np.sum(sw[true_pos & pred_pos]))
+                if sw is not None
+                else int(np.sum(true_pos & pred_pos))
+            )
+            fp = (
+                float(np.sum(sw[~true_pos & pred_pos]))
+                if sw is not None
+                else int(np.sum(~true_pos & pred_pos))
+            )
+            fn = (
+                float(np.sum(sw[true_pos & ~pred_pos]))
+                if sw is not None
+                else int(np.sum(true_pos & ~pred_pos))
+            )
+            # tn not needed for these macro metrics
+            if metric_name == "precision":
+                per_class.append(precision_score(tp, 0, fp, 0))
+            elif metric_name == "recall":
+                per_class.append(recall_score(tp, 0, 0, fn))
+            elif metric_name == "f1":
+                per_class.append(f1_score(tp, 0, fp, fn))
+            else:
+                raise ValueError(
+                    f"Metric '{metric_name}' not supported for exclusive mode"
+                )
+        return float(np.mean(per_class) if per_class else 0.0)
 
 
 def multiclass_metric(
@@ -568,9 +645,11 @@ def multiclass_metric(
                 "which computes per-class accuracies independently."
             )
         else:
-            # Fallback: try using the metric function with computed values
-            # Note: TN is not meaningful in One-vs-Rest micro averaging
-            return float(metric_func(total_tp, 0, total_fp, total_fn))
+            # No generic micro reduction for other metrics
+            raise ValueError(
+                f"Micro-averaged '{metric_name}' is not defined in OvR counts. "
+                "Supported micro metrics: 'precision', 'recall', 'f1'."
+            )
 
     elif average == "weighted":
         # Weighted by support (number of true instances for each class)
@@ -612,6 +691,8 @@ def get_confusion_matrix(
     prob: float,
     sample_weight: ArrayLike | None = None,
     comparison: ComparisonOperator = ">",
+    *,
+    require_proba: bool = False,
 ) -> tuple[int | float, int | float, int | float, int | float]:
     """Compute confusion-matrix counts for a given threshold.
 
@@ -620,7 +701,8 @@ def get_confusion_matrix(
     true_labs:
         Array of true binary labels in {0, 1}.
     pred_prob:
-        Array of predicted probabilities in [0, 1].
+        Array of predicted probabilities in [0, 1] (if require_proba=True)
+        or scores (if require_proba=False).
     prob:
         Decision threshold applied to ``pred_prob``.
     sample_weight:
@@ -629,6 +711,9 @@ def get_confusion_matrix(
         Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
         - ">": pred_prob > threshold (default, excludes ties)
         - ">=": pred_prob >= threshold (includes ties)
+    require_proba:
+        Whether to enforce [0,1] range for pred_prob and threshold.
+        Set to False for score-based empirical workflows.
 
     Returns
     -------
@@ -641,10 +726,16 @@ def get_confusion_matrix(
         true_labs,
         pred_prob,
         require_binary=True,
+        require_proba=require_proba,
         sample_weight=sample_weight,
         allow_multiclass=False,
     )
-    _validate_threshold(float(prob))
+
+    # Only enforce [0,1] threshold when treating inputs as probabilities
+    if require_proba:
+        _validate_threshold(float(prob))
+    # For score-based workflows, allow thresholds outside [0,1]
+
     _validate_comparison_operator(comparison)
 
     # Apply threshold with specified comparison operator
@@ -680,6 +771,8 @@ def get_multiclass_confusion_matrix(
     thresholds: ArrayLike,
     sample_weight: ArrayLike | None = None,
     comparison: ComparisonOperator = ">",
+    *,
+    require_proba: bool = False,
 ) -> list[tuple[int | float, int | float, int | float, int | float]]:
     """Compute per-class confusion-matrix counts for multiclass classification
     using One-vs-Rest.
@@ -689,13 +782,17 @@ def get_multiclass_confusion_matrix(
     true_labs:
         Array of true class labels (0, 1, 2, ..., n_classes-1).
     pred_prob:
-        Array of predicted probabilities with shape (n_samples, n_classes).
+        Array of predicted probabilities with shape (n_samples, n_classes)
+        (if require_proba=True) or scores (if require_proba=False).
     thresholds:
-        Array of decision thresholds, one per class.
+        Array of decision thresholds, one per class (or scalar for binary).
     sample_weight:
         Optional array of sample weights. If None, all samples have equal weight.
     comparison:
         Comparison operator for thresholding: ">" (exclusive) or ">=" (inclusive).
+    require_proba:
+        Whether to enforce [0,1] range for pred_prob and thresholds.
+        Set to False for score-based empirical workflows.
 
     Returns
     -------
@@ -705,24 +802,37 @@ def get_multiclass_confusion_matrix(
     """
     # Validate inputs
     true_labs, pred_prob, sample_weight = _validate_inputs(
-        true_labs, pred_prob, sample_weight=sample_weight
+        true_labs, pred_prob, sample_weight=sample_weight, require_proba=require_proba
     )
     _validate_comparison_operator(comparison)
 
     if pred_prob.ndim == 1:
         # Binary case - backward compatibility
-        thresholds = np.asarray(thresholds)
-        _validate_threshold(thresholds[0])
+        thr_arr = np.asarray(thresholds)
+        thr_scalar = float(thr_arr.reshape(-1)[0])  # accept scalars or length-1 arrays
+        # For empirical score workflows, do not force [0,1]
         return [
             get_confusion_matrix(
-                true_labs, pred_prob, thresholds[0], sample_weight, comparison
+                true_labs,
+                pred_prob,
+                thr_scalar,
+                sample_weight,
+                comparison,
+                require_proba=require_proba,
             )
         ]
 
     # Multiclass case
     n_classes = pred_prob.shape[1]
-    thresholds = np.asarray(thresholds)
-    _validate_threshold(thresholds, n_classes)
+    thresholds = np.asarray(thresholds, dtype=float)
+    if thresholds.shape != (n_classes,):
+        raise ValueError(
+            f"thresholds must have shape ({n_classes},), got {thresholds.shape}"
+        )
+    # Allow score thresholds by default
+    # (If you truly need [0,1], pass require_proba=True)
+    if require_proba:
+        _validate_threshold(thresholds, n_classes)
 
     confusion_matrices = []
 
@@ -733,7 +843,12 @@ def get_multiclass_confusion_matrix(
         threshold = thresholds[class_idx]
 
         cm = get_confusion_matrix(
-            true_binary, pred_binary_prob, threshold, sample_weight, comparison
+            true_binary,
+            pred_binary_prob,
+            threshold,
+            sample_weight,
+            comparison,
+            require_proba=require_proba,
         )
         confusion_matrices.append(cm)
 
@@ -863,3 +978,10 @@ register_metric("f1", f1_score, _f1_vectorized)
 register_metric("accuracy", accuracy_score, _accuracy_vectorized)
 register_metric("precision", precision_score, _precision_vectorized)
 register_metric("recall", recall_score, _recall_vectorized)
+register_metric("iou", jaccard_score, _iou_vectorized)
+register_metric("jaccard", jaccard_score, _iou_vectorized)
+register_metric("specificity", specificity_score, _specificity_vectorized)
+register_metric("tnr", specificity_score, _specificity_vectorized)
+register_metric("ppv", precision_score, _precision_vectorized)
+register_metric("tpr", recall_score, _recall_vectorized)
+register_metric("sensitivity", recall_score, _recall_vectorized)

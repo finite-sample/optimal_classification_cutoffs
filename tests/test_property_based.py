@@ -6,15 +6,18 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
-from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs import (
+    get_confusion_matrix,
+    get_optimal_multiclass_thresholds,
+    get_optimal_threshold,
+)
+from optimal_cutoffs.binary_optimization import (
+    metric_score,
+    optimal_threshold_piecewise,
+)
 from optimal_cutoffs.metrics import (
     get_multiclass_confusion_matrix,
     multiclass_metric,
-)
-from optimal_cutoffs.optimizers import (
-    _metric_score,
-    _optimal_threshold_piecewise,
-    get_optimal_multiclass_thresholds,
 )
 
 
@@ -103,7 +106,7 @@ class TestCoreInvariants:
                 threshold = max(0.0, min(1.0, threshold))
 
                 try:
-                    score = _metric_score(y_true, p, threshold, metric)
+                    score = metric_score(y_true, p, threshold, metric)
                     if score > best_score:
                         best_score = score
                         best_threshold = threshold
@@ -114,7 +117,7 @@ class TestCoreInvariants:
             # Also test a few edge cases
             for edge_threshold in [0.001, 0.999]:
                 try:
-                    score = _metric_score(y_true, p, edge_threshold, metric)
+                    score = metric_score(y_true, p, edge_threshold, metric)
                     if score > best_score:
                         best_score = score
                         best_threshold = edge_threshold
@@ -126,7 +129,7 @@ class TestCoreInvariants:
         # Test on multiple metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
             # Use piecewise optimization
-            piecewise_threshold = _optimal_threshold_piecewise(
+            piecewise_threshold = optimal_threshold_piecewise(
                 labels, probabilities, metric
             )
 
@@ -134,10 +137,10 @@ class TestCoreInvariants:
             naive_threshold = naive_brute_force(labels, probabilities, metric)
 
             # Compute scores for both thresholds
-            piecewise_score = _metric_score(
+            piecewise_score = metric_score(
                 labels, probabilities, piecewise_threshold, metric
             )
-            naive_score = _metric_score(labels, probabilities, naive_threshold, metric)
+            naive_score = metric_score(labels, probabilities, naive_threshold, metric)
 
             # Piecewise should generally be at least as good as naive
             # However, edge cases with identical probabilities may have implementation differences
@@ -180,15 +183,15 @@ class TestCoreInvariants:
             return
 
         # Get original optimal threshold
-        original_threshold = _optimal_threshold_piecewise(labels, probabilities, "f1")
+        original_threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
 
         # Shift probabilities by epsilon (both directions)
         shifted_up = probabilities + epsilon
         shifted_down = probabilities - epsilon
 
         # Get new optimal thresholds
-        threshold_up = _optimal_threshold_piecewise(labels, shifted_up, "f1")
-        threshold_down = _optimal_threshold_piecewise(labels, shifted_down, "f1")
+        threshold_up = optimal_threshold_piecewise(labels, shifted_up, "f1")
+        threshold_down = optimal_threshold_piecewise(labels, shifted_down, "f1")
 
         # For cases without extensive ties, threshold should shift approximately by epsilon
         # But allow larger tolerance for edge cases
@@ -218,7 +221,7 @@ class TestCoreInvariants:
             return
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold = _optimal_threshold_piecewise(labels, probabilities, metric)
+            threshold = optimal_threshold_piecewise(labels, probabilities, metric)
             assert 0 <= threshold <= 1, (
                 f"Threshold {threshold} out of bounds for {metric}"
             )
@@ -236,7 +239,7 @@ class TestCoreInvariants:
         # Run optimization multiple times
         thresholds = []
         for _ in range(3):
-            threshold = _optimal_threshold_piecewise(labels, probabilities, "f1")
+            threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
             thresholds.append(threshold)
 
         # All results should be identical
@@ -315,7 +318,7 @@ class TestStatisticalProperties:
 
         # Check if original separation is already very good
         original_threshold = get_optimal_threshold(labels, probabilities, "f1")
-        original_f1 = _metric_score(labels, probabilities, original_threshold, "f1")
+        original_f1 = metric_score(labels, probabilities, original_threshold, "f1")
 
         # If original F1 is already very high (>=0.9), skip the test
         # as there's little room for improvement and "perfect" separation may not actually be better
@@ -352,10 +355,10 @@ class TestStatisticalProperties:
         for metric in ["accuracy", "f1"]:
             perfect_threshold = get_optimal_threshold(labels, perfect_probs, metric)
 
-            original_score = _metric_score(
+            original_score = metric_score(
                 labels, probabilities, original_threshold, metric
             )
-            perfect_score = _metric_score(
+            perfect_score = metric_score(
                 labels, perfect_probs, perfect_threshold, metric
             )
 
@@ -392,7 +395,7 @@ class TestStatisticalProperties:
 
         # Test all registered metrics
         for metric_name in ["f1", "accuracy", "precision", "recall"]:
-            score = _metric_score(labels, probabilities, threshold, metric_name)
+            score = metric_score(labels, probabilities, threshold, metric_name)
 
             # All these metrics should be in [0, 1] range
             assert 0 <= score <= 1, f"Metric {metric_name} out of bounds: {score}"
@@ -862,7 +865,7 @@ class TestPerformanceProperties:
 
         # Time the piecewise optimization
         start_time = time.time()
-        threshold = _optimal_threshold_piecewise(labels, probabilities, "f1")
+        threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
         piecewise_time = time.time() - start_time
 
         # Should complete in reasonable time even for large inputs

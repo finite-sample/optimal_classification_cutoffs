@@ -241,7 +241,7 @@ class TestRealisticMulticlassOptimization:
             else:
                 # Macro averaging should always return per-class thresholds
                 assert len(thresholds) == n_classes, f"Should return {n_classes} thresholds"
-            
+
             assert all(0.0 <= t <= 1.0 for t in thresholds), (
                 "All thresholds should be valid"
             )
@@ -277,7 +277,7 @@ class TestRealisticMulticlassOptimization:
         )
 
         assert len(thresholds_macro) == n_classes
-        
+
         # Micro averaging can return single threshold or per-class thresholds
         if isinstance(thresholds_micro, float):
             # Convert single threshold to per-class for consistency

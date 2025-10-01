@@ -8,7 +8,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.optimizers import _optimal_threshold_piecewise
+from optimal_cutoffs.binary_optimization import optimal_threshold_piecewise
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
     _validate_inputs,
@@ -64,17 +64,17 @@ class TestInputValidation:
     def test_validate_inputs_invalid_probabilities(self):
         """Test validation with invalid probabilities."""
         # Out of range
-        with pytest.raises(ValueError, match="finite and in"):
+        with pytest.raises(ValueError, match=r"must be in \[0, 1\]"):
             _validate_inputs([0, 1], [-0.1, 0.5])
 
-        with pytest.raises(ValueError, match="finite and in"):
+        with pytest.raises(ValueError, match=r"must be in \[0, 1\]"):
             _validate_inputs([0, 1], [0.5, 1.1])
 
         # Non-finite
-        with pytest.raises(ValueError, match="finite and in"):
+        with pytest.raises(ValueError, match="must be finite"):
             _validate_inputs([0, 1], [0.5, np.nan])
 
-        with pytest.raises(ValueError, match="finite and in"):
+        with pytest.raises(ValueError, match="must be finite"):
             _validate_inputs([0, 1], [0.5, np.inf])
 
     def test_validate_sample_weights_valid(self):
@@ -379,8 +379,8 @@ class TestBackwardCompatibility:
             pred_prob = np.random.random(n)
 
             for metric in ["f1", "accuracy", "precision", "recall"]:
-                # New implementation through _optimal_threshold_piecewise
-                threshold_new = _optimal_threshold_piecewise(y_true, pred_prob, metric)
+                # New implementation through optimal_threshold_piecewise
+                threshold_new = optimal_threshold_piecewise(y_true, pred_prob, metric)
 
                 # Should be valid threshold
                 assert 0 <= threshold_new <= 1, (
@@ -395,7 +395,7 @@ class TestBackwardCompatibility:
         pred_prob = [0.1, 0.3, 0.4, 0.6, 0.8, 0.9]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold_piecewise = _optimal_threshold_piecewise(
+            threshold_piecewise = optimal_threshold_piecewise(
                 y_true, pred_prob, metric
             )
             threshold_smart = get_optimal_threshold(
@@ -407,12 +407,12 @@ class TestBackwardCompatibility:
             assert 0 <= threshold_smart <= 1
 
             # Scores should be identical or very close
-            from optimal_cutoffs.optimizers import _metric_score
+            from optimal_cutoffs.binary_optimization import metric_score
 
-            score_piecewise = _metric_score(
+            score_piecewise = metric_score(
                 y_true, pred_prob, threshold_piecewise, metric
             )
-            score_smart = _metric_score(y_true, pred_prob, threshold_smart, metric)
+            score_smart = metric_score(y_true, pred_prob, threshold_smart, metric)
 
             assert abs(score_piecewise - score_smart) < 1e-6, (
                 f"Score mismatch for {metric}: {score_piecewise} vs {score_smart}"
@@ -425,7 +425,7 @@ class TestBackwardCompatibility:
         weights = [1.0, 2.0, 1.5, 0.5]
 
         # Should work without errors
-        threshold = _optimal_threshold_piecewise(
+        threshold = optimal_threshold_piecewise(
             y_true, pred_prob, "f1", sample_weight=weights
         )
 
@@ -445,7 +445,7 @@ class TestPerformance:
 
         # Time the new implementation
         start_time = time.time()
-        threshold = _optimal_threshold_piecewise(y_true, pred_prob, "f1")
+        threshold = optimal_threshold_piecewise(y_true, pred_prob, "f1")
         end_time = time.time()
 
         duration = end_time - start_time
@@ -461,7 +461,7 @@ class TestPerformance:
         pred_prob = np.linspace(0, 1, n)  # All unique values
 
         start_time = time.time()
-        threshold = _optimal_threshold_piecewise(y_true, pred_prob, "f1")
+        threshold = optimal_threshold_piecewise(y_true, pred_prob, "f1")
         end_time = time.time()
 
         duration = end_time - start_time

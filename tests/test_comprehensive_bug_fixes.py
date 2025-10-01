@@ -12,6 +12,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
 from optimal_cutoffs.metrics import (
     _compute_exclusive_predictions,
     accuracy_score,
@@ -21,10 +22,7 @@ from optimal_cutoffs.metrics import (
     multiclass_metric,
     multiclass_metric_exclusive,
 )
-from optimal_cutoffs.optimizers import (
-    _optimize_micro_averaged_thresholds,
-    get_optimal_multiclass_thresholds,
-)
+from optimal_cutoffs.multiclass_optimization import get_optimal_multiclass_thresholds
 
 
 class TestDegenerateCasesFix:
@@ -160,8 +158,8 @@ class TestDinkelbachComparisonSupport:
         pred_prob = [0.2, 0.4, 0.4, 0.6, 0.6, 0.3, 0.7, 0.1]
 
         # Both should work without error
-        thresh_excl = _dinkelbach_expected_fbeta(y_true, pred_prob, 1.0, ">")
-        thresh_incl = _dinkelbach_expected_fbeta(y_true, pred_prob, 1.0, ">=")
+        thresh_excl, _ = dinkelbach_expected_fbeta_binary(pred_prob, 1.0, comparison=">")
+        thresh_incl, _ = dinkelbach_expected_fbeta_binary(pred_prob, 1.0, comparison=">=")
 
         assert 0 <= thresh_excl <= 1
         assert 0 <= thresh_incl <= 1
@@ -322,8 +320,9 @@ class TestMicroOptimizationDocumentation:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            _optimize_micro_averaged_thresholds(
-                y_true, pred_prob, "f1", "unique_scan", None, False, ">"
+            get_optimal_threshold(
+                y_true, pred_prob, metric="f1", method="unique_scan",
+                sample_weight=None, comparison=">", average="micro"
             )
 
             # Should raise warning about limitation
@@ -344,8 +343,9 @@ class TestMicroOptimizationDocumentation:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            _optimize_micro_averaged_thresholds(
-                y_true, pred_prob, "f1", "minimize", None, False, ">"
+            get_optimal_threshold(
+                y_true, pred_prob, metric="f1", method="minimize",
+                sample_weight=None, comparison=">", average="micro"
             )
 
             # Should not warn about micro optimization

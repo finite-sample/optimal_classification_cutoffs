@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-01-01
+
+### Added
+- **Enhanced Piecewise Optimization**: Score-based workflows for non-probability inputs
+  - New `require_proba` parameter in `optimal_threshold_sortscan()` and related functions
+  - Support for logits and arbitrary score ranges (not just [0,1] probabilities)
+  - Improved empirical workflows for raw model outputs before calibration
+- **New Vectorized Metrics**: Added IoU/Jaccard and Specificity metrics to piecewise registry
+  - `iou_vectorized()` function: Intersection over Union = TP / (TP + FP + FN)
+  - `specificity_vectorized()` function: True Negative Rate = TN / (TN + FP)
+  - Both metrics support O(n log n) sort-and-scan optimization with proper zero-division handling
+- **Improved Tie Handling**: O(1) local nudges replace expensive O(n·u) exhaustive search
+  - Significantly faster optimization when many samples have identical probabilities
+  - Maintains mathematical correctness while improving performance
+- **Enhanced Cross-Validation Module**: Complete refactor with multiclass support
+  - Added `StratifiedKFold` as default (better class balance preservation)
+  - Support for all threshold formats: scalar, array, tuple, dict from expected mode
+  - Proper multiclass evaluation with OvR, micro/macro averaging
+  - New helper functions: `_extract_thresholds()`, `_evaluate_threshold_on_fold()`
+- **Comprehensive Code Quality**: 100% ruff compliance and improved documentation
+  - Fixed 140+ linting issues across all modules
+  - Improved type annotations and error messages
+  - Better docstring consistency following NumPy style
+
+### Changed
+- **Weight Handling Improvements**: Better edge case handling in piecewise optimization
+  - Fixed single-sample edge cases in weighted optimization
+  - Improved handling when all samples belong to same class
+  - More robust weight validation and normalization
+- **Cross-Validation Behavior**: Replaced dangerous 0.5 fallback with proper error handling
+  - CV functions now properly handle all optimization modes (empirical, expected, bayes)
+  - Removed hardcoded 0.5 threshold fallback that could mask optimization failures
+  - Better error propagation and debugging information
+
+### Fixed
+- **Threshold Format Consistency**: Unified handling across empirical/expected/bayes modes
+  - Fixed inconsistent return types between different optimization modes
+  - Better conversion between scalar/array/dict threshold formats
+  - Improved backward compatibility while supporting new features
+- **Numerical Stability**: Better handling of edge cases in piecewise optimization
+  - Fixed issues with tied probabilities and extreme class imbalances
+  - More robust handling of zero-division cases in new metrics
+  - Improved floating-point precision in threshold computations
+
+### Performance
+- **Tie Handling Optimization**: Dramatic speedup for datasets with many tied probabilities
+  - O(1) local nudges instead of O(n·u) exhaustive search where u = unique probabilities
+  - Particularly beneficial for discrete probability distributions
+- **Improved Caching**: Better memory usage in sort-and-scan algorithms
+  - More efficient cumulative sum computations
+  - Reduced memory allocations in vectorized metric evaluation
+
 ## [0.5.0] - 2024-12-30
 
 ### Added

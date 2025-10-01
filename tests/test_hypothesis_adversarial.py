@@ -21,7 +21,7 @@ from optimal_cutoffs.metrics import (
     multiclass_metric,
     multiclass_metric_exclusive,
 )
-from optimal_cutoffs.optimizers import get_optimal_multiclass_thresholds
+from optimal_cutoffs.multiclass_optimization import get_optimal_multiclass_thresholds
 
 
 # Custom Hypothesis strategies

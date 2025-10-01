@@ -155,7 +155,7 @@ class ThresholdOptimizer:
 
         # Check if multiclass (treat (n,1) as binary)
         self.is_multiclass_ = pred_prob.ndim == 2 and pred_prob.shape[1] > 1
-        self.n_classes_ = (pred_prob.shape[1] if self.is_multiclass_ else 2)
+        self.n_classes_ = pred_prob.shape[1] if self.is_multiclass_ else 2
 
         # Flatten (n,1) arrays to 1D for binary classification
         if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
@@ -206,12 +206,12 @@ class ThresholdOptimizer:
                 self.threshold_, self.expected_score_ = result
             elif isinstance(result, dict):
                 # expected mode, multiclass
-                if "thresholds" in result:           # macro/weighted/none
+                if "thresholds" in result:  # macro/weighted/none
                     self.threshold_ = cast(np.ndarray[Any, Any], result["thresholds"])
                     self.expected_score_ = float(
                         result.get("f_beta", result.get("score", np.nan))
                     )
-                elif "threshold" in result:          # micro (single global threshold)
+                elif "threshold" in result:  # micro (single global threshold)
                     self.threshold_ = float(result["threshold"])
                     self.expected_score_ = float(
                         result.get("f_beta", result.get("score", np.nan))
@@ -219,7 +219,7 @@ class ThresholdOptimizer:
                 else:
                     raise RuntimeError("Unknown result dict format from optimizer.")
             else:
-                self.threshold_ = result
+                self.threshold_ = result  # type: ignore[assignment]
         else:
             # Use standard optimizer for simple binary cases
             self.threshold_ = get_optimal_threshold(
@@ -228,7 +228,7 @@ class ThresholdOptimizer:
                 self.metric,
                 self.method,
                 comparison=self.comparison,
-            )
+            )  # type: ignore[assignment]
 
         return self
 
@@ -271,8 +271,8 @@ class ThresholdOptimizer:
                     "columns."
                 )
             # decisions = argmax over rows of U @ p_i
-            scores = pred_prob @ U.T   # shape (n_samples, D)
-            return np.argmax(scores, axis=1)
+            scores = pred_prob @ U.T  # shape (n_samples, D)
+            return np.argmax(scores, axis=1)  # type: ignore[no-any-return]
 
         # Enforce same "multiclassness" as training
         is_multi_now = pred_prob.ndim == 2 and pred_prob.shape[1] > 1
@@ -283,9 +283,9 @@ class ThresholdOptimizer:
                 f"got pred_prob.ndim={pred_prob.ndim} shape={pred_prob.shape}"
             )
         if (
-            self.is_multiclass_ and
-            self.n_classes_ is not None and
-            pred_prob.shape[1] != self.n_classes_
+            self.is_multiclass_
+            and self.n_classes_ is not None
+            and pred_prob.shape[1] != self.n_classes_
         ):
             raise ValueError(
                 f"Expected {self.n_classes_} classes, got {pred_prob.shape[1]}."
@@ -309,9 +309,9 @@ class ThresholdOptimizer:
                 thr = self.threshold_
                 if isinstance(thr, dict):
                     # Should not happen after normalization in fit, but guard:
-                    thr = thr.get("thresholds", thr.get("threshold"))
+                    thr = thr.get("thresholds", thr.get("threshold"))  # type: ignore[assignment]
                 if isinstance(thr, (float, int, np.floating)):
-                    tarr = float(thr)
+                    tarr: float | np.ndarray[Any, Any] = float(thr)
                 else:
                     tarr = np.asarray(thr)
                     if tarr.shape != (n_classes,):

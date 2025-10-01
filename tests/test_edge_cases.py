@@ -51,7 +51,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
-from optimal_cutoffs.optimizers import _optimal_threshold_piecewise
+from optimal_cutoffs.binary_optimization import optimal_threshold_piecewise
 from optimal_cutoffs.wrapper import ThresholdOptimizer
 
 
@@ -64,7 +64,7 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
-        threshold = _optimal_threshold_piecewise(labels, probabilities, "f1")
+        threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
         # All negatives -> threshold should predict all negative for optimal accuracy
         assert threshold >= 0.9  # Should be >= max probability to predict all negative
 
@@ -84,7 +84,7 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
-        threshold = _optimal_threshold_piecewise(labels, probabilities, "f1")
+        threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
         # All positives -> threshold should predict all positive for optimal accuracy
         assert threshold <= 0.1  # Should be <= min probability to predict all positive
 
