@@ -3,16 +3,16 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import ThresholdOptimizer, get_optimal_multiclass_thresholds
+from optimal_cutoffs import get_optimal_multiclass_thresholds
 from optimal_cutoffs.metrics import (
     compute_multiclass_metrics_from_labels,
-    get_vectorized_metric,
 )
 from optimal_cutoffs.multiclass_coord import (
     _assign_labels_shifted,
-    optimal_multiclass_thresholds_coord_ascent,
+    coordinate_ascent_kernel,
+    ThresholdOptimizer,
+    optimize_thresholds,
 )
-from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 
 
 class TestCoordinateAscentCore:
@@ -70,13 +70,15 @@ class TestCoordinateAscentCore:
         P = rng.dirichlet(alpha=np.ones(C), size=n)  # Valid probabilities per row
         y_true = rng.integers(0, C, size=n)
 
-        f1_metric = get_vectorized_metric("f1")
-        tau, best_macro, history = optimal_multiclass_thresholds_coord_ascent(
-            y_true,
-            P,
-            sortscan_metric_fn=f1_metric,
-            sortscan_kernel=optimal_threshold_sortscan,
+        # Convert to proper types for the new kernel
+        y_true_int32 = np.asarray(y_true, dtype=np.int32)
+        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        
+        tau, best_macro, history = coordinate_ascent_kernel(
+            y_true_int32,
+            P_float64,
             max_iter=10,
+            tol=1e-12
         )
 
         # Check monotone ascent in history
@@ -97,14 +99,10 @@ class TestCoordinateAscentCore:
         P = rng.dirichlet(alpha=np.ones(C), size=n)
         y_true = rng.integers(0, C, size=n)
 
-        f1_metric = get_vectorized_metric("f1")
-
         # Compare coordinate ascent to OvR baseline
-        tau0 = np.zeros(C)  # Initialize OvR thresholds
-        for c in range(C):
-            y_c = (y_true == c).astype(int)
-            t, _, _ = optimal_threshold_sortscan(y_c, P[:, c], f1_metric)
-            tau0[c] = t
+        tau0 = get_optimal_multiclass_thresholds(
+            y_true, P, metric="f1", method="unique_scan"
+        )
 
         y_pred0 = _assign_labels_shifted(P, tau0)
         macro0 = float(
@@ -113,14 +111,16 @@ class TestCoordinateAscentCore:
             )
         )
 
+        # Convert to proper types for the new kernel
+        y_true_int32 = np.asarray(y_true, dtype=np.int32)
+        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        
         # Coordinate ascent
-        tau, best_macro, _ = optimal_multiclass_thresholds_coord_ascent(
-            y_true,
-            P,
-            sortscan_metric_fn=f1_metric,
-            sortscan_kernel=optimal_threshold_sortscan,
+        tau, best_macro, _ = coordinate_ascent_kernel(
+            y_true_int32,
+            P_float64,
             max_iter=10,
-            init="ovr_sortscan",
+            tol=1e-12
         )
 
         # Coordinate ascent should be >= OvR baseline
@@ -128,18 +128,19 @@ class TestCoordinateAscentCore:
 
     def test_coord_ascent_edge_cases(self):
         """Test coordinate ascent with edge cases."""
-        f1_metric = get_vectorized_metric("f1")
-
         # Very simple case: 2 samples, 2 classes
         P = np.array([[0.8, 0.2], [0.3, 0.7]])
         y_true = np.array([0, 1])
 
-        tau, best_macro, history = optimal_multiclass_thresholds_coord_ascent(
-            y_true,
-            P,
-            sortscan_metric_fn=f1_metric,
-            sortscan_kernel=optimal_threshold_sortscan,
+        # Convert to proper types for the new kernel
+        y_true_int32 = np.asarray(y_true, dtype=np.int32)
+        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        
+        tau, best_macro, history = coordinate_ascent_kernel(
+            y_true_int32,
+            P_float64,
             max_iter=5,
+            tol=1e-12
         )
 
         assert len(tau) == 2
@@ -147,42 +148,41 @@ class TestCoordinateAscentCore:
         assert len(history) >= 1
 
     def test_coord_ascent_initialization_strategies(self):
-        """Test different initialization strategies."""
+        """Test different tolerance settings."""
         rng = np.random.default_rng(123)
         n, C = 100, 3
         P = rng.dirichlet(alpha=np.ones(C), size=n)
         y_true = rng.integers(0, C, size=n)
 
-        f1_metric = get_vectorized_metric("f1")
-
-        # Test different initialization methods
-        for init in ["ovr_sortscan", "zeros"]:
-            tau, best_macro, _ = optimal_multiclass_thresholds_coord_ascent(
-                y_true,
-                P,
-                sortscan_metric_fn=f1_metric,
-                sortscan_kernel=optimal_threshold_sortscan,
+        # Convert to proper types for the new kernel
+        y_true_int32 = np.asarray(y_true, dtype=np.int32)
+        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        
+        # Test with different tolerances (replacing init strategies)
+        for tol in [1e-10, 1e-12]:
+            tau, best_macro, _ = coordinate_ascent_kernel(
+                y_true_int32,
+                P_float64,
                 max_iter=5,
-                init=init,
+                tol=tol
             )
             assert len(tau) == C
             assert 0.0 <= best_macro <= 1.0
 
-        # Test invalid initialization
-        with pytest.raises(ValueError, match="Unknown init"):
-            optimal_multiclass_thresholds_coord_ascent(
-                y_true,
-                P,
-                sortscan_metric_fn=f1_metric,
-                sortscan_kernel=optimal_threshold_sortscan,
-                init="invalid_init",
+        # Test invalid tolerance (replacing init validation)
+        with pytest.raises((ValueError, TypeError)):
+            coordinate_ascent_kernel(
+                y_true_int32,
+                P_float64,
+                max_iter=5,
+                tol="invalid_tol"  # Should be numeric
             )
 
 
 class TestCoordinateAscentIntegration:
     """Test integration with main API."""
 
-    def test_get_optimal_multiclass_thresholds_coord_ascent(self):
+    def test_get_optimal_multiclass_thresholds_coord_ascent_integration(self):
         """Test coordinate ascent through main API."""
         rng = np.random.default_rng(42)
         n, C = 150, 3
@@ -229,14 +229,14 @@ class TestCoordinateAscentIntegration:
         P = rng.dirichlet(alpha=np.ones(C), size=n)
         y_true = rng.integers(0, C, size=n)
 
-        # Test through wrapper
-        optimizer = ThresholdOptimizer(metric="f1", method="coord_ascent")
-        optimizer.fit(y_true, P)
+        # Test through wrapper (new API)
+        optimizer = ThresholdOptimizer(max_iter=10)
+        optimizer.fit(P, y_true)  # Note: X, y order for new API
 
         # Check that thresholds were learned
-        assert optimizer.threshold_ is not None
-        assert len(optimizer.threshold_) == C
-        assert optimizer.is_multiclass_
+        assert optimizer.solution_ is not None
+        assert len(optimizer.solution_.thresholds) == C
+        assert optimizer.solution_.score >= 0.0
 
         # Test prediction
         y_pred = optimizer.predict(P)
@@ -258,9 +258,9 @@ class TestCoordinateAscentIntegration:
         # Manual prediction using argmax(P - tau)
         y_pred_manual = _assign_labels_shifted(P, tau)
 
-        # Prediction via wrapper
-        optimizer = ThresholdOptimizer(metric="f1", method="coord_ascent")
-        optimizer.fit(y_true, P)
+        # Prediction via wrapper (new API)
+        optimizer = ThresholdOptimizer(max_iter=10)
+        optimizer.fit(P, y_true)  # Note: X, y order for new API
         y_pred_wrapper = optimizer.predict(P)
 
         # Should be identical
@@ -322,17 +322,17 @@ class TestCoordinateAscentPerformance:
         P = rng.dirichlet(alpha=np.ones(C), size=n)
         y_true = rng.integers(0, C, size=n)
 
-        f1_metric = get_vectorized_metric("f1")
-
-        # Test with different stopping tolerances
-        for tol_stops in [1, 2, 3]:
-            tau, best_macro, history = optimal_multiclass_thresholds_coord_ascent(
-                y_true,
-                P,
-                sortscan_metric_fn=f1_metric,
-                sortscan_kernel=optimal_threshold_sortscan,
+        # Test with different stopping tolerances  
+        for tol in [1e-10, 1e-12, 1e-14]:
+            # Convert to proper types for the new kernel
+            y_true_int32 = np.asarray(y_true, dtype=np.int32)
+            P_float64 = np.asarray(P, dtype=np.float64, order='C')
+            
+            tau, best_macro, history = coordinate_ascent_kernel(
+                y_true_int32,
+                P_float64,
                 max_iter=20,
-                tol_stops=tol_stops,
+                tol=tol
             )
 
             # Should terminate before max_iter due to convergence

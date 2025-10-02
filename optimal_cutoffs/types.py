@@ -18,14 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from functools import cached_property
-from typing import (
-    Any,
-    Generic,
-    Self,
-    TypeAlias,
-    TypeVar,
-    final,
-)
+from typing import Any, Generic, Self, TypeAlias, TypeVar, final
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -53,6 +46,7 @@ MulticlassMetricReturn: TypeAlias = float | NDArray[np.float64]
 # ============================================================================
 # Rich Enumerations with Behavior
 # ============================================================================
+
 
 class OptimizationMethod(Enum):
     """Optimization methods with associated metadata and behavior."""
@@ -106,9 +100,7 @@ class AveragingMethod(Enum):
     NONE = auto()
 
     def compute_average(
-        self,
-        scores: NDArray[np.float64],
-        weights: NDArray[np.float64] | None = None
+        self, scores: NDArray[np.float64], weights: NDArray[np.float64] | None = None
     ) -> float | NDArray[np.float64]:
         """Apply averaging to per-class scores."""
         if self == AveragingMethod.NONE:
@@ -189,6 +181,7 @@ class EstimationMode(Enum):
 # Validated Array Types with Shape Awareness
 # ============================================================================
 
+
 @dataclass(frozen=True, slots=True)
 class ValidatedArray(Generic[Shape]):
     """Base class for validated numpy arrays with shape tracking."""
@@ -256,7 +249,7 @@ class BinaryLabels(ValidatedArray["N"]):
 
         # Ensure integer type
         if not np.issubdtype(self.data.dtype, np.integer):
-            object.__setattr__(self, 'data', self.data.astype(np.int8))
+            object.__setattr__(self, "data", self.data.astype(np.int8))
 
     @cached_property
     def n_samples(self) -> int:
@@ -300,7 +293,7 @@ class MulticlassLabels(ValidatedArray["N"]):
 
         # Ensure integer type
         if not np.issubdtype(self.data.dtype, np.integer):
-            object.__setattr__(self, 'data', self.data.astype(np.int32))
+            object.__setattr__(self, "data", self.data.astype(np.int32))
 
         unique = np.unique(self.data)
         if len(unique) == 0:
@@ -367,19 +360,20 @@ class Probabilities(ValidatedArray[Any]):
 
         # Ensure float type
         if not np.issubdtype(self.data.dtype, np.floating):
-            object.__setattr__(self, 'data', self.data.astype(np.float64))
+            object.__setattr__(self, "data", self.data.astype(np.float64))
 
         # For 2D (multiclass), check row sums
         if self.data.ndim == 2:
             row_sums = np.sum(self.data, axis=1)
             if not np.allclose(row_sums, 1.0, rtol=1e-3, atol=1e-3):
                 import warnings
+
                 warnings.warn(
                     f"Multiclass probabilities don't sum to 1.0 "
                     f"(range: [{row_sums.min():.3f}, {row_sums.max():.3f}]). "
                     "This may indicate unnormalized scores.",
                     UserWarning,
-                    stacklevel=4
+                    stacklevel=4,
                 )
 
     @cached_property
@@ -416,7 +410,7 @@ class Probabilities(ValidatedArray[Any]):
 
         if class_idx < 0 or class_idx >= self.n_classes:
             raise ValueError(
-                f"Class index {class_idx} out of range [0, {self.n_classes-1}]"
+                f"Class index {class_idx} out of range [0, {self.n_classes - 1}]"
             )
 
         return self.data[:, class_idx]
@@ -448,7 +442,7 @@ class SampleWeights(ValidatedArray["N"]):
 
         # Ensure float type
         if not np.issubdtype(self.data.dtype, np.floating):
-            object.__setattr__(self, 'data', self.data.astype(np.float64))
+            object.__setattr__(self, "data", self.data.astype(np.float64))
 
     @cached_property
     def total_weight(self) -> float:
@@ -464,12 +458,13 @@ class SampleWeights(ValidatedArray["N"]):
     def effective_sample_size(self) -> float:
         """Effective sample size accounting for weight variance."""
         weights = self.normalized
-        return float(1.0 / np.sum(weights ** 2))
+        return float(1.0 / np.sum(weights**2))
 
 
 # ============================================================================
 # Threshold Types
 # ============================================================================
+
 
 @final
 @dataclass(frozen=True, slots=True)
@@ -496,7 +491,7 @@ class ThresholdSpec:
                     f"Thresholds must be in [0, 1], got range "
                     f"[{values_array.min()}, {values_array.max()}]"
                 )
-            object.__setattr__(self, 'values', values_array)
+            object.__setattr__(self, "values", values_array)
 
     @property
     def is_scalar(self) -> bool:
@@ -521,7 +516,7 @@ class ThresholdSpec:
     def apply(
         self,
         probabilities: Probabilities,
-        operator: ComparisonOperator = ComparisonOperator.GTE
+        operator: ComparisonOperator = ComparisonOperator.GTE,
     ) -> NDArray[np.bool_]:
         """Apply threshold to probabilities to get binary predictions."""
         if self.is_scalar:
@@ -562,6 +557,7 @@ class ThresholdSpec:
 # Result Types
 # ============================================================================
 
+
 @final
 @dataclass(frozen=True, slots=True)
 class ConfusionMatrix:
@@ -582,7 +578,7 @@ class ConfusionMatrix:
         cls,
         y_true: BinaryLabels[Any],
         y_pred: NDArray[np.bool_],
-        sample_weight: SampleWeights[Any] | None = None
+        sample_weight: SampleWeights[Any] | None = None,
     ) -> Self:
         """Create from true labels and binary predictions."""
         if len(y_true) != len(y_pred):
@@ -641,19 +637,25 @@ class ConfusionMatrix:
         """F-beta score."""
         if self.precision == 0 and self.recall == 0:
             return 0.0
-        beta_sq = beta ** 2
+        beta_sq = beta**2
         return (
-            (1 + beta_sq) * self.precision * self.recall
+            (1 + beta_sq)
+            * self.precision
+            * self.recall
             / (beta_sq * self.precision + self.recall)
         )
 
     @cached_property
     def mcc(self) -> float:
         """Matthews Correlation Coefficient."""
-        denom = float(np.sqrt(
-            (self.tp + self.fp) * (self.tp + self.fn)
-            * (self.tn + self.fp) * (self.tn + self.fn)
-        ))
+        denom = float(
+            np.sqrt(
+                (self.tp + self.fp)
+                * (self.tp + self.fn)
+                * (self.tn + self.fp)
+                * (self.tn + self.fn)
+            )
+        )
         if denom == 0:
             return 0.0
         return float((self.tp * self.tn - self.fp * self.fn) / denom)
@@ -672,23 +674,24 @@ class OptimizationResult:
     @property
     def converged(self) -> bool:
         """Whether optimization converged (if applicable)."""
-        return bool(self.metadata.get('converged', True))
+        return bool(self.metadata.get("converged", True))
 
     @property
     def n_iterations(self) -> int | None:
         """Number of iterations taken (if applicable)."""
-        result = self.metadata.get('n_iterations')
+        result = self.metadata.get("n_iterations")
         return int(result) if result is not None else None
 
     @property
     def method_used(self) -> str | None:
         """Optimization method that was used."""
-        return self.metadata.get('method')
+        return self.metadata.get("method")
 
 
 # ============================================================================
 # Utility Specification
 # ============================================================================
+
 
 @final
 @dataclass(frozen=True, slots=True)
@@ -703,10 +706,10 @@ class UtilitySpec:
     def compute_utility(self, cm: ConfusionMatrix) -> float:
         """Compute total utility from confusion matrix."""
         return (
-            self.tp_utility * cm.tp +
-            self.tn_utility * cm.tn +
-            self.fp_utility * cm.fp +
-            self.fn_utility * cm.fn
+            self.tp_utility * cm.tp
+            + self.tn_utility * cm.tn
+            + self.fp_utility * cm.fp
+            + self.fn_utility * cm.fn
         )
 
     @classmethod
@@ -716,21 +719,21 @@ class UtilitySpec:
             tp_utility=0.0,
             tn_utility=0.0,
             fp_utility=-abs(fp_cost),
-            fn_utility=-abs(fn_cost)
+            fn_utility=-abs(fn_cost),
         )
 
     @classmethod
     def from_dict(cls, utility_dict: dict[str, float]) -> Self:
         """Create from dictionary with keys 'tp', 'tn', 'fp', 'fn'."""
-        required_keys = {'tp', 'tn', 'fp', 'fn'}
+        required_keys = {"tp", "tn", "fp", "fn"}
         if not all(key in utility_dict for key in required_keys):
             raise ValueError(f"Utility dict must contain keys: {required_keys}")
 
         return cls(
-            tp_utility=utility_dict['tp'],
-            tn_utility=utility_dict['tn'],
-            fp_utility=utility_dict['fp'],
-            fn_utility=utility_dict['fn']
+            tp_utility=utility_dict["tp"],
+            tn_utility=utility_dict["tn"],
+            fp_utility=utility_dict["fp"],
+            fn_utility=utility_dict["fn"],
         )
 
 
@@ -756,6 +759,6 @@ SampleWeightLike: TypeAlias = ArrayLike | None
 
 # String literals for enum compatibility
 OptimizationMethodLiteral: TypeAlias = str  # Will be replaced by OptimizationMethod
-AveragingMethodLiteral: TypeAlias = str     # Will be replaced by AveragingMethod
+AveragingMethodLiteral: TypeAlias = str  # Will be replaced by AveragingMethod
 ComparisonOperatorLiteral: TypeAlias = str  # Will be replaced by ComparisonOperator
-EstimationModeLiteral: TypeAlias = str      # Will be replaced by EstimationMode
+EstimationModeLiteral: TypeAlias = str  # Will be replaced by EstimationMode

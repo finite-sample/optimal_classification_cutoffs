@@ -9,29 +9,14 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .binary_optimization import optimal_threshold_piecewise
+from .binary_optimization import find_optimal_threshold
 from .types import (
     AveragingMethodLiteral,
     ComparisonOperatorLiteral,
     OptimizationMethodLiteral,
     SampleWeightLike,
 )
-
-
-def validate_multiclass_input(
-    true_labs: ArrayLike, pred_prob: ArrayLike
-) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-    """Simple validation for multiclass inputs."""
-    true_labs = np.asarray(true_labs)
-    pred_prob = np.asarray(pred_prob)
-
-    if pred_prob.ndim != 2:
-        raise ValueError("pred_prob must be 2D for multiclass")
-    if true_labs.shape[0] != pred_prob.shape[0]:
-        raise ValueError("true_labs and pred_prob must have same number of samples")
-
-    return true_labs, pred_prob
-
+from .validation import validate_multiclass_input
 
 
 def get_optimal_multiclass_thresholds(
@@ -75,7 +60,9 @@ def get_optimal_multiclass_thresholds(
     - For average="micro", uses a single global threshold across all classes
     - For other averaging strategies, optimizes per-class thresholds independently
     """
-    true_labs, pred_prob = validate_multiclass_input(true_labs, pred_prob)
+    true_labs, pred_prob = validate_multiclass_input(
+        true_labs, pred_prob, require_consecutive=False, require_proba=False
+    )
 
     if sample_weight is not None:
         sample_weight = np.asarray(sample_weight, dtype=float)
@@ -86,7 +73,15 @@ def get_optimal_multiclass_thresholds(
 
     # Handle coordinate ascent method
     if method == "coord_ascent":
-        # Coordinate ascent has specific requirements and limitations
+        # Additional validation for coordinate ascent - requires consecutive labels
+        from .validation import validate_multiclass_labels
+
+        validation_result = validate_multiclass_labels(
+            true_labs, n_classes=n_classes, require_consecutive=True
+        )
+        validation_result.raise_if_invalid()
+
+        # New implementation with fewer limitations
         if sample_weight is not None:
             raise NotImplementedError(
                 "Coordinate ascent does not support sample weights. "
@@ -103,26 +98,30 @@ def get_optimal_multiclass_thresholds(
                 "Support for other piecewise metrics could be added in future versions."
             )
 
-        # Import required functions
-        from .metrics import get_vectorized_metric
-        from .multiclass_coord import optimal_multiclass_thresholds_coord_ascent
-        from .piecewise import optimal_threshold_sortscan
+        # Use the new high-performance implementation
+        from .multiclass_coord import coordinate_ascent_kernel
 
-        # Get vectorized F1 metric
-        f1_metric = get_vectorized_metric("f1")
+        # Convert inputs to proper types for Numba
+        true_labs_int32 = np.asarray(true_labs, dtype=np.int32)
+        pred_prob_float64 = np.asarray(pred_prob, dtype=np.float64, order="C")
 
-        # Call coordinate ascent algorithm
-        thresholds, _, _ = optimal_multiclass_thresholds_coord_ascent(
-            true_labs,
-            pred_prob,
-            sortscan_metric_fn=f1_metric,
-            sortscan_kernel=optimal_threshold_sortscan,
-            max_iter=20,
-            init="ovr_sortscan",
-            tol_stops=1,
+        # Call the optimized kernel directly
+        thresholds, _, _ = coordinate_ascent_kernel(
+            true_labs_int32, pred_prob_float64, max_iter=20, tol=1e-12
         )
 
         return thresholds
+
+    # Map method to strategy name for binary optimization calls
+    method_mapping = {
+        "sort_scan": "sort_scan",
+        "unique_scan": "sort_scan",
+        "minimize": "scipy",
+        "gradient": "gradient",
+        "coord_ascent": "sort_scan",  # Fallback for non-coord_ascent cases
+    }
+    strategy = method_mapping.get(method, "sort_scan")
+    operator = ">=" if comparison == ">=" else ">"
 
     if average == "micro":
         # Micro averaging: use single global threshold
@@ -142,9 +141,14 @@ def get_optimal_multiclass_thresholds(
         else:
             sample_weight_flat = None
 
-        # Find single optimal threshold
-        optimal_threshold = optimal_threshold_piecewise(
-            true_binary_flat, pred_prob_flat, metric, sample_weight_flat, comparison
+        # Find single optimal threshold using new API
+        optimal_threshold, _ = find_optimal_threshold(
+            true_binary_flat,
+            pred_prob_flat,
+            metric,
+            sample_weight_flat,
+            strategy,
+            operator,
         )
 
         # Return same threshold for all classes
@@ -161,12 +165,14 @@ def get_optimal_multiclass_thresholds(
 
         # TODO: Implement fully vectorized version
         for class_idx in range(n_classes):
-            optimal_thresholds[class_idx] = optimal_threshold_piecewise(
+            threshold, _ = find_optimal_threshold(
                 true_binary_all[:, class_idx],
                 pred_prob[:, class_idx],
                 metric,
                 sample_weight,
-                comparison,
+                strategy,
+                operator,
             )
+            optimal_thresholds[class_idx] = threshold
 
         return optimal_thresholds

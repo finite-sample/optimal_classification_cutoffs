@@ -13,6 +13,8 @@ from typing import Any
 
 import numpy as np
 
+from .validation import validate_binary_classification
+
 Array = np.ndarray[Any, Any]
 
 # Numerical tolerance for floating-point comparisons
@@ -24,90 +26,32 @@ def _validate_inputs(
 ) -> tuple[Array, Array]:
     """Validate and convert inputs for binary classification.
 
-    Parameters
-    ----------
-    y_true : Array
-        True binary labels.
-    pred_prob : Array
-        Predicted probabilities or scores.
-    require_proba : bool, default=True
-        If True, validate that pred_prob is in [0, 1]. If False, allow
-        arbitrary score ranges (e.g., logits).
-
-    Returns
-    -------
-    Tuple[Array, Array]
-        Validated and converted (y_true, pred_prob) arrays.
-
-    Raises
-    ------
-    ValueError
-        If inputs are invalid.
+    This is a thin wrapper around the centralized validation for compatibility.
     """
-    y = np.asarray(y_true)
-    p = np.asarray(pred_prob)
-
-    if y.ndim != 1 or p.ndim != 1:
-        raise ValueError("y_true and pred_prob must be 1D arrays.")
-
-    if y.shape[0] != p.shape[0]:
-        raise ValueError("y_true and pred_prob must be the same length.")
-
-    if y.shape[0] == 0:
-        raise ValueError("y_true and pred_prob cannot be empty.")
-
-    if not np.isin(y, [0, 1]).all():
-        raise ValueError("y_true must be binary in {0,1}.")
-
-    if np.any(~np.isfinite(p)):
-        raise ValueError("pred_prob must be finite.")
-
-    if require_proba and np.any((p < 0) | (p > 1)):
-        raise ValueError(
-            "pred_prob must be in [0, 1]. Use require_proba=False for scores."
-        )
-
-    return y.astype(np.int8, copy=False), p.astype(np.float64, copy=False)
+    validated_labels, validated_probs, _ = validate_binary_classification(
+        true_labs=y_true,
+        pred_prob=pred_prob,
+        require_proba=require_proba,
+        force_dtypes=True,  # Maintain int8/float64 for performance
+    )
+    return validated_labels, validated_probs
 
 
 def _validate_sample_weights(sample_weight: Array | None, n_samples: int) -> Array:
     """Validate and convert sample weights.
 
-    Parameters
-    ----------
-    sample_weight : Array or None
-        Sample weights.
-    n_samples : int
-        Number of samples expected.
-
-    Returns
-    -------
-    Array
-        Validated sample weights array.
-
-    Raises
-    ------
-    ValueError
-        If sample weights are invalid.
+    This is a thin wrapper around the centralized validation for compatibility.
     """
-    if sample_weight is None:
-        return np.ones(n_samples, dtype=np.float64)
+    _, _, validated_weights = validate_binary_classification(
+        true_labs=np.zeros(n_samples),  # Dummy labels for weight validation
+        pred_prob=np.zeros(n_samples),  # Dummy probabilities for weight validation
+        sample_weight=sample_weight,
+        return_default_weights=True,  # Return ones array when None
+        require_proba=False,  # Skip prob validation for dummy data
+    )
 
-    w = np.asarray(sample_weight, dtype=np.float64)
-
-    if w.ndim != 1:
-        raise ValueError("sample_weight must be 1D array.")
-
-    if w.shape[0] != n_samples:
-        raise ValueError(
-            f"sample_weight length ({w.shape[0]}) must match number of "
-            f"samples ({n_samples})."
-        )
-
-    if np.any(~np.isfinite(w)) or np.any(w < 0):
-        raise ValueError("sample_weight must be finite and non-negative.")
-
-    return w
+    # validated_weights is guaranteed to be non-None due to return_default_weights=True
+    return validated_weights
 
 
 def _vectorized_counts(
@@ -439,7 +383,9 @@ def optimal_threshold_sortscan(
     weights_sorted = weights[sort_idx]
 
     # Vectorized confusion matrix counts for all cuts
-    tp_vec, tn_vec, fp_vec, fn_vec = _vectorized_counts(y_sorted, weights_sorted)  # type: tuple[Array, Array, Array, Array]
+    tp_vec, tn_vec, fp_vec, fn_vec = _vectorized_counts(
+        y_sorted, weights_sorted
+    )  # type: tuple[Array, Array, Array, Array]
 
     # Vectorized metric computation over all cuts
     scores = _metric_from_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)
@@ -490,7 +436,7 @@ def optimal_threshold_sortscan(
 
         # Extremes for "none"/"all" predictions
         min_s = float(p_sorted[-1])  # smallest score (last in descending order)
-        max_s = float(p_sorted[0])   # largest score (first in descending order)
+        max_s = float(p_sorted[0])  # largest score (first in descending order)
         if inclusive:
             fallback_candidates += [min_s, float(np.nextafter(max_s, np.inf))]
         else:
@@ -499,10 +445,10 @@ def optimal_threshold_sortscan(
         # Local nudges around the k_star boundary
         if 0 < k_star < n:
             inc = float(p_sorted[k_star - 1])  # last included score
-            exc = float(p_sorted[k_star])      # first excluded score
+            exc = float(p_sorted[k_star])  # first excluded score
             fallback_candidates += [
                 float(np.nextafter(inc, -np.inf)),  # just below last included
-                float(np.nextafter(exc,  np.inf)),  # just above first excluded
+                float(np.nextafter(exc, np.inf)),  # just above first excluded
             ]
 
         # Test all fallback candidates
@@ -603,4 +549,3 @@ def optimal_threshold_sortscan(
 
     k_real = _realized_k(p_sorted, threshold, inclusive)
     return threshold, actual_score, k_real
-

@@ -1,316 +1,796 @@
-"""Core binary threshold optimization algorithms.
+"""Modern binary threshold optimization with pluggable strategies."""
 
-This module contains the fundamental algorithms for binary threshold optimization,
-extracted to break circular dependencies and provide a clean separation of concerns.
-"""
+from __future__ import annotations
+
+import warnings
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Protocol, final
 
 import numpy as np
-from numpy.typing import ArrayLike
+from scipy import optimize
 
-from .metrics import (
-    compute_metric_at_threshold,
-    get_vectorized_metric,
-)
-from .piecewise import optimal_threshold_sortscan
-from .types import ComparisonOperatorLiteral, SampleWeightLike
-from .validation import _validate_inputs
-
-# Note: confusion matrix and metric computation functions are now centralized
-# in metrics.py. Use compute_confusion_matrix_from_labels() and
-# compute_metric_at_threshold() instead.
+# ============================================================================
+# Core Data Structures
+# ============================================================================
 
 
-def optimal_threshold_piecewise(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    metric: str = "f1",
-    sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperatorLiteral = ">",
-    require_proba: bool = True,
-) -> float:
-    """Find optimal threshold using O(n log n) piecewise-constant optimization.
+@dataclass(frozen=True, slots=True)
+class BinaryData:
+    """Validated binary classification data."""
 
-    Uses the sort-and-scan algorithm for metrics that are piecewise-constant
-    as a function of threshold.
+    labels: np.ndarray  # int8, shape (n,)
+    scores: np.ndarray  # float64, shape (n,)
+    weights: np.ndarray | None = None  # float64, shape (n,) or None
 
-    Parameters
-    ----------
-    true_labs : array-like of shape (n_samples,)
-        True binary labels (0 or 1)
-    pred_prob : array-like of shape (n_samples,)
-        Predicted probabilities for the positive class
-    metric : str, default="f1"
-        Metric to optimize (must be piecewise-constant)
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : {">" or ">="}, default=">"
-        Comparison operator for threshold application
-    require_proba : bool, default=True
-        If True, validate that pred_prob is in [0, 1]. If False, allow
-        arbitrary score ranges (e.g., logits).
+    def __post_init__(self):
+        """Validate and normalize data."""
+        # Convert and validate
+        labels = np.asarray(self.labels, dtype=np.int8)
+        scores = np.asarray(self.scores, dtype=np.float64)
 
-    Returns
-    -------
-    float
-        Optimal threshold value
+        if labels.ndim != 1 or scores.ndim != 1:
+            raise ValueError("Labels and scores must be 1D")
+        if len(labels) != len(scores):
+            raise ValueError(f"Length mismatch: {len(labels)} vs {len(scores)}")
+        if not np.all(np.isin(labels, [0, 1])):
+            raise ValueError("Labels must be binary (0 or 1)")
+        if not np.all(np.isfinite(scores)):
+            raise ValueError("Scores must be finite")
 
-    Raises
-    ------
-    ValueError
-        If the metric is not supported or inputs are invalid
-    """
-    true_labs, pred_prob, _ = _validate_inputs(
-        true_labs, pred_prob, require_proba=require_proba
-    )
+        # Handle weights
+        if self.weights is not None:
+            weights = np.asarray(self.weights, dtype=np.float64)
+            if weights.ndim != 1 or len(weights) != len(labels):
+                raise ValueError("Invalid weights shape")
+            if not np.all(weights >= 0):
+                raise ValueError("Weights must be non-negative")
+            if np.sum(weights) == 0:
+                raise ValueError("Weights sum to zero")
+            object.__setattr__(self, "weights", weights)
 
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=float)
-        if sample_weight.shape[0] != true_labs.shape[0]:
-            raise ValueError("sample_weight must have same length as true_labs")
+        object.__setattr__(self, "labels", labels)
+        object.__setattr__(self, "scores", scores)
 
-    # Try the fast piecewise optimization
-    try:
-        vectorized_metric = get_vectorized_metric(metric)
-        threshold, _, _ = optimal_threshold_sortscan(
-            true_labs,
-            pred_prob,
-            vectorized_metric,
-            sample_weight=sample_weight,
-            inclusive=(comparison == ">="),
-            require_proba=require_proba,
-        )
-        # Allow slight tolerance outside [0,1] for edge cases
-        # (e.g., all-negative with >=)
-        # Use machine epsilon for floating point precision
-        if require_proba:
-            eps = np.finfo(float).eps  # approximately 2.22e-16
-            tolerance = eps * 10  # small buffer for floating point comparisons
-            threshold = max(
-                float(-tolerance), min(float(1.0 + tolerance), float(threshold))
-            )
-        return float(threshold)
-    except (ValueError, NotImplementedError, KeyError):
-        pass
+    @property
+    def n_samples(self) -> int:
+        """Number of samples."""
+        return len(self.labels)
 
-    # Fall back to brute force optimization
-    return _optimal_threshold_piecewise_fallback(
-        true_labs, pred_prob, metric, sample_weight, comparison
-    )
+    @property
+    def score_range(self) -> tuple[float, float]:
+        """Min and max scores."""
+        return float(np.min(self.scores)), float(np.max(self.scores))
+
+    @property
+    def unique_scores(self) -> np.ndarray:
+        """Unique score values sorted."""
+        return np.unique(self.scores)
 
 
-def _optimal_threshold_piecewise_fallback(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    metric: str = "f1",
-    sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperatorLiteral = ">",
-) -> float:
-    """Fallback implementation using brute force over unique probabilities."""
-    true_labs, pred_prob, _ = _validate_inputs(true_labs, pred_prob)
+@dataclass(frozen=True, slots=True)
+class ThresholdResult:
+    """Result from threshold optimization."""
 
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=float)
+    threshold: float
+    score: float
+    metadata: dict = field(default_factory=dict)
 
-    # Get unique thresholds to test
-    unique_probs = np.unique(pred_prob)
+    def apply(self, scores: np.ndarray, operator: str = ">=") -> np.ndarray:
+        """Apply threshold to get predictions."""
+        if operator == ">=":
+            return scores >= self.threshold
+        elif operator == ">":
+            return scores > self.threshold
+        else:
+            raise ValueError(f"Invalid operator: {operator}")
 
-    # Add boundary values
-    if comparison == ">":
-        candidates = np.concatenate([[0.0], unique_probs, [1.0]])
-    else:  # ">="
-        candidates = np.concatenate([[0.0], unique_probs])
 
-    best_threshold = 0.0
-    best_score = -np.inf
+# ============================================================================
+# Metric Protocol
+# ============================================================================
 
-    for threshold in candidates:
-        try:
-            score = compute_metric_at_threshold(
-                true_labs, pred_prob, threshold, metric, sample_weight, comparison
-            )
+
+class BinaryMetric(Protocol):
+    """Protocol for binary classification metrics."""
+
+    def __call__(self, tp: int, tn: int, fp: int, fn: int) -> float:
+        """Compute metric from confusion matrix."""
+        ...
+
+    @property
+    def is_piecewise_constant(self) -> bool:
+        """Whether metric is piecewise constant in threshold."""
+        ...
+
+    @property
+    def requires_probability(self) -> bool:
+        """Whether metric requires probabilities (vs arbitrary scores)."""
+        ...
+
+
+# ============================================================================
+# Fast Numba Kernels
+# ============================================================================
+
+try:
+    from numba import float64, int32, jit, prange
+
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+
+    # Define dummy decorators for when numba is not available
+    def jit(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def prange(*args, **kwargs):
+        return range(*args, **kwargs)
+
+    float64 = float
+    int32 = int
+
+
+if NUMBA_AVAILABLE:
+
+    @jit(nopython=True, parallel=True, cache=True)
+    def compute_confusion_matrix_weighted(
+        labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
+    ) -> tuple[float64, float64, float64, float64]:
+        """Compute weighted confusion matrix elements."""
+        tp = tn = fp = fn = 0.0
+
+        if weights is None:
+            for i in prange(len(labels)):
+                if labels[i] == 1:
+                    if predictions[i]:
+                        tp += 1
+                    else:
+                        fn += 1
+                else:
+                    if predictions[i]:
+                        fp += 1
+                    else:
+                        tn += 1
+        else:
+            for i in prange(len(labels)):
+                w = weights[i]
+                if labels[i] == 1:
+                    if predictions[i]:
+                        tp += w
+                    else:
+                        fn += w
+                else:
+                    if predictions[i]:
+                        fp += w
+                    else:
+                        tn += w
+
+        return tp, tn, fp, fn
+
+    @jit(nopython=True, fastmath=True, cache=True)
+    def fast_f1_score(tp: float64, tn: float64, fp: float64, fn: float64) -> float64:
+        """Compute F1 score from confusion matrix."""
+        denom = 2 * tp + fp + fn
+        return 2 * tp / denom if denom > 0 else 0.0
+
+    @jit(nopython=True, parallel=True, cache=True)
+    def sort_scan_kernel(
+        labels: np.ndarray,
+        scores: np.ndarray,
+        weights: np.ndarray | None,
+        inclusive: bool,
+    ) -> tuple[float64, float64]:
+        """Pure Numba sort-and-scan implementation."""
+        n = len(labels)
+
+        # Sort by scores (descending for easier logic)
+        order = np.argsort(-scores)
+        sorted_labels = labels[order]
+        sorted_scores = scores[order]
+        sorted_weights = weights[order] if weights is not None else None
+
+        # Initial state: all negative (threshold > max score)
+        tp = 0.0
+        fn = 0.0
+        fp = 0.0
+        tn = 0.0
+
+        # Count initial state
+        for i in range(n):
+            if sorted_labels[i] == 1:
+                fn += sorted_weights[i] if sorted_weights is not None else 1.0
+            else:
+                tn += sorted_weights[i] if sorted_weights is not None else 1.0
+
+        best_threshold = sorted_scores[0] + 1e-10
+        best_score = fast_f1_score(tp, tn, fp, fn)
+
+        # Scan through thresholds (decreasing scores)
+        for i in range(n):
+            # Update confusion matrix by moving threshold to include this sample
+            if sorted_labels[i] == 1:
+                tp += sorted_weights[i] if sorted_weights is not None else 1.0
+                fn -= sorted_weights[i] if sorted_weights is not None else 1.0
+            else:
+                fp += sorted_weights[i] if sorted_weights is not None else 1.0
+                tn -= sorted_weights[i] if sorted_weights is not None else 1.0
+
+            # Compute score
+            score = fast_f1_score(tp, tn, fp, fn)
+
+            # Update best
             if score > best_score:
                 best_score = score
-                best_threshold = threshold
-        except (ValueError, ZeroDivisionError):
-            # Skip invalid thresholds
-            continue
+                if i < n - 1:
+                    # Midpoint between current and next
+                    best_threshold = 0.5 * (sorted_scores[i] + sorted_scores[i + 1])
+                else:
+                    # After last score
+                    best_threshold = sorted_scores[i] - 1e-10
 
-    return float(best_threshold)
+        return best_threshold, best_score
+
+else:
+    # Pure Python fallbacks when Numba is not available
+    def compute_confusion_matrix_weighted(
+        labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
+    ) -> tuple[float, float, float, float]:
+        """Compute weighted confusion matrix elements (Python fallback)."""
+        tp = tn = fp = fn = 0.0
+
+        if weights is None:
+            for i in range(len(labels)):
+                if labels[i] == 1:
+                    if predictions[i]:
+                        tp += 1
+                    else:
+                        fn += 1
+                else:
+                    if predictions[i]:
+                        fp += 1
+                    else:
+                        tn += 1
+        else:
+            for i in range(len(labels)):
+                w = weights[i]
+                if labels[i] == 1:
+                    if predictions[i]:
+                        tp += w
+                    else:
+                        fn += w
+                else:
+                    if predictions[i]:
+                        fp += w
+                    else:
+                        tn += w
+
+        return tp, tn, fp, fn
+
+    def fast_f1_score(tp: float, tn: float, fp: float, fn: float) -> float:
+        """Compute F1 score from confusion matrix (Python fallback)."""
+        denom = 2 * tp + fp + fn
+        return 2 * tp / denom if denom > 0 else 0.0
+
+    def sort_scan_kernel(
+        labels: np.ndarray,
+        scores: np.ndarray,
+        weights: np.ndarray | None,
+        inclusive: bool,
+    ) -> tuple[float, float]:
+        """Pure Python sort-and-scan implementation."""
+        n = len(labels)
+
+        # Sort by scores (descending for easier logic)
+        order = np.argsort(-scores)
+        sorted_labels = labels[order]
+        sorted_scores = scores[order]
+        sorted_weights = weights[order] if weights is not None else None
+
+        # Initial state: all negative (threshold > max score)
+        tp = 0.0
+        fn = float(
+            np.sum(sorted_weights[sorted_labels == 1])
+            if sorted_weights is not None
+            else np.sum(sorted_labels)
+        )
+        fp = 0.0
+        tn = float(
+            np.sum(sorted_weights[sorted_labels == 0])
+            if sorted_weights is not None
+            else np.sum(1 - sorted_labels)
+        )
+
+        best_threshold = float(sorted_scores[0] + 1e-10)
+        best_score = fast_f1_score(tp, tn, fp, fn)
+
+        # Scan through thresholds (decreasing scores)
+        for i in range(n):
+            # Update confusion matrix by moving threshold to include this sample
+            w = sorted_weights[i] if sorted_weights is not None else 1.0
+            if sorted_labels[i] == 1:
+                tp += w
+                fn -= w
+            else:
+                fp += w
+                tn -= w
+
+            # Compute score
+            score = fast_f1_score(tp, tn, fp, fn)
+
+            # Update best
+            if score > best_score:
+                best_score = score
+                if i < n - 1:
+                    # Midpoint between current and next
+                    best_threshold = 0.5 * (sorted_scores[i] + sorted_scores[i + 1])
+                else:
+                    # After last score
+                    best_threshold = float(sorted_scores[i] - 1e-10)
+
+        return best_threshold, best_score
 
 
-def optimal_threshold_minimize(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    metric: str = "f1",
-    sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperatorLiteral = ">",
-) -> float:
-    """Find optimal threshold using scipy.optimize.minimize_scalar.
+# ============================================================================
+# Optimization Strategies
+# ============================================================================
 
-    Parameters
-    ----------
-    true_labs : array-like of shape (n_samples,)
-        True binary labels (0 or 1)
-    pred_prob : array-like of shape (n_samples,)
-        Predicted probabilities for the positive class
-    metric : str, default="f1"
-        Metric to optimize
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : {">" or ">="}, default=">"
-        Comparison operator for threshold application
 
-    Returns
-    -------
-    float
-        Optimal threshold value
-    """
-    from scipy import optimize  # type: ignore[import-untyped]
+class OptimizationStrategy(ABC):
+    """Abstract base for optimization strategies."""
 
-    true_labs, pred_prob, _ = _validate_inputs(true_labs, pred_prob)
+    @abstractmethod
+    def optimize(
+        self,
+        data: BinaryData,
+        metric: Callable[[int, int, int, int], float],
+        operator: str = ">=",
+    ) -> ThresholdResult:
+        """Find optimal threshold."""
+        ...
 
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=float)
 
-    def objective(threshold: float) -> float:
-        """Objective function to minimize (negative metric score)."""
-        try:
-            score = compute_metric_at_threshold(
-                true_labs, pred_prob, threshold, metric, sample_weight, comparison
+@final
+class SortScanStrategy(OptimizationStrategy):
+    """O(n log n) sort-and-scan for piecewise constant metrics."""
+
+    def optimize(
+        self,
+        data: BinaryData,
+        metric: Callable[[int, int, int, int], float],
+        operator: str = ">=",
+    ) -> ThresholdResult:
+        """Optimize using sort-and-scan algorithm."""
+        # Use fast Numba kernel for F1
+        if hasattr(metric, "__name__") and metric.__name__ in ("f1_score", "f1"):
+            threshold, score = sort_scan_kernel(
+                data.labels, data.scores, data.weights, inclusive=(operator == ">=")
             )
-            return -score  # Minimize negative score = maximize score
-        except (ValueError, ZeroDivisionError):
-            return np.inf  # Return large value for invalid thresholds
+            return ThresholdResult(
+                threshold=float(threshold),
+                score=float(score),
+                metadata={
+                    "method": "sort_scan_numba",
+                    "numba_available": NUMBA_AVAILABLE,
+                },
+            )
 
-    # Optimize over [0, 1] interval
-    scipy_threshold = None
-    scipy_score = -np.inf
+        # Generic implementation for other metrics
+        return self._generic_sort_scan(data, metric, operator)
 
-    try:
+    def _generic_sort_scan(
+        self, data: BinaryData, metric: Callable, operator: str
+    ) -> ThresholdResult:
+        """Generic sort-and-scan implementation."""
+        # Sort by scores
+        order = np.argsort(data.scores)
+        sorted_labels = data.labels[order]
+        sorted_scores = data.scores[order]
+
+        best_threshold = float(sorted_scores[0] - 1e-10)
+        best_score = -np.inf
+
+        # Scan through unique thresholds
+        unique_scores = np.unique(sorted_scores)
+
+        for i, score_val in enumerate(unique_scores):
+            # Find threshold position
+            if operator == ">=":
+                predictions = sorted_scores >= score_val
+            else:
+                predictions = sorted_scores > score_val
+
+            # Compute metric
+            tp, tn, fp, fn = compute_confusion_matrix_weighted(
+                sorted_labels, predictions, data.weights
+            )
+            score = metric(int(tp), int(tn), int(fp), int(fn))
+
+            if score > best_score:
+                best_score = score
+                if i > 0:
+                    best_threshold = 0.5 * (unique_scores[i - 1] + score_val)
+                else:
+                    best_threshold = float(score_val - 1e-10)
+
+        return ThresholdResult(
+            threshold=best_threshold,
+            score=best_score,
+            metadata={"method": "sort_scan_generic", "n_unique": len(unique_scores)},
+        )
+
+
+@final
+class ScipyOptimizeStrategy(OptimizationStrategy):
+    """Scipy-based optimization for smooth metrics."""
+
+    def __init__(self, method: str = "bounded", tol: float = 1e-6):
+        self.method = method
+        self.tol = tol
+
+    def optimize(
+        self,
+        data: BinaryData,
+        metric: Callable[[int, int, int, int], float],
+        operator: str = ">=",
+    ) -> ThresholdResult:
+        """Optimize using scipy.optimize."""
+
+        def objective(threshold: float) -> float:
+            """Objective to minimize (negative metric)."""
+            predictions = (
+                (data.scores >= threshold)
+                if operator == ">="
+                else (data.scores > threshold)
+            )
+            tp, tn, fp, fn = compute_confusion_matrix_weighted(
+                data.labels, predictions, data.weights
+            )
+            try:
+                return -metric(int(tp), int(tn), int(fp), int(fn))
+            except (ValueError, ZeroDivisionError):
+                return np.inf
+
+        # Optimize within score range
+        min_score, max_score = data.score_range
+
         result = optimize.minimize_scalar(
-            objective, bounds=(0.0, 1.0), method="bounded"
+            objective,
+            bounds=(min_score - 1e-10, max_score + 1e-10),
+            method=self.method,
+            options={"xatol": self.tol},
         )
+
         if result.success:
-            scipy_threshold = float(result.x)
-            scipy_score = -result.fun  # Convert back from negative
-    except Exception:
-        pass
-
-    # Always try a few key candidate thresholds to ensure we don't miss obvious optima
-    unique_probs = np.unique(pred_prob)
-    candidates = [0.0, 1.0]
-
-    # Add unique probabilities and their neighbors for discrete optimization
-    for prob in unique_probs:
-        candidates.extend([prob - 1e-10, prob, prob + 1e-10])
-
-    # Remove duplicates and sort
-    candidates = sorted(set(candidates))
-    candidates = [c for c in candidates if 0.0 <= c <= 1.0]
-
-    best_threshold = scipy_threshold if scipy_threshold is not None else 0.5
-    best_score = scipy_score
-
-    # Test candidate thresholds
-    for threshold in candidates:
-        try:
-            score = compute_metric_at_threshold(
-                true_labs, pred_prob, threshold, metric, sample_weight, comparison
+            return ThresholdResult(
+                threshold=float(result.x),
+                score=-result.fun,
+                metadata={"method": "scipy", "iterations": result.nfev},
             )
-            if score > best_score:
-                best_score = score
-                best_threshold = threshold
-        except (ValueError, ZeroDivisionError):
-            continue
 
-    # If we still don't have a good result, fallback to piecewise method
-    if best_score == -np.inf or best_threshold is None:
-        return optimal_threshold_piecewise(
-            true_labs, pred_prob, metric, sample_weight, comparison
+        # Fallback to sort-scan
+        return SortScanStrategy().optimize(data, metric, operator)
+
+
+@final
+class GradientStrategy(OptimizationStrategy):
+    """Gradient-based optimization (warning: ineffective for piecewise metrics)."""
+
+    def __init__(
+        self, learning_rate: float = 0.01, max_iter: int = 1000, tol: float = 1e-6
+    ):
+        self.learning_rate = learning_rate
+        self.max_iter = max_iter
+        self.tol = tol
+
+    def optimize(
+        self,
+        data: BinaryData,
+        metric: Callable[[int, int, int, int], float],
+        operator: str = ">=",
+    ) -> ThresholdResult:
+        """Optimize using gradient ascent."""
+        warnings.warn(
+            "Gradient optimization is ineffective for piecewise-constant metrics. "
+            "Use SortScanStrategy instead.",
+            UserWarning,
+            stacklevel=2,
         )
 
-    return float(best_threshold)
+        # Initialize at median score
+        threshold = float(np.median(data.scores))
+        min_score, max_score = data.score_range
 
-
-def optimal_threshold_gradient(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    metric: str = "f1",
-    sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperatorLiteral = ">",
-    learning_rate: float = 0.01,
-    max_iter: int = 1000,
-    tol: float = 1e-6,
-) -> float:
-    """Find optimal threshold using gradient ascent.
-
-    Simple gradient-based optimization for threshold selection.
-
-    Parameters
-    ----------
-    true_labs : array-like of shape (n_samples,)
-        True binary labels (0 or 1)
-    pred_prob : array-like of shape (n_samples,)
-        Predicted probabilities for the positive class
-    metric : str, default="f1"
-        Metric to optimize
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : {">" or ">="}, default=">"
-        Comparison operator for threshold application
-    learning_rate : float, default=0.01
-        Learning rate for gradient ascent
-    max_iter : int, default=1000
-        Maximum number of iterations
-    tol : float, default=1e-6
-        Tolerance for convergence
-
-    Returns
-    -------
-    float
-        Optimal threshold value
-    """
-    true_labs, pred_prob, _ = _validate_inputs(true_labs, pred_prob)
-
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=float)
-
-    # Start from middle of probability range
-    threshold = 0.5
-
-    for _ in range(max_iter):
-        # Compute gradient using finite differences
-        eps = 1e-6
-
-        # Clamp to valid range
-        thresh_plus = min(threshold + eps, 1.0)
-        thresh_minus = max(threshold - eps, 0.0)
-
-        try:
-            score_plus = compute_metric_at_threshold(
-                true_labs, pred_prob, thresh_plus, metric, sample_weight, comparison
-            )
-            score_minus = compute_metric_at_threshold(
-                true_labs, pred_prob, thresh_minus, metric, sample_weight, comparison
-            )
-
+        iteration = 0
+        for iteration in range(self.max_iter):  # noqa: B007 (used in metadata)
             # Finite difference gradient
-            gradient = (score_plus - score_minus) / (thresh_plus - thresh_minus)
+            eps = 1e-6
+            t_plus = min(threshold + eps, max_score + 1e-10)
+            t_minus = max(threshold - eps, min_score - 1e-10)
 
-            # Update threshold
-            new_threshold = threshold + learning_rate * gradient
-            new_threshold = np.clip(new_threshold, 0.0, 1.0)
+            # Compute scores
+            pred_plus = (
+                (data.scores >= t_plus) if operator == ">=" else (data.scores > t_plus)
+            )
+            pred_minus = (
+                (data.scores >= t_minus)
+                if operator == ">="
+                else (data.scores > t_minus)
+            )
 
-            # Check convergence
-            if abs(new_threshold - threshold) < tol:
+            tp_p, tn_p, fp_p, fn_p = compute_confusion_matrix_weighted(
+                data.labels, pred_plus, data.weights
+            )
+            tp_m, tn_m, fp_m, fn_m = compute_confusion_matrix_weighted(
+                data.labels, pred_minus, data.weights
+            )
+
+            score_plus = metric(int(tp_p), int(tn_p), int(fp_p), int(fn_p))
+            score_minus = metric(int(tp_m), int(tn_m), int(fp_m), int(fn_m))
+
+            # Gradient and update
+            gradient = (score_plus - score_minus) / (t_plus - t_minus)
+            new_threshold = threshold + self.learning_rate * gradient
+            new_threshold = np.clip(new_threshold, min_score - 1e-10, max_score + 1e-10)
+
+            if abs(new_threshold - threshold) < self.tol:
                 break
 
             threshold = new_threshold
 
-        except (ValueError, ZeroDivisionError):
-            # Fallback to piecewise method
-            return optimal_threshold_piecewise(
-                true_labs, pred_prob, metric, sample_weight, comparison
+        # Final evaluation
+        predictions = (
+            (data.scores >= threshold)
+            if operator == ">="
+            else (data.scores > threshold)
+        )
+        tp, tn, fp, fn = compute_confusion_matrix_weighted(
+            data.labels, predictions, data.weights
+        )
+        score = metric(int(tp), int(tn), int(fp), int(fn))
+
+        return ThresholdResult(
+            threshold=float(threshold),
+            score=score,
+            metadata={"method": "gradient", "iterations": iteration + 1},
+        )
+
+
+# ============================================================================
+# Strategy Selection
+# ============================================================================
+
+
+class StrategySelector:
+    """Automatically select best strategy based on metric properties."""
+
+    PIECEWISE_METRICS = {
+        "accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "f2",
+        "specificity",
+        "npv",
+        "balanced_accuracy",
+    }
+
+    SMOOTH_METRICS = {"auc", "log_loss", "brier_score", "cross_entropy"}
+
+    @classmethod
+    def select(
+        cls, metric_name: str | None = None, force_strategy: str | None = None
+    ) -> OptimizationStrategy:
+        """Select appropriate optimization strategy."""
+        if force_strategy:
+            strategies = {
+                "sort_scan": SortScanStrategy(),
+                "scipy": ScipyOptimizeStrategy(),
+                "gradient": GradientStrategy(),
+            }
+            if force_strategy not in strategies:
+                raise ValueError(f"Unknown strategy: {force_strategy}")
+            return strategies[force_strategy]
+
+        if metric_name:
+            if metric_name.lower() in cls.PIECEWISE_METRICS:
+                return SortScanStrategy()
+            elif metric_name.lower() in cls.SMOOTH_METRICS:
+                return ScipyOptimizeStrategy()
+
+        # Default to sort-scan (works for everything, optimal for piecewise)
+        return SortScanStrategy()
+
+
+# ============================================================================
+# Main API
+# ============================================================================
+
+
+class ThresholdOptimizer:
+    """High-level threshold optimizer with automatic strategy selection."""
+
+    def __init__(
+        self,
+        strategy: OptimizationStrategy | str | None = None,
+        operator: str = ">=",
+        require_probability: bool = True,
+    ):
+        """Initialize optimizer.
+
+        Parameters
+        ----------
+        strategy : OptimizationStrategy, str, or None
+            Optimization strategy or name ('sort_scan', 'scipy', 'gradient')
+        operator : str, default=">="
+            Comparison operator (">=" or ">")
+        require_probability : bool, default=True
+            Whether to require scores in [0, 1]
+        """
+        if isinstance(strategy, str):
+            self.strategy = StrategySelector.select(force_strategy=strategy)
+        elif strategy is None:
+            self.strategy = None  # Will auto-select based on metric
+        else:
+            self.strategy = strategy
+
+        self.operator = operator
+        self.require_probability = require_probability
+
+    def optimize(
+        self,
+        labels: np.ndarray,
+        scores: np.ndarray,
+        metric: str | Callable = "f1",
+        weights: np.ndarray | None = None,
+    ) -> ThresholdResult:
+        """Find optimal threshold.
+
+        Parameters
+        ----------
+        labels : array-like
+            Binary labels (0 or 1)
+        scores : array-like
+            Prediction scores
+        metric : str or callable
+            Metric to optimize
+        weights : array-like, optional
+            Sample weights
+
+        Returns
+        -------
+        ThresholdResult
+            Optimal threshold and score
+        """
+        # Validate data
+        data = BinaryData(labels, scores, weights)
+
+        # Check probability requirement
+        if self.require_probability:
+            min_score, max_score = data.score_range
+            if min_score < 0 or max_score > 1:
+                raise ValueError(
+                    f"Scores must be in [0, 1], got [{min_score}, {max_score}]"
+                )
+
+        # Get metric function
+        if isinstance(metric, str):
+            metric_fn = self._get_metric_function(metric)
+            # Auto-select strategy based on metric if not specified
+            if self.strategy is None:
+                self.strategy = StrategySelector.select(metric_name=metric)
+        else:
+            metric_fn = metric
+            # Auto-select default strategy if not specified
+            if self.strategy is None:
+                self.strategy = StrategySelector.select()
+
+        # Optimize
+        result = self.strategy.optimize(data, metric_fn, self.operator)
+
+        # Clamp to [0, 1] if required
+        if self.require_probability:
+            result = ThresholdResult(
+                threshold=np.clip(result.threshold, 0.0, 1.0),
+                score=result.score,
+                metadata=result.metadata,
             )
 
-    return float(threshold)
+        return result
+
+    @staticmethod
+    def _get_metric_function(name: str) -> Callable:
+        """Get metric function by name."""
+        metrics = {
+            "f1": lambda tp, tn, fp, fn: (
+                2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) > 0 else 0
+            ),
+            "precision": lambda tp, tn, fp, fn: tp / (tp + fp) if (tp + fp) > 0 else 0,
+            "recall": lambda tp, tn, fp, fn: tp / (tp + fn) if (tp + fn) > 0 else 0,
+            "accuracy": lambda tp, tn, fp, fn: (tp + tn) / (tp + tn + fp + fn),
+            "specificity": lambda tp, tn, fp, fn: (
+                tn / (tn + fp) if (tn + fp) > 0 else 0
+            ),
+        }
+
+        if name not in metrics:
+            raise ValueError(f"Unknown metric: {name}")
+
+        return metrics[name]
+
+
+# ============================================================================
+# Convenience Functions
+# ============================================================================
+
+
+def find_optimal_threshold(
+    labels: np.ndarray,
+    scores: np.ndarray,
+    metric: str = "f1",
+    weights: np.ndarray | None = None,
+    strategy: str = "auto",
+    operator: str = ">=",
+    require_probability: bool = True,
+) -> tuple[float, float]:
+    """Simple functional interface for threshold optimization.
+
+    Parameters
+    ----------
+    labels : array-like
+        Binary labels (0 or 1)
+    scores : array-like
+        Prediction scores
+    metric : str, default="f1"
+        Metric to optimize
+    weights : array-like, optional
+        Sample weights
+    strategy : str, default="auto"
+        Optimization strategy ("auto", "sort_scan", "scipy", "gradient")
+    operator : str, default=">="
+        Comparison operator (">=" or ">")
+    require_probability : bool, default=True
+        Whether to require scores in [0, 1]
+
+    Returns
+    -------
+    tuple[float, float]
+        (optimal_threshold, metric_score)
+    """
+    if strategy == "auto":
+        strategy_obj = StrategySelector.select(metric_name=metric)
+    else:
+        strategy_obj = StrategySelector.select(force_strategy=strategy)
+
+    optimizer = ThresholdOptimizer(
+        strategy=strategy_obj,
+        operator=operator,
+        require_probability=require_probability,
+    )
+    result = optimizer.optimize(labels, scores, metric, weights)
+
+    return result.threshold, result.score
+
+
+# ============================================================================
+# Performance Information
+# ============================================================================
+
+
+def get_performance_info() -> dict:
+    """Get information about performance optimizations available."""
+    return {
+        "numba_available": NUMBA_AVAILABLE,
+        "numba_version": (
+            None
+            if not NUMBA_AVAILABLE
+            else getattr(__import__("numba"), "__version__", "unknown")
+        ),
+        "expected_speedup": "10-100x" if NUMBA_AVAILABLE else "1x (Python fallback)",
+        "parallel_processing": NUMBA_AVAILABLE,
+        "fastmath_enabled": NUMBA_AVAILABLE,
+    }

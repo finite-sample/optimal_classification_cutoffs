@@ -5,9 +5,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .metrics import (
-    is_piecewise_metric,
-)
+from .metrics import is_piecewise_metric
 from .results import ThresholdResult, create_result
 from .types import (
     AveragingMethodLiteral,
@@ -259,11 +257,19 @@ def _optimal_threshold_unique_scan(
     comparison: ComparisonOperatorLiteral = ">",
 ) -> float:
     """Find optimal threshold using brute force over unique probabilities."""
-    from .binary_optimization import _optimal_threshold_piecewise_fallback
+    from .binary_optimization import find_optimal_threshold
 
-    return _optimal_threshold_piecewise_fallback(
-        true_labs, pred_prob, metric, sample_weight, comparison
+    operator = ">=" if comparison == ">=" else ">"
+    threshold, _ = find_optimal_threshold(
+        true_labs,
+        pred_prob,
+        metric,
+        sample_weight,
+        "sort_scan",
+        operator,
+        require_probability=True,
     )
+    return threshold
 
 
 def _optimize_empirical(
@@ -278,11 +284,7 @@ def _optimize_empirical(
     average: AveragingMethodLiteral,
 ) -> float | np.ndarray[Any, Any]:
     """Empirical threshold optimization."""
-    from .binary_optimization import (
-        optimal_threshold_gradient,
-        optimal_threshold_minimize,
-        optimal_threshold_piecewise,
-    )
+    from .binary_optimization import find_optimal_threshold
     from .multiclass_optimization import get_optimal_multiclass_thresholds
 
     if true_labs is None:
@@ -313,38 +315,32 @@ def _optimize_empirical(
         if method == "auto":
             method = "sort_scan" if is_piecewise_metric(metric) else "minimize"
 
-        if method == "sort_scan":
-            # Validate that vectorized implementation exists for sort_scan
-            from .metrics import has_vectorized_implementation
-            if not has_vectorized_implementation(metric):
-                raise ValueError(
-                    f"sort_scan method requires vectorized implementation for metric "
-                    f"'{metric}'. Use 'unique_scan' method instead, or register a "
-                    "vectorized version of the metric."
-                )
-            return optimal_threshold_piecewise(
-                true_labs, pred_prob, metric, sample_weight, comparison
-            )
-        elif method == "unique_scan":
-            # Use brute force over unique probabilities
-            return _optimal_threshold_unique_scan(
-                true_labs, pred_prob, metric, sample_weight, comparison
-            )
-        elif method == "minimize":
-            return optimal_threshold_minimize(
-                true_labs, pred_prob, metric, sample_weight, comparison
-            )
-        elif method == "gradient":
-            return optimal_threshold_gradient(
-                true_labs, pred_prob, metric, sample_weight, comparison
-            )
-        elif method == "coord_ascent":
-            # Coord ascent only for multiclass, fallback to piecewise for binary
-            return optimal_threshold_piecewise(
-                true_labs, pred_prob, metric, sample_weight, comparison
-            )
-        else:
+        # Map old method names to new strategy names
+        method_mapping = {
+            "sort_scan": "sort_scan",
+            "unique_scan": "sort_scan",  # Both use sort_scan now
+            "minimize": "scipy",
+            "gradient": "gradient",
+            "coord_ascent": "sort_scan",  # Fallback to sort_scan for binary
+        }
+
+        if method not in method_mapping:
             raise ValueError(f"Invalid optimization method: {method}")
+
+        strategy = method_mapping[method]
+        operator = ">=" if comparison == ">=" else ">"
+
+        # Use new API
+        threshold, _ = find_optimal_threshold(
+            true_labs,
+            pred_prob,
+            metric,
+            sample_weight,
+            strategy,
+            operator,
+            require_probability=True,  # Default to requiring probabilities
+        )
+        return threshold
 
 
 def _optimize_expected(

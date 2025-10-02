@@ -8,9 +8,9 @@ import pytest
 from optimal_cutoffs.metrics import get_vectorized_metric
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
-    _validate_inputs,
     optimal_threshold_sortscan,
 )
+from optimal_cutoffs.validation import validate_binary_classification
 
 
 class TestScoreBasedWorkflows:
@@ -23,10 +23,12 @@ class TestScoreBasedWorkflows:
 
         # Should fail with default require_proba=True
         with pytest.raises(ValueError, match="must be in \\[0, 1\\]"):
-            _validate_inputs(y_true, scores)
+            validate_binary_classification(y_true, scores)
 
         # Should work with require_proba=False
-        y, s = _validate_inputs(y_true, scores, require_proba=False)
+        y, s, _ = validate_binary_classification(
+            y_true, scores, require_proba=False, force_dtypes=True
+        )
         assert y.dtype == np.int8
         assert s.dtype == np.float64
         np.testing.assert_array_equal(y, [0, 1, 0, 1])

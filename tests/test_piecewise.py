@@ -36,15 +36,15 @@ class TestInputValidation:
 
     def test_validate_inputs_wrong_dimensions(self):
         """Test validation with wrong dimensions."""
-        with pytest.raises(ValueError, match="1D arrays"):
+        with pytest.raises(ValueError, match="true_labs must be 1D"):
             _validate_inputs([[0, 1]], [0.5])
 
-        with pytest.raises(ValueError, match="1D arrays"):
+        with pytest.raises(ValueError, match="2D pred_prob not allowed"):
             _validate_inputs([0], [[0.5]])
 
     def test_validate_inputs_length_mismatch(self):
         """Test validation with mismatched lengths."""
-        with pytest.raises(ValueError, match="same length"):
+        with pytest.raises(ValueError, match="Length mismatch"):
             _validate_inputs([0, 1], [0.5])
 
     def test_validate_inputs_empty(self):
@@ -54,7 +54,7 @@ class TestInputValidation:
 
     def test_validate_inputs_non_binary(self):
         """Test validation with non-binary labels."""
-        with pytest.raises(ValueError, match="binary in"):
+        with pytest.raises(ValueError, match="Binary labels must be from"):
             _validate_inputs([0, 1, 2], [0.1, 0.5, 0.9])
 
     def test_validate_inputs_invalid_probabilities(self):
@@ -67,10 +67,10 @@ class TestInputValidation:
             _validate_inputs([0, 1], [0.5, 1.1])
 
         # Non-finite
-        with pytest.raises(ValueError, match="must be finite"):
+        with pytest.raises(ValueError, match="contains NaN or infinite"):
             _validate_inputs([0, 1], [0.5, np.nan])
 
-        with pytest.raises(ValueError, match="must be finite"):
+        with pytest.raises(ValueError, match="contains NaN or infinite"):
             _validate_inputs([0, 1], [0.5, np.inf])
 
     def test_validate_sample_weights_valid(self):
@@ -85,16 +85,16 @@ class TestInputValidation:
 
     def test_validate_sample_weights_invalid(self):
         """Test sample weight validation with invalid inputs."""
-        with pytest.raises(ValueError, match="1D array"):
+        with pytest.raises(ValueError, match="sample_weight must be 1D"):
             _validate_sample_weights([[1.0]], 1)
 
-        with pytest.raises(ValueError, match="must match number"):
+        with pytest.raises(ValueError, match="Length mismatch"):
             _validate_sample_weights([1.0, 2.0], 3)
 
-        with pytest.raises(ValueError, match="finite and non-negative"):
+        with pytest.raises(ValueError, match="sample_weight must be non-negative"):
             _validate_sample_weights([-1.0, 1.0], 2)
 
-        with pytest.raises(ValueError, match="finite and non-negative"):
+        with pytest.raises(ValueError, match="contains NaN or infinite"):
             _validate_sample_weights([np.nan, 1.0], 2)
 
 

@@ -4,8 +4,8 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike
-from sklearn.model_selection import (  # type: ignore[import-untyped]
-    KFold,
+from sklearn.model_selection import (
+    KFold,  # type: ignore[import-untyped]
     StratifiedKFold,
 )
 

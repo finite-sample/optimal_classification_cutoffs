@@ -949,12 +949,8 @@ def compute_multiclass_metrics_from_labels(
             tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0
         )
     elif metric == "f1":
-        precision = np.divide(
-            tp, tp + fp, out=np.zeros_like(tp), where=(tp + fp) > 0
-        )
-        recall = np.divide(
-            tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0
-        )
+        precision = np.divide(tp, tp + fp, out=np.zeros_like(tp), where=(tp + fp) > 0)
+        recall = np.divide(tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0)
         per_class_scores = np.divide(
             2 * precision * recall,
             precision + recall,

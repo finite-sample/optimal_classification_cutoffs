@@ -13,6 +13,9 @@ from optimal_cutoffs.validation import (
     _validate_metric_name,
     _validate_optimization_method,
     _validate_threshold,
+    validate_binary_classification,
+    validate_multiclass_input,
+    validate_multiclass_probabilities_and_labels,
 )
 
 
@@ -370,3 +373,368 @@ class TestRobustnessAndEdgeCases:
         assert np.issubdtype(validated_labels.dtype, np.integer)
         # Probabilities should be float
         assert np.issubdtype(validated_probs.dtype, np.floating)
+
+
+class TestMulticlassValidation:
+    """Test multiclass-specific validation functions."""
+
+    def test_validate_multiclass_input_basic(self):
+        """Test basic multiclass input validation."""
+        # Valid consecutive labels
+        labels = np.array([0, 1, 2, 0, 1, 2])
+        probs = np.random.rand(6, 3)
+        probs = probs / probs.sum(axis=1, keepdims=True)  # Normalize to probabilities
+
+        # Should work without consecutive requirement
+        validated_labels, validated_probs = validate_multiclass_input(
+            labels, probs, require_consecutive=False
+        )
+        assert np.array_equal(validated_labels, labels)
+        assert validated_probs.shape == (6, 3)
+
+        # Should also work with consecutive requirement
+        validated_labels, validated_probs = validate_multiclass_input(
+            labels, probs, require_consecutive=True
+        )
+        assert np.array_equal(validated_labels, labels)
+
+    def test_validate_multiclass_input_non_consecutive_labels(self):
+        """Test validation with non-consecutive labels."""
+        # Non-consecutive labels (missing 0)
+        labels = np.array([1, 2, 1, 2, 1])
+        probs = np.random.rand(5, 3)
+        probs = probs / probs.sum(axis=1, keepdims=True)
+
+        # Should work without consecutive requirement
+        validated_labels, validated_probs = validate_multiclass_input(
+            labels, probs, require_consecutive=False
+        )
+        assert np.array_equal(validated_labels, labels)
+
+        # Should fail with consecutive requirement
+        with pytest.raises(ValueError, match="Labels must be consecutive integers from 0"):
+            validate_multiclass_input(labels, probs, require_consecutive=True)
+
+    def test_validate_multiclass_input_1d_probabilities(self):
+        """Test validation rejects 1D probabilities."""
+        labels = np.array([0, 1, 0, 1])
+        probs = np.array([0.2, 0.8, 0.3, 0.7])  # 1D
+
+        with pytest.raises(ValueError, match="pred_prob must be 2D for multiclass"):
+            validate_multiclass_input(labels, probs)
+
+    def test_validate_multiclass_input_invalid_probabilities(self):
+        """Test validation with invalid probability values."""
+        labels = np.array([0, 1, 2])
+        
+        # Probabilities outside [0, 1]
+        probs = np.array([[-0.1, 0.5, 0.6], [0.3, 1.2, -0.1], [0.4, 0.3, 0.3]])
+        
+        with pytest.raises(ValueError, match="Probabilities must be in"):
+            validate_multiclass_input(labels, probs, require_proba=True)
+
+        # Should work when proba requirement is disabled
+        validated_labels, validated_probs = validate_multiclass_input(
+            labels, probs, require_proba=False
+        )
+        assert np.array_equal(validated_labels, labels)
+
+    def test_validate_multiclass_probabilities_and_labels_basic(self):
+        """Test coordinate ascent specific validation."""
+        labels = np.array([0, 1, 2, 0, 1])
+        probs = np.random.rand(5, 3)
+        probs = probs / probs.sum(axis=1, keepdims=True)
+
+        # Should work with consecutive labels
+        validated_probs, validated_labels = validate_multiclass_probabilities_and_labels(
+            probs, labels
+        )
+        assert validated_probs.shape == (5, 3)
+        assert np.array_equal(validated_labels, labels)
+
+    def test_validate_multiclass_probabilities_and_labels_non_consecutive(self):
+        """Test coordinate ascent validation with non-consecutive labels."""
+        labels = np.array([1, 2, 1, 2])  # Missing 0
+        probs = np.random.rand(4, 3)
+        probs = probs / probs.sum(axis=1, keepdims=True)
+
+        # Should fail with consecutive requirement (default)
+        with pytest.raises(ValueError, match="Labels must be consecutive integers from 0"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+        # Should work when consecutive requirement is disabled
+        validated_probs, validated_labels = validate_multiclass_probabilities_and_labels(
+            probs, labels, require_consecutive=False
+        )
+        assert validated_probs.shape == (4, 3)
+
+    def test_validate_multiclass_probabilities_and_labels_insufficient_classes(self):
+        """Test validation with insufficient number of classes."""
+        labels = np.array([0, 0, 0])  # Only one class
+        probs = np.random.rand(3, 1)  # Only one class
+
+        with pytest.raises(ValueError, match="Need at least 2 classes"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+    def test_validate_multiclass_probabilities_and_labels_dimension_mismatch(self):
+        """Test validation with dimension mismatches."""
+        # Wrong label dimensions
+        labels = np.array([[0, 1], [1, 2]])  # 2D instead of 1D
+        probs = np.random.rand(2, 3)
+
+        with pytest.raises(ValueError, match="true_labs must be 1D"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+        # Wrong probability dimensions  
+        labels = np.array([0, 1, 2])
+        probs = np.array([0.5, 0.3, 0.2])  # 1D instead of 2D
+
+        with pytest.raises(ValueError, match="pred_prob must be 2D for multiclass"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+        # Length mismatch
+        labels = np.array([0, 1, 2])
+        probs = np.random.rand(5, 3)  # 5 samples vs 3 labels
+
+        with pytest.raises(ValueError, match="Length mismatch"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+    def test_multiclass_validation_consistency_across_modules(self):
+        """Test that validation is consistent across different modules."""
+        from optimal_cutoffs.multiclass_optimization import get_optimal_multiclass_thresholds
+        from optimal_cutoffs.multiclass_coord import ThresholdOptimizer
+
+        # Create valid test data
+        labels = np.array([0, 1, 2, 0, 1, 2])
+        probs = np.random.rand(6, 3)
+        probs = probs / probs.sum(axis=1, keepdims=True)
+
+        # Both should work with valid data
+        thresholds_opt = get_optimal_multiclass_thresholds(
+            labels, probs, method="unique_scan"
+        )
+        
+        optimizer = ThresholdOptimizer(max_iter=5)
+        optimizer.fit(probs, labels)
+        
+        assert len(thresholds_opt) == 3
+        assert len(optimizer.solution_.thresholds) == 3
+
+        # Test with non-consecutive labels
+        non_consecutive_labels = np.array([1, 2, 1, 2, 1, 2])  # Missing 0
+
+        # Regular multiclass should work
+        thresholds_opt = get_optimal_multiclass_thresholds(
+            non_consecutive_labels, probs, method="unique_scan"
+        )
+        assert len(thresholds_opt) == 3
+
+        # Coordinate ascent should fail
+        with pytest.raises(ValueError, match="Labels must be consecutive"):
+            get_optimal_multiclass_thresholds(
+                non_consecutive_labels, probs, method="coord_ascent"
+            )
+
+        # ThresholdOptimizer should also fail
+        optimizer = ThresholdOptimizer(max_iter=5)
+        with pytest.raises(ValueError, match="Labels must be consecutive"):
+            optimizer.fit(probs, non_consecutive_labels)
+
+    def test_multiclass_validation_edge_cases(self):
+        """Test edge cases in multiclass validation."""
+        # Single class in probability matrix
+        labels = np.array([0, 0])
+        probs = np.array([[1.0], [1.0]])  # Only 1 class
+
+        with pytest.raises(ValueError, match="Need at least 2 classes"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+        # Labels with gaps
+        labels = np.array([0, 2, 0, 2])  # Missing class 1
+        probs = np.random.rand(4, 3)
+        probs = probs / probs.sum(axis=1, keepdims=True)
+
+        with pytest.raises(ValueError, match="Labels must be consecutive"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+        # Labels exceed number of classes
+        labels = np.array([0, 1, 3])  # Class 3 doesn't exist in 3-class problem
+        probs = np.random.rand(3, 3)
+
+        with pytest.raises(ValueError, match="Labels.*must be within"):
+            validate_multiclass_probabilities_and_labels(probs, labels)
+
+
+class TestBinaryValidation:
+    """Test binary-specific validation functions."""
+
+    def test_validate_binary_classification_basic(self):
+        """Test basic binary classification validation."""
+        # Valid binary input
+        labels = np.array([0, 1, 0, 1])
+        probs = np.array([0.2, 0.8, 0.3, 0.7])
+
+        validated_labels, validated_probs, validated_weights = validate_binary_classification(
+            labels, probs
+        )
+        assert np.array_equal(validated_labels, labels)
+        assert np.array_equal(validated_probs, probs)
+        assert validated_weights is None
+
+    def test_validate_binary_classification_with_weights(self):
+        """Test binary validation with sample weights."""
+        labels = np.array([0, 1, 0, 1])
+        probs = np.array([0.2, 0.8, 0.3, 0.7])
+        weights = np.array([1.0, 2.0, 1.5, 0.5])
+
+        validated_labels, validated_probs, validated_weights = validate_binary_classification(
+            labels, probs, sample_weight=weights
+        )
+        assert validated_weights is not None
+        assert np.array_equal(validated_weights, weights)
+
+    def test_validate_binary_classification_return_default_weights(self):
+        """Test binary validation with default weights."""
+        labels = np.array([0, 1, 0, 1])
+        probs = np.array([0.2, 0.8, 0.3, 0.7])
+
+        validated_labels, validated_probs, validated_weights = validate_binary_classification(
+            labels, probs, return_default_weights=True
+        )
+        assert validated_weights is not None
+        assert np.array_equal(validated_weights, np.ones(4, dtype=np.float64))
+
+    def test_validate_binary_classification_force_dtypes(self):
+        """Test binary validation with forced dtypes."""
+        labels = [0, 1, 0, 1]  # List input
+        probs = [0.2, 0.8, 0.3, 0.7]  # List input
+
+        validated_labels, validated_probs, _ = validate_binary_classification(
+            labels, probs, force_dtypes=True
+        )
+        assert validated_labels.dtype == np.int8
+        assert validated_probs.dtype == np.float64
+
+    def test_validate_binary_classification_scores(self):
+        """Test binary validation with scores outside [0,1]."""
+        labels = np.array([0, 1, 0, 1])
+        scores = np.array([-2.5, 1.3, -0.8, 3.2])
+
+        # Should fail with require_proba=True
+        with pytest.raises(ValueError, match="Probabilities must be in"):
+            validate_binary_classification(labels, scores, require_proba=True)
+
+        # Should work with require_proba=False
+        validated_labels, validated_scores, _ = validate_binary_classification(
+            labels, scores, require_proba=False
+        )
+        assert np.array_equal(validated_labels, labels)
+        assert np.array_equal(validated_scores, scores)
+
+    def test_validate_binary_classification_non_binary_labels(self):
+        """Test binary validation rejects non-binary labels."""
+        labels = np.array([0, 1, 2])  # Contains 2
+        probs = np.array([0.2, 0.8, 0.3])
+
+        with pytest.raises(ValueError, match="Binary labels must be from"):
+            validate_binary_classification(labels, probs)
+
+    def test_validate_binary_classification_multiclass_input(self):
+        """Test binary validation rejects multiclass input."""
+        labels = np.array([0, 1, 0])
+        probs = np.array([[0.8, 0.2], [0.3, 0.7], [0.6, 0.4]])  # 2D
+
+        with pytest.raises(ValueError, match="2D pred_prob not allowed"):
+            validate_binary_classification(labels, probs)
+
+    def test_binary_validation_consistency_with_piecewise(self):
+        """Test that binary validation is consistent with piecewise usage."""
+        from optimal_cutoffs.piecewise import _validate_inputs as piecewise_validate
+
+        # Test data
+        labels = np.array([0, 1, 0, 1])
+        probs = np.array([0.2, 0.8, 0.3, 0.7])
+
+        # Compare results - piecewise validation (through wrapper)
+        piecewise_labels, piecewise_probs = piecewise_validate(labels, probs)
+
+        # Direct centralized validation
+        central_labels, central_probs, _ = validate_binary_classification(
+            labels, probs, force_dtypes=True
+        )
+
+        # Should be identical
+        assert np.array_equal(piecewise_labels, central_labels)
+        assert np.array_equal(piecewise_probs, central_probs)
+        assert piecewise_labels.dtype == central_labels.dtype
+        assert piecewise_probs.dtype == central_probs.dtype
+
+    def test_binary_validation_consistency_with_scores(self):
+        """Test consistency with score-based inputs."""
+        from optimal_cutoffs.piecewise import _validate_inputs as piecewise_validate
+
+        # Test with scores outside [0,1]
+        labels = np.array([0, 1, 0, 1])
+        scores = np.array([-1.5, 2.3, -0.8, 1.9])
+
+        # Piecewise validation (through wrapper)
+        piecewise_labels, piecewise_scores = piecewise_validate(
+            labels, scores, require_proba=False
+        )
+
+        # Direct centralized validation
+        central_labels, central_scores, _ = validate_binary_classification(
+            labels, scores, require_proba=False, force_dtypes=True
+        )
+
+        # Should be identical
+        assert np.array_equal(piecewise_labels, central_labels)
+        assert np.array_equal(piecewise_scores, central_scores)
+        assert piecewise_labels.dtype == central_labels.dtype
+        assert piecewise_scores.dtype == central_scores.dtype
+
+    def test_sample_weights_consistency_with_piecewise(self):
+        """Test sample weights validation consistency."""
+        from optimal_cutoffs.piecewise import _validate_sample_weights as piecewise_validate_weights
+
+        n_samples = 4
+        weights = np.array([1.0, 2.0, 1.5, 0.5])
+
+        # Piecewise validation (through wrapper)
+        piecewise_weights = piecewise_validate_weights(weights, n_samples)
+
+        # Direct centralized validation
+        _, _, central_weights = validate_binary_classification(
+            np.zeros(n_samples),  # Dummy labels
+            np.zeros(n_samples),  # Dummy probs
+            sample_weight=weights,
+            return_default_weights=True,
+            require_proba=False,
+        )
+
+        # Should be identical
+        assert np.array_equal(piecewise_weights, central_weights)
+        assert piecewise_weights.dtype == central_weights.dtype
+
+    def test_default_weights_consistency_with_piecewise(self):
+        """Test default weights behavior consistency."""
+        from optimal_cutoffs.piecewise import _validate_sample_weights as piecewise_validate_weights
+
+        n_samples = 4
+
+        # Piecewise validation with None (returns ones array)
+        piecewise_weights = piecewise_validate_weights(None, n_samples)
+
+        # Direct centralized validation
+        _, _, central_weights = validate_binary_classification(
+            np.zeros(n_samples),  # Dummy labels
+            np.zeros(n_samples),  # Dummy probs
+            sample_weight=None,
+            return_default_weights=True,
+            require_proba=False,
+        )
+
+        # Should be identical
+        assert np.array_equal(piecewise_weights, central_weights)
+        assert np.array_equal(piecewise_weights, np.ones(n_samples, dtype=np.float64))
+        assert piecewise_weights.dtype == central_weights.dtype

@@ -11,7 +11,8 @@ license = {file = "LICENSE"}
 dependencies = [
     "numpy>=1.20.0",
     "scipy",
-    "scikit-learn"
+    "scikit-learn",
+    "numba>=0.57.0"
 ]
 authors = [
     {name = "Gaurav Sood", email = "contact@gsood.com"}
@@ -30,6 +31,7 @@ classifiers = [
 
 [project.optional-dependencies]
 examples = ["matplotlib", "pandas"]
+adaptive = ["scikit-optimize>=0.9.0"]
 docs = [
     "sphinx>=5.0",
     "sphinx-rtd-theme>=1.0",

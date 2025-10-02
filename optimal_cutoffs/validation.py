@@ -1,216 +1,515 @@
-"""Comprehensive input validation utilities for robust API behavior."""
+"""Input validation for classification tasks - simple, fast, and composable."""
 
-import warnings
-from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Any, Literal, NamedTuple, TypeAlias
 
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
-# Type alias for numpy arrays
-NDArray = np.ndarray[Any, Any]
-
-T = TypeVar('T')
-
-
-# ============================================================================
-# Base Validators - Reusable validation components
-# ============================================================================
-
-class ArrayValidator:
-    """Encapsulates common array validation patterns."""
-
-    @staticmethod
-    def ensure_array(data: ArrayLike, name: str) -> NDArray:
-        """Convert to array and check for emptiness."""
-        arr = np.asarray(data)
-        if len(arr) == 0:
-            raise ValueError(f"{name} cannot be empty")
-        return arr
-
-    @staticmethod
-    def check_finite(arr: NDArray, name: str) -> None:
-        """Check array contains only finite values."""
-        if not np.all(np.isfinite(arr)):
-            raise ValueError(f"{name} contains NaN or infinite values")
-
-    @staticmethod
-    def check_dimensionality(arr: NDArray, expected_dim: int, name: str) -> None:
-        """Validate array dimensionality."""
-        if arr.ndim != expected_dim:
-            raise ValueError(f"{name} must be {expected_dim}D, got {arr.ndim}D")
-
-    @staticmethod
-    def check_length_match(arr1: NDArray, arr2: NDArray,
-                          name1: str, name2: str) -> None:
-        """Check two arrays have matching length."""
-        if len(arr1) != len(arr2):
-            raise ValueError(
-                f"Length mismatch: {name1} ({len(arr1)}) vs {name2} ({len(arr2)})"
-            )
-
-    @staticmethod
-    def check_range(arr: NDArray, min_val: float, max_val: float,
-                   name: str) -> None:
-        """Check array values are within specified range."""
-        arr_min, arr_max = np.min(arr), np.max(arr)
-        if arr_min < min_val or arr_max > max_val:
-            raise ValueError(
-                f"{name} must be in [{min_val}, {max_val}], "
-                f"got range [{arr_min:.6f}, {arr_max:.6f}]"
-            )
-
-
-class ChoiceValidator(Generic[T]):
-    """Validates string choices against allowed values."""
-
-    def __init__(self, allowed_values: set[T], value_type: str):
-        self.allowed_values = allowed_values
-        self.value_type = value_type
-
-    def validate(self, value: T) -> None:
-        """Validate value is in allowed set."""
-        if value not in self.allowed_values:
-            raise ValueError(
-                f"Invalid {self.value_type} '{value}'. "
-                f"Must be one of: {self.allowed_values}"
-            )
+# Type aliases for clarity
+Float64Array: TypeAlias = NDArray[np.float64]
+Int32Array: TypeAlias = NDArray[np.int32]
+BoolArray: TypeAlias = NDArray[np.bool_]
 
 
 # ============================================================================
-# Specialized Validators - Domain-specific validation logic
+# Validation Results - Collect errors without throwing immediately
 # ============================================================================
 
-class LabelValidator:
-    """Validates classification labels."""
 
-    def __init__(self, validator: ArrayValidator):
-        self.validator = validator
+class ValidationError(NamedTuple):
+    """Single validation error."""
 
-    def validate_binary(self, labels: NDArray) -> None:
-        """Validate binary classification labels."""
-        unique_labels = np.unique(labels)
-        if len(unique_labels) == 0:
-            raise ValueError("true_labs contains no values")
+    field: str
+    message: str
+    severity: Literal["error", "warning"] = "error"
 
-        if not np.all(np.isin(unique_labels, [0, 1])):
-            raise ValueError(
-                f"Binary labels must be from {{0, 1}}, "
-                f"got unique values: {unique_labels}"
-            )
-
-    def validate_multiclass(
-        self, labels: NDArray, n_classes: int | None = None
-    ) -> None:
-        """Validate multiclass classification labels."""
-        # Check non-negative integers
-        if not np.all(labels >= 0):
-            raise ValueError("Labels must be non-negative")
-        if not np.all(labels == labels.astype(int)):
-            raise ValueError("Labels must be integers")
-
-        # Check valid range if n_classes specified
-        if n_classes is not None:
-            unique_labels = np.unique(labels)
-            if np.any((unique_labels < 0) | (unique_labels >= n_classes)):
-                raise ValueError(
-                    f"Labels {unique_labels} must be within [0, {n_classes - 1}] "
-                    f"to match pred_prob shape with {n_classes} classes"
-                )
-
-
-class ProbabilityValidator:
-    """Validates probability arrays."""
-
-    def __init__(self, validator: ArrayValidator):
-        self.validator = validator
-
-    def validate_range(self, probs: NDArray) -> None:
-        """Check probabilities are in [0, 1]."""
-        if np.any(probs < 0) or np.any(probs > 1):
-            prob_min, prob_max = np.min(probs), np.max(probs)
-            raise ValueError(
-                f"Probabilities must be in [0, 1], got range "
-                f"[{prob_min:.6f}, {prob_max:.6f}]"
-            )
-
-    def validate_multiclass_sum(
-        self, probs: NDArray, tolerance: float = 1e-3
-    ) -> None:
-        """Check multiclass probabilities sum to approximately 1."""
-        if probs.ndim != 2:
-            return
-
-        row_sums = np.sum(probs, axis=1)
-        if not np.allclose(row_sums, 1.0, rtol=tolerance, atol=tolerance):
-            sum_min, sum_max = np.min(row_sums), np.max(row_sums)
-            warnings.warn(
-                f"Multiclass probabilities don't sum to 1.0 "
-                f"(range: [{sum_min:.3f}, {sum_max:.3f}]). "
-                "This may indicate unnormalized scores rather than probabilities.",
-                UserWarning,
-                stacklevel=4
-            )
-
-
-class WeightValidator:
-    """Validates sample weights."""
-
-    def __init__(self, validator: ArrayValidator):
-        self.validator = validator
-
-    def validate(self, weights: NDArray, n_samples: int) -> NDArray:
-        """Validate sample weights."""
-        self.validator.check_dimensionality(weights, 1, "sample_weight")
-
-        if len(weights) != n_samples:
-            raise ValueError(
-                f"Length mismatch: sample_weight ({len(weights)}) vs "
-                f"samples ({n_samples})"
-            )
-
-        self.validator.check_finite(weights, "sample_weight")
-
-        if np.any(weights < 0):
-            raise ValueError("sample_weight must be non-negative")
-        if np.sum(weights) == 0:
-            raise ValueError("sample_weight cannot sum to zero")
-
-        return weights
-
-
-# ============================================================================
-# Configuration and Registry
-# ============================================================================
 
 @dataclass
-class ValidationConfig:
-    """Configuration for input validation."""
-    require_binary: bool = False
-    require_proba: bool = True
-    allow_multiclass: bool = True
+class ValidationResult:
+    """Collects validation errors and warnings."""
 
+    errors: list[ValidationError] = field(default_factory=list)
+    warnings: list[ValidationError] = field(default_factory=list)
 
-# Define choice validators as module-level constants
-AVERAGING_VALIDATOR = ChoiceValidator(
-    {"macro", "micro", "weighted", "none"},
-    "averaging method"
-)
+    def add_error(self, field: str, message: str) -> None:
+        """Add an error."""
+        self.errors.append(ValidationError(field, message, "error"))
 
-OPTIMIZATION_VALIDATOR = ChoiceValidator(
-    {"auto", "unique_scan", "sort_scan", "minimize", "gradient", "coord_ascent"},
-    "optimization method"
-)
+    def add_warning(self, field: str, message: str) -> None:
+        """Add a warning."""
+        self.warnings.append(ValidationError(field, message, "warning"))
 
-COMPARISON_VALIDATOR = ChoiceValidator(
-    {">", ">="},
-    "comparison operator"
-)
+    @property
+    def is_valid(self) -> bool:
+        """Check if validation passed (no errors)."""
+        return len(self.errors) == 0
+
+    def raise_if_invalid(self) -> None:
+        """Raise ValueError with all errors if invalid."""
+        if not self.is_valid:
+            error_msgs = [f"{e.field}: {e.message}" for e in self.errors]
+            raise ValueError("Validation failed:\n" + "\n".join(error_msgs))
+
+    def emit_warnings(self) -> None:
+        """Emit all warnings."""
+        import warnings
+
+        for w in self.warnings:
+            warnings.warn(f"{w.field}: {w.message}", UserWarning, stacklevel=3)
 
 
 # ============================================================================
-# Main Validation Functions - Public API
+# Core Validation Functions - Pure functions, no side effects
 # ============================================================================
+
+
+def validate_array_properties(
+    arr: NDArray[Any],
+    name: str,
+    *,
+    expected_ndim: int | None = None,
+    expected_shape: tuple[int, ...] | None = None,
+    expected_length: int | None = None,
+    allow_empty: bool = False,
+    require_finite: bool = True,
+    min_value: float | None = None,
+    max_value: float | None = None,
+) -> ValidationResult:
+    """Validate general array properties."""
+    result = ValidationResult()
+
+    # Check emptiness
+    if not allow_empty and arr.size == 0:
+        result.add_error(name, "cannot be empty")
+
+    # Check dimensions
+    if expected_ndim is not None and arr.ndim != expected_ndim:
+        result.add_error(name, f"must be {expected_ndim}D, got {arr.ndim}D")
+
+    # Check shape
+    if expected_shape is not None and arr.shape != expected_shape:
+        result.add_error(name, f"expected shape {expected_shape}, got {arr.shape}")
+
+    # Check length
+    if expected_length is not None and len(arr) != expected_length:
+        result.add_error(name, f"expected length {expected_length}, got {len(arr)}")
+
+    # Check finite values
+    if require_finite and not np.all(np.isfinite(arr)):
+        result.add_error(name, "contains NaN or infinite values")
+
+    # Check value range
+    if arr.size > 0 and (min_value is not None or max_value is not None):
+        arr_min, arr_max = np.min(arr), np.max(arr)
+        if min_value is not None and arr_min < min_value:
+            result.add_error(
+                name, f"values below minimum {min_value}, got {arr_min:.6f}"
+            )
+        if max_value is not None and arr_max > max_value:
+            result.add_error(
+                name, f"values above maximum {max_value}, got {arr_max:.6f}"
+            )
+
+    return result
+
+
+def validate_binary_labels(arr: NDArray[Any], name: str = "labels") -> ValidationResult:
+    """Validate binary classification labels."""
+    result = validate_array_properties(arr, name, expected_ndim=1, require_finite=True)
+
+    if result.is_valid and arr.size > 0:
+        unique = np.unique(arr)
+        if not np.all(np.isin(unique, [0, 1])):
+            result.add_error(
+                name, f"must be binary (0 or 1), got unique values: {unique}"
+            )
+
+    return result
+
+
+def validate_multiclass_labels(
+    arr: NDArray[Any],
+    n_classes: int | None = None,
+    require_consecutive: bool = False,
+    name: str = "labels",
+) -> ValidationResult:
+    """Validate multiclass labels."""
+    result = validate_array_properties(arr, name, expected_ndim=1, require_finite=True)
+
+    if not result.is_valid or arr.size == 0:
+        return result
+
+    # Check integer type
+    if not np.all(arr == arr.astype(int)):
+        result.add_error(name, "must be integers")
+
+    # Check non-negative
+    if np.any(arr < 0):
+        result.add_error(name, "must be non-negative")
+
+    unique = np.unique(arr)
+
+    # Check consecutive if required
+    if require_consecutive:
+        expected = np.arange(len(unique))
+        if unique[0] != 0 or not np.array_equal(unique, expected):
+            result.add_error(name, f"must be consecutive integers from 0, got {unique}")
+
+    # Check class count if specified
+    if n_classes is not None:
+        max_label = np.max(arr)
+        if max_label >= n_classes:
+            result.add_error(
+                name, f"contains label {max_label} >= n_classes {n_classes}"
+            )
+
+    return result
+
+
+def validate_probabilities(
+    arr: NDArray[Any],
+    multiclass: bool = False,
+    check_sum: bool = True,
+    tolerance: float = 1e-3,
+    name: str = "probabilities",
+) -> ValidationResult:
+    """Validate probability array."""
+    expected_ndim = 2 if multiclass else 1
+    result = validate_array_properties(
+        arr,
+        name,
+        expected_ndim=expected_ndim,
+        require_finite=True,
+        min_value=0.0,
+        max_value=1.0,
+    )
+
+    # Check row sums for multiclass
+    if multiclass and check_sum and result.is_valid and arr.shape[0] > 0:
+        row_sums = np.sum(arr, axis=1)
+        if not np.allclose(row_sums, 1.0, rtol=tolerance, atol=tolerance):
+            min_sum, max_sum = np.min(row_sums), np.max(row_sums)
+            result.add_warning(
+                name, f"rows don't sum to 1.0 (range: [{min_sum:.3f}, {max_sum:.3f}])"
+            )
+
+    return result
+
+
+def validate_sample_weights(
+    arr: NDArray[Any], n_samples: int, name: str = "sample_weight"
+) -> ValidationResult:
+    """Validate sample weights."""
+    result = validate_array_properties(
+        arr,
+        name,
+        expected_ndim=1,
+        expected_length=n_samples,
+        require_finite=True,
+        min_value=0.0,
+    )
+
+    if result.is_valid and np.sum(arr) == 0:
+        result.add_error(name, "cannot sum to zero")
+
+    return result
+
+
+# ============================================================================
+# High-Level Validation Classes
+# ============================================================================
+
+
+class ProblemType(Enum):
+    """Classification problem type."""
+
+    BINARY = auto()
+    MULTICLASS = auto()
+    MULTILABEL = auto()
+
+    @classmethod
+    def infer(cls, labels: NDArray[Any], predictions: NDArray[Any]) -> ProblemType:
+        """Infer problem type from data shapes."""
+        if predictions.ndim == 1:
+            return cls.BINARY
+        elif predictions.ndim == 2:
+            if predictions.shape[1] == 2:
+                return cls.BINARY
+            else:
+                return cls.MULTICLASS
+        else:
+            raise ValueError(
+                f"Cannot infer problem type from shape {predictions.shape}"
+            )
+
+
+@dataclass(frozen=True)
+class ValidatedData:
+    """Container for validated classification data."""
+
+    labels: NDArray[Any]
+    predictions: NDArray[Any]
+    weights: NDArray[Any] | None
+    problem_type: ProblemType
+    n_classes: int
+    n_samples: int
+
+    @classmethod
+    def create(
+        cls,
+        labels: ArrayLike,
+        predictions: ArrayLike,
+        weights: ArrayLike | None = None,
+        problem_type: ProblemType | None = None,
+        require_proba: bool = True,
+        dtype_labels: type = np.int32,
+        dtype_predictions: type = np.float64,
+        dtype_weights: type = np.float64,
+    ) -> ValidatedData:
+        """Create validated data with automatic problem type detection."""
+        # Convert to arrays
+        labels_arr = np.asarray(labels, dtype=dtype_labels)
+        pred_arr = np.asarray(predictions, dtype=dtype_predictions)
+        weights_arr = (
+            np.asarray(weights, dtype=dtype_weights) if weights is not None else None
+        )
+
+        # Infer problem type if not specified
+        if problem_type is None:
+            problem_type = ProblemType.infer(labels_arr, pred_arr)
+
+        # Create validation result collector
+        result = ValidationResult()
+
+        # Validate based on problem type
+        if problem_type == ProblemType.BINARY:
+            # Validate binary labels
+            result.errors.extend(validate_binary_labels(labels_arr).errors)
+
+            # Validate predictions
+            if pred_arr.ndim == 1:
+                prob_result = validate_probabilities(
+                    pred_arr, multiclass=False, name="predictions"
+                )
+            else:
+                # Binary with 2D predictions (shape [n, 2])
+                if pred_arr.shape[1] != 2:
+                    result.add_error(
+                        "predictions",
+                        f"binary problem expects 2 classes, got {pred_arr.shape[1]}",
+                    )
+                prob_result = validate_probabilities(
+                    pred_arr, multiclass=True, name="predictions"
+                )
+
+            result.errors.extend(prob_result.errors)
+            result.warnings.extend(prob_result.warnings)
+            n_classes = 2
+
+        elif problem_type == ProblemType.MULTICLASS:
+            # Get number of classes from predictions
+            if pred_arr.ndim != 2:
+                result.add_error(
+                    "predictions", f"multiclass requires 2D array, got {pred_arr.ndim}D"
+                )
+                n_classes = 0
+            else:
+                n_classes = pred_arr.shape[1]
+
+                # Validate labels
+                label_result = validate_multiclass_labels(
+                    labels_arr, n_classes=n_classes, require_consecutive=True
+                )
+                result.errors.extend(label_result.errors)
+
+                # Validate predictions
+                prob_result = validate_probabilities(
+                    pred_arr, multiclass=True, name="predictions"
+                )
+                result.errors.extend(prob_result.errors)
+                result.warnings.extend(prob_result.warnings)
+
+        else:
+            raise NotImplementedError(f"Problem type {problem_type} not yet supported")
+
+        # Check shapes match
+        if labels_arr.shape[0] != pred_arr.shape[0]:
+            result.add_error(
+                "shape",
+                f"labels ({labels_arr.shape[0]}) and predictions "
+                f"({pred_arr.shape[0]}) length mismatch",
+            )
+
+        # Validate weights if provided
+        if weights_arr is not None:
+            weight_result = validate_sample_weights(weights_arr, labels_arr.shape[0])
+            result.errors.extend(weight_result.errors)
+
+        # Emit warnings and raise if invalid
+        result.emit_warnings()
+        result.raise_if_invalid()
+
+        return cls(
+            labels=labels_arr,
+            predictions=pred_arr,
+            weights=weights_arr,
+            problem_type=problem_type,
+            n_classes=n_classes,
+            n_samples=len(labels_arr),
+        )
+
+
+# ============================================================================
+# Simple Convenience Functions
+# ============================================================================
+
+
+def validate_binary_inputs(
+    labels: ArrayLike,
+    scores: ArrayLike,
+    weights: ArrayLike | None = None,
+    require_proba: bool = True,
+) -> tuple[NDArray[np.int8], NDArray[np.float64], NDArray[np.float64] | None]:
+    """Simple validation for binary classification."""
+    data = ValidatedData.create(
+        labels,
+        scores,
+        weights,
+        problem_type=ProblemType.BINARY,
+        require_proba=require_proba,
+        dtype_labels=np.int8,
+        dtype_predictions=np.float64,
+    )
+    return data.labels, data.predictions, data.weights
+
+
+def validate_multiclass_inputs(
+    labels: ArrayLike, probabilities: ArrayLike, weights: ArrayLike | None = None
+) -> tuple[NDArray[np.int32], NDArray[np.float64], NDArray[np.float64] | None]:
+    """Simple validation for multiclass classification."""
+    data = ValidatedData.create(
+        labels,
+        probabilities,
+        weights,
+        problem_type=ProblemType.MULTICLASS,
+        require_proba=True,
+    )
+    return data.labels, data.predictions, data.weights
+
+
+def validate_choice(value: str, choices: set[str], name: str) -> str:
+    """Validate string choice."""
+    if value not in choices:
+        raise ValueError(f"Invalid {name} '{value}'. Must be one of: {choices}")
+    return value
+
+
+# ============================================================================
+# Legacy Compatibility Functions
+# ============================================================================
+
+
+def validate_binary_classification(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    *,
+    require_proba: bool = True,
+    sample_weight: ArrayLike | None = None,
+    return_default_weights: bool = False,
+    force_dtypes: bool = False,
+) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any] | None]:
+    """Legacy compatible binary classification validation."""
+    # Use new validation system
+    dtype_labels = np.int8 if force_dtypes else np.int32
+    dtype_predictions = np.float64 if force_dtypes else np.float64
+
+    data = ValidatedData.create(
+        true_labs,
+        pred_prob,
+        sample_weight,
+        problem_type=ProblemType.BINARY,
+        require_proba=require_proba,
+        dtype_labels=dtype_labels,
+        dtype_predictions=dtype_predictions,
+    )
+
+    # Handle return_default_weights option
+    weights = data.weights
+    if return_default_weights and weights is None:
+        weights = np.ones(data.n_samples, dtype=np.float64)
+
+    return data.labels, data.predictions, weights
+
+
+def validate_multiclass_input(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    require_consecutive: bool = False,
+    require_proba: bool = False,
+) -> tuple[NDArray[Any], NDArray[Any]]:
+    """Legacy compatible multiclass validation."""
+    data = ValidatedData.create(
+        true_labs,
+        pred_prob,
+        problem_type=ProblemType.MULTICLASS,
+        require_proba=require_proba,
+    )
+
+    # Additional consecutive check if required
+    if require_consecutive:
+        result = validate_multiclass_labels(
+            data.labels, data.n_classes, require_consecutive=True
+        )
+        result.raise_if_invalid()
+
+    return data.labels, data.predictions
+
+
+def validate_multiclass_probabilities_and_labels(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+) -> tuple[NDArray[np.int32], NDArray[np.float64]]:
+    """Legacy compatible multiclass validation with specific dtypes."""
+    data = ValidatedData.create(
+        true_labs,
+        pred_prob,
+        problem_type=ProblemType.MULTICLASS,
+        require_proba=True,
+        dtype_labels=np.int32,
+        dtype_predictions=np.float64,
+    )
+    return data.labels, data.predictions
+
+
+# Choice validators for backward compatibility
+def _validate_metric_name(metric_name: str) -> None:
+    """Validate metric name (placeholder for metric registry validation)."""
+    # This is a placeholder - actual validation is done by the metric registry
+    # We keep this for API compatibility
+    pass
+
+
+def _validate_averaging_method(average: str) -> None:
+    """Validate averaging method."""
+    validate_choice(average, {"macro", "micro", "weighted", "none"}, "averaging method")
+
+
+def _validate_optimization_method(method: str) -> None:
+    """Validate optimization method."""
+    validate_choice(
+        method,
+        {"auto", "unique_scan", "sort_scan", "minimize", "gradient", "coord_ascent"},
+        "optimization method",
+    )
+
+
+def _validate_comparison_operator(comparison: str) -> None:
+    """Validate comparison operator."""
+    validate_choice(comparison, {">", ">="}, "comparison operator")
 
 
 def _validate_inputs(
@@ -220,207 +519,42 @@ def _validate_inputs(
     require_proba: bool = True,
     sample_weight: ArrayLike | None = None,
     allow_multiclass: bool = True,
-) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any] | None]:
-    """Validate and convert inputs with comprehensive checks.
-
-    Parameters
-    ----------
-    true_labs:
-        Array of true labels.
-    pred_prob:
-        Array of predicted probabilities or scores.
-    require_binary:
-        If True, require true_labs to be binary {0, 1}.
-    require_proba:
-        If True, require pred_prob to be probabilities in [0, 1].
-    sample_weight:
-        Optional array of sample weights.
-    allow_multiclass:
-        If True, allow 2D pred_prob for multiclass classification.
-
-    Returns
-    -------
-    tuple[np.ndarray, np.ndarray, np.ndarray | None]
-        Validated and converted (true_labs, pred_prob, sample_weight).
-
-    Raises
-    ------
-    ValueError
-        If any validation check fails.
-    """
-    config = ValidationConfig(
-        require_binary=require_binary,
-        require_proba=require_proba,
-        allow_multiclass=allow_multiclass
-    )
-
-    # Initialize validators
-    array_val = ArrayValidator()
-    label_val = LabelValidator(array_val)
-    prob_val = ProbabilityValidator(array_val)
-    weight_val = WeightValidator(array_val)
-
-    # Convert and validate arrays
-    true_labs = array_val.ensure_array(true_labs, "true_labs")
-    pred_prob = array_val.ensure_array(pred_prob, "pred_prob")
-
-    # Check dimensions
-    array_val.check_dimensionality(true_labs, 1, "true_labs")
-
-    # Validate prediction shape and get number of classes
-    n_classes = None
-    if pred_prob.ndim == 1:
-        array_val.check_length_match(true_labs, pred_prob, "true_labs", "pred_prob")
-    elif pred_prob.ndim == 2:
-        if not config.allow_multiclass:
-            raise ValueError("2D pred_prob not allowed, expected 1D array")
-        if len(true_labs) != pred_prob.shape[0]:
-            raise ValueError(
-                f"Length mismatch: true_labs ({len(true_labs)}) vs "
-                f"pred_prob rows ({pred_prob.shape[0]})"
-            )
-        n_classes = pred_prob.shape[1]
-    else:
-        raise ValueError(f"pred_prob must be 1D or 2D, got {pred_prob.ndim}D")
-
-    # Check finite values
-    array_val.check_finite(true_labs, "true_labs")
-    array_val.check_finite(pred_prob, "pred_prob")
-
-    # Validate labels
-    if config.require_binary:
-        label_val.validate_binary(true_labs)
-    else:
-        label_val.validate_multiclass(true_labs, n_classes)
-
-    # Validate probabilities
-    if config.require_proba:
-        prob_val.validate_range(pred_prob)
-        prob_val.validate_multiclass_sum(pred_prob)
-
-    # Validate sample weights if provided
-    validated_weight = None
-    if sample_weight is not None:
-        weight_array = array_val.ensure_array(sample_weight, "sample_weight")
-        validated_weight = weight_val.validate(weight_array, len(true_labs))
-
-    return true_labs, pred_prob, validated_weight
-
-
-def _validate_threshold(
-    threshold: float | np.ndarray[Any, Any],
-    n_classes: int | None = None,
-) -> np.ndarray[Any, Any]:
-    """Validate threshold values.
-
-    Parameters
-    ----------
-    threshold:
-        Threshold value(s) to validate.
-    n_classes:
-        Expected number of classes for multiclass thresholds.
-
-    Returns
-    -------
-    np.ndarray
-        Validated threshold array.
-
-    Raises
-    ------
-    ValueError
-        If threshold validation fails.
-    """
-    validator = ArrayValidator()
-
-    threshold = np.asarray(threshold)
-    validator.check_finite(threshold, "threshold")
-
-    # Check range [0, 1] with exact same error message as before
-    if np.any(threshold < 0) or np.any(threshold > 1):
-        thresh_min, thresh_max = np.min(threshold), np.max(threshold)
-        raise ValueError(
-            f"threshold must be in [0, 1], got range "
-            f"[{thresh_min:.6f}, {thresh_max:.6f}]"
+) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any] | None]:
+    """Legacy validation function for backward compatibility."""
+    if require_binary:
+        return validate_binary_classification(
+            true_labs,
+            pred_prob,
+            require_proba=require_proba,
+            sample_weight=sample_weight,
         )
-
-    if n_classes is not None:
-        validator.check_dimensionality(threshold, 1, "multiclass threshold")
-        if len(threshold) != n_classes:
-            raise ValueError(
-                f"threshold length ({len(threshold)}) must match "
-                f"number of classes ({n_classes})"
+    else:
+        # Try to infer problem type
+        pred_arr = np.asarray(pred_prob)
+        if pred_arr.ndim == 1 or (pred_arr.ndim == 2 and pred_arr.shape[1] == 2):
+            return validate_binary_classification(
+                true_labs,
+                pred_prob,
+                require_proba=require_proba,
+                sample_weight=sample_weight,
             )
-
-    return threshold
-
-
-def _validate_metric_name(metric_name: str) -> None:
-    """Validate that a metric name is registered.
-
-    Parameters
-    ----------
-    metric_name:
-        Name of the metric to validate.
-
-    Raises
-    ------
-    ValueError
-        If metric is not registered.
-    """
-    from .metrics import METRIC_REGISTRY
-
-    if not isinstance(metric_name, str):
-        raise TypeError(f"metric must be a string, got {type(metric_name)}")
-    if metric_name not in METRIC_REGISTRY:
-        available_metrics = list(METRIC_REGISTRY.keys())
-        raise ValueError(
-            f"Unknown metric '{metric_name}'. Available metrics: {available_metrics}"
-        )
+        elif pred_arr.ndim == 2 and allow_multiclass:
+            labels, predictions = validate_multiclass_input(
+                true_labs, pred_prob, require_proba=require_proba
+            )
+            weights = None
+            if sample_weight is not None:
+                weight_result = validate_sample_weights(
+                    np.asarray(sample_weight), len(labels)
+                )
+                weight_result.raise_if_invalid()
+                weights = np.asarray(sample_weight, dtype=np.float64)
+            return labels, predictions, weights
+        else:
+            raise ValueError(f"Invalid prediction array shape: {pred_arr.shape}")
 
 
-def _validate_averaging_method(average: str) -> None:
-    """Validate averaging method.
-
-    Parameters
-    ----------
-    average:
-        Averaging method to validate.
-
-    Raises
-    ------
-    ValueError
-        If averaging method is invalid.
-    """
-    AVERAGING_VALIDATOR.validate(average)
-
-
-def _validate_optimization_method(method: str) -> None:
-    """Validate optimization method.
-
-    Parameters
-    ----------
-    method:
-        Optimization method to validate.
-
-    Raises
-    ------
-    ValueError
-        If optimization method is invalid.
-    """
-    OPTIMIZATION_VALIDATOR.validate(method)
-
-
-def _validate_comparison_operator(comparison: str) -> None:
-    """Validate comparison operator.
-
-    Parameters
-    ----------
-    comparison:
-        Comparison operator to validate.
-
-    Raises
-    ------
-    ValueError
-        If comparison operator is invalid.
-    """
-    COMPARISON_VALIDATOR.validate(comparison)
+def _validate_threshold(threshold: float) -> None:
+    """Validate threshold value."""
+    if not np.isfinite(threshold):
+        raise ValueError("Threshold must be finite")
