@@ -3,15 +3,15 @@
 from typing import Any, Self, cast
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from .multiclass_coord import _assign_labels_shifted
 from .optimizers import get_optimal_threshold
 from .types import (
-    ArrayLike,
-    AveragingMethod,
-    ComparisonOperator,
-    EstimationMode,
-    OptimizationMethod,
+    AveragingMethodLiteral,
+    ComparisonOperatorLiteral,
+    EstimationModeLiteral,
+    OptimizationMethodLiteral,
     SampleWeightLike,
     UtilityDict,
     UtilityMatrix,
@@ -29,16 +29,16 @@ class ThresholdOptimizer:
         self,
         metric: str | None = None,
         verbose: bool = False,
-        method: OptimizationMethod = "auto",
-        comparison: ComparisonOperator = ">",
+        method: OptimizationMethodLiteral = "auto",
+        comparison: ComparisonOperatorLiteral = ">",
         *,
-        mode: EstimationMode = "empirical",
+        mode: EstimationModeLiteral = "empirical",
         utility: UtilityDict | None = None,
         utility_matrix: UtilityMatrix | None = None,
         minimize_cost: bool | None = None,
         beta: float = 1.0,
         class_weight: ArrayLike | None = None,
-        average: AveragingMethod = "macro",
+        average: AveragingMethodLiteral = "macro",
     ) -> None:
         """Create a new optimizer.
 

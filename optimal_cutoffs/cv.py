@@ -3,6 +3,7 @@
 from typing import Any
 
 import numpy as np
+from numpy.typing import ArrayLike
 from sklearn.model_selection import (  # type: ignore[import-untyped]
     KFold,
     StratifiedKFold,
@@ -16,19 +17,23 @@ from .metrics import (
     multiclass_metric_exclusive,
 )
 from .optimizers import get_optimal_threshold
-from .types import ArrayLike, ComparisonOperator, OptimizationMethod, SampleWeightLike
+from .types import (
+    ComparisonOperatorLiteral,
+    OptimizationMethodLiteral,
+    SampleWeightLike,
+)
 
 
 def cv_threshold_optimization(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethod = "auto",
+    method: OptimizationMethodLiteral = "auto",
     cv: int | Any = 5,
     random_state: int | None = None,
     sample_weight: SampleWeightLike = None,
     *,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
     average: str = "macro",
     **opt_kwargs: Any,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -98,7 +103,7 @@ def cv_threshold_optimization(
             method=method,
             sample_weight=train_weights,
             comparison=comparison,
-            average=average,  # type: ignore[arg-type]
+            average=average,
             **opt_kwargs,
         )
         thr = _extract_thresholds(result)
@@ -121,13 +126,13 @@ def nested_cv_threshold_optimization(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethod = "auto",
+    method: OptimizationMethodLiteral = "auto",
     inner_cv: int = 5,
     outer_cv: int = 5,
     random_state: int | None = None,
     sample_weight: SampleWeightLike = None,
     *,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
     average: str = "macro",
     **opt_kwargs: Any,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -246,7 +251,7 @@ def _evaluate_threshold_on_fold(
     metric: str,
     average: str,
     sample_weight: ArrayLike | None,
-    comparison: ComparisonOperator,
+    comparison: ComparisonOperatorLiteral,
 ) -> float:
     """Compute the chosen metric on the test fold for a given threshold object."""
     y_true = np.asarray(y_true)

@@ -5,13 +5,14 @@ extracted to break circular dependencies and provide a clean separation of conce
 """
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from .metrics import (
     compute_metric_at_threshold,
     get_vectorized_metric,
 )
 from .piecewise import optimal_threshold_sortscan
-from .types import ArrayLike, ComparisonOperator, SampleWeightLike
+from .types import ComparisonOperatorLiteral, SampleWeightLike
 from .validation import _validate_inputs
 
 # Note: confusion matrix and metric computation functions are now centralized
@@ -24,7 +25,7 @@ def optimal_threshold_piecewise(
     pred_prob: ArrayLike,
     metric: str = "f1",
     sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
     require_proba: bool = True,
 ) -> float:
     """Find optimal threshold using O(n log n) piecewise-constant optimization.
@@ -102,7 +103,7 @@ def _optimal_threshold_piecewise_fallback(
     pred_prob: ArrayLike,
     metric: str = "f1",
     sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
 ) -> float:
     """Fallback implementation using brute force over unique probabilities."""
     true_labs, pred_prob, _ = _validate_inputs(true_labs, pred_prob)
@@ -142,7 +143,7 @@ def optimal_threshold_minimize(
     pred_prob: ArrayLike,
     metric: str = "f1",
     sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
 ) -> float:
     """Find optimal threshold using scipy.optimize.minimize_scalar.
 
@@ -236,7 +237,7 @@ def optimal_threshold_gradient(
     pred_prob: ArrayLike,
     metric: str = "f1",
     sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
     learning_rate: float = 0.01,
     max_iter: int = 1000,
     tol: float = 1e-6,

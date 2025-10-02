@@ -4,10 +4,12 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import ThresholdOptimizer, get_optimal_multiclass_thresholds
-from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.metrics import (
+    compute_multiclass_metrics_from_labels,
+    get_vectorized_metric,
+)
 from optimal_cutoffs.multiclass_coord import (
     _assign_labels_shifted,
-    _macro_f1_from_assignments,
     optimal_multiclass_thresholds_coord_ascent,
 )
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
@@ -47,7 +49,11 @@ class TestCoordinateAscentCore:
         y_pred = np.array([0, 1, 1, 0, 2, 1])
         n_classes = 3
 
-        macro_f1 = _macro_f1_from_assignments(y_true, y_pred, n_classes)
+        macro_f1 = float(
+            compute_multiclass_metrics_from_labels(
+                y_true, y_pred, metric="f1", average="macro", n_classes=n_classes
+            )
+        )
 
         # Manual calculation:
         # Class 0: TP=1, FP=1, FN=1 -> F1 = 2*1/(2*1+1+1) = 2/4 = 0.5
@@ -101,7 +107,11 @@ class TestCoordinateAscentCore:
             tau0[c] = t
 
         y_pred0 = _assign_labels_shifted(P, tau0)
-        macro0 = _macro_f1_from_assignments(y_true, y_pred0, C)
+        macro0 = float(
+            compute_multiclass_metrics_from_labels(
+                y_true, y_pred0, metric="f1", average="macro", n_classes=C
+            )
+        )
 
         # Coordinate ascent
         tau, best_macro, _ = optimal_multiclass_thresholds_coord_ascent(
@@ -281,13 +291,21 @@ class TestCoordinateAscentPerformance:
             y_true, P, metric="f1", method="unique_scan"
         )
         y_pred_ovr = _assign_labels_shifted(P, tau_ovr)
-        macro_f1_ovr = _macro_f1_from_assignments(y_true, y_pred_ovr, 3)
+        macro_f1_ovr = float(
+            compute_multiclass_metrics_from_labels(
+                y_true, y_pred_ovr, metric="f1", average="macro", n_classes=3
+            )
+        )
 
         tau_coord = get_optimal_multiclass_thresholds(
             y_true, P, metric="f1", method="coord_ascent"
         )
         y_pred_coord = _assign_labels_shifted(P, tau_coord)
-        macro_f1_coord = _macro_f1_from_assignments(y_true, y_pred_coord, 3)
+        macro_f1_coord = float(
+            compute_multiclass_metrics_from_labels(
+                y_true, y_pred_coord, metric="f1", average="macro", n_classes=3
+            )
+        )
 
         # Coordinate ascent should perform at least as well as OvR
         assert macro_f1_coord >= macro_f1_ovr - 1e-10

@@ -24,42 +24,11 @@ from typing import Any
 
 import numpy as np
 
+from .metrics import compute_multiclass_metrics_from_labels
+
 Array = np.ndarray[Any, Any]
 
 
-def _macro_f1_from_assignments(y_true: Array, y_pred: Array, n_classes: int) -> float:
-    """Compute macro-F1 from class assignments.
-
-    Parameters
-    ----------
-    y_true : Array
-        True class labels (integers 0, 1, ..., n_classes-1).
-    y_pred : Array
-        Predicted class labels (integers 0, 1, ..., n_classes-1).
-    n_classes : int
-        Number of classes.
-
-    Returns
-    -------
-    float
-        Macro-averaged F1 score.
-    """
-    tp = np.zeros(n_classes, dtype=int)
-    pp = np.zeros(n_classes, dtype=int)  # predicted positives
-    pos = np.bincount(y_true, minlength=n_classes)  # true positives per class
-
-    for yi, pi in zip(y_true, y_pred, strict=False):
-        pp[pi] += 1
-        if yi == pi:
-            tp[pi] += 1
-
-    fn = pos - tp
-    fp = pp - tp
-    denom = 2 * tp + fp + fn
-    f1 = np.divide(
-        2 * tp, denom, out=np.zeros_like(denom, dtype=float), where=denom > 0
-    )
-    return float(np.mean(f1))
 
 
 def _assign_labels_shifted(P: Array, tau: Array) -> Array:
@@ -213,7 +182,11 @@ def optimal_multiclass_thresholds_coord_ascent(
 
             # Start from tau_c > max(b) -> nobody assigned to class c
             y_pred = jstar.copy()
-            macro = _macro_f1_from_assignments(y_true, y_pred, C)
+            macro = float(
+                compute_multiclass_metrics_from_labels(
+                    y_true, y_pred, metric="f1", average="macro", n_classes=C
+                )
+            )
             best_macro_c = macro
             best_k = -1
 
@@ -263,7 +236,11 @@ def optimal_multiclass_thresholds_coord_ascent(
                 y_pred[i] = c
 
                 # Recompute macro-F1 (could be optimized by tracking changes)
-                macro = _macro_f1_from_assignments(y_true, y_pred, C)
+                macro = float(
+                    compute_multiclass_metrics_from_labels(
+                        y_true, y_pred, metric="f1", average="macro", n_classes=C
+                    )
+                )
 
                 if macro > best_macro_c:
                     best_macro_c = macro
@@ -285,7 +262,11 @@ def optimal_multiclass_thresholds_coord_ascent(
             old_tau_c = tau[c]
             tau[c] = new_tau_c
             y_pred_global = _assign_labels_shifted(P, tau)
-            macro_global = _macro_f1_from_assignments(y_true, y_pred_global, C)
+            macro_global = float(
+                compute_multiclass_metrics_from_labels(
+                    y_true, y_pred_global, metric="f1", average="macro", n_classes=C
+                )
+            )
 
             if macro_global > best_macro + 1e-12:
                 best_macro = macro_global

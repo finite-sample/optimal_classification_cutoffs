@@ -7,13 +7,13 @@ using One-vs-Rest (OvR) strategy by default.
 from typing import Any
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from .binary_optimization import optimal_threshold_piecewise
 from .types import (
-    ArrayLike,
-    AveragingMethod,
-    ComparisonOperator,
-    OptimizationMethod,
+    AveragingMethodLiteral,
+    ComparisonOperatorLiteral,
+    OptimizationMethodLiteral,
     SampleWeightLike,
 )
 
@@ -33,130 +33,15 @@ def validate_multiclass_input(
     return true_labs, pred_prob
 
 
-def multiclass_metric_score(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    thresholds: ArrayLike,
-    metric: str = "f1",
-    average: AveragingMethod = "macro",
-    sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
-) -> float:
-    """Compute multiclass metric score using One-vs-Rest strategy.
-
-    Parameters
-    ----------
-    true_labs : array-like of shape (n_samples,)
-        True class labels (0, 1, ..., n_classes-1)
-    pred_prob : array-like of shape (n_samples, n_classes)
-        Predicted class probabilities
-    thresholds : array-like of shape (n_classes,)
-        Per-class thresholds
-    metric : str, default="f1"
-        Metric to compute
-    average : {"macro", "micro", "weighted", "none"}, default="macro"
-        Averaging strategy for multiclass metric
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : {">" or ">="}, default=">"
-        Comparison operator for threshold application
-
-    Returns
-    -------
-    float
-        Multiclass metric score
-    """
-    true_labs, pred_prob = validate_multiclass_input(true_labs, pred_prob)
-    thresholds = np.asarray(thresholds, dtype=float)
-
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=float)
-        if sample_weight.shape[0] != true_labs.shape[0]:
-            raise ValueError("sample_weight must have same length as true_labs")
-
-    n_samples, n_classes = pred_prob.shape
-
-    if thresholds.shape[0] != n_classes:
-        raise ValueError(
-            f"thresholds must have shape ({n_classes},), got {thresholds.shape}"
-        )
-
-    # Apply thresholds to get binary predictions for each class
-    if comparison == ">":
-        binary_predictions = pred_prob > thresholds[np.newaxis, :]
-    else:  # ">="
-        binary_predictions = pred_prob >= thresholds[np.newaxis, :]
-
-    # Convert to multiclass predictions using One-vs-Rest strategy
-    # For each sample, predict the class with highest probability
-    # among those above threshold
-    # If no classes above threshold, predict the class with highest probability
-    predictions = np.zeros(n_samples, dtype=int)
-
-    for i in range(n_samples):
-        above_threshold = np.where(binary_predictions[i])[0]
-        if len(above_threshold) > 0:
-            # Among classes above threshold, pick the one with highest probability
-            predictions[i] = above_threshold[np.argmax(pred_prob[i, above_threshold])]
-        else:
-            # No class above threshold, pick highest probability class
-            predictions[i] = np.argmax(pred_prob[i])
-
-    # Compute multiclass metric - need to implement this properly
-    # For now, use a simple approach
-    from sklearn.metrics import (  # type: ignore[import-untyped]
-        accuracy_score,
-        f1_score,
-        precision_score,
-        recall_score,
-    )
-
-    if metric == "f1":
-        return float(
-            f1_score(
-                true_labs,
-                predictions,
-                average=average,
-                sample_weight=sample_weight,
-                zero_division=0,
-            )
-        )
-    elif metric == "accuracy":
-        return float(
-            accuracy_score(true_labs, predictions, sample_weight=sample_weight)
-        )
-    elif metric == "precision":
-        return float(
-            precision_score(
-                true_labs,
-                predictions,
-                average=average,
-                sample_weight=sample_weight,
-                zero_division=0,
-            )
-        )
-    elif metric == "recall":
-        return float(
-            recall_score(
-                true_labs,
-                predictions,
-                average=average,
-                sample_weight=sample_weight,
-                zero_division=0,
-            )
-        )
-    else:
-        raise ValueError(f"Metric '{metric}' not supported for multiclass")
-
 
 def get_optimal_multiclass_thresholds(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethod = "auto",
-    average: AveragingMethod = "macro",
+    method: OptimizationMethodLiteral = "auto",
+    average: AveragingMethodLiteral = "macro",
     sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
 ) -> np.ndarray[Any, Any]:
     """Find optimal per-class thresholds for multiclass classification.
 

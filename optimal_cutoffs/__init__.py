@@ -32,6 +32,7 @@ from .metrics import (
     VECTORIZED_REGISTRY,
     compute_confusion_matrix_from_labels,
     compute_metric_at_threshold,
+    compute_multiclass_metrics_from_labels,
     get_confusion_matrix,
     get_multiclass_confusion_matrix,
     get_vectorized_metric,
@@ -48,7 +49,13 @@ from .metrics import (
 )
 from .multiclass_optimization import get_optimal_multiclass_thresholds
 from .optimizers import get_optimal_threshold
-from .types import MulticlassMetricReturn
+from .types import (
+    AveragingMethod,
+    ComparisonOperator,
+    EstimationMode,
+    MulticlassMetricReturn,
+    OptimizationMethod,
+)
 from .wrapper import ThresholdOptimizer
 
 __all__ = [
@@ -63,6 +70,7 @@ __all__ = [
     # Metrics and confusion matrix
     "compute_confusion_matrix_from_labels",
     "compute_metric_at_threshold",
+    "compute_multiclass_metrics_from_labels",
     "get_confusion_matrix",
     "get_multiclass_confusion_matrix",
     "make_cost_metric",
@@ -86,6 +94,10 @@ __all__ = [
     "nested_cv_threshold_optimization",
     # High-level wrapper
     "ThresholdOptimizer",
-    # Types
+    # Types and Enums
     "MulticlassMetricReturn",
+    "OptimizationMethod",
+    "AveragingMethod",
+    "ComparisonOperator",
+    "EstimationMode",
 ]

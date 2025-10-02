@@ -3,18 +3,18 @@
 from typing import Any
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from .metrics import (
     is_piecewise_metric,
 )
 from .results import ThresholdResult, create_result
 from .types import (
-    ArrayLike,
-    AveragingMethod,
-    ComparisonOperator,
-    EstimationMode,
+    AveragingMethodLiteral,
+    ComparisonOperatorLiteral,
+    EstimationModeLiteral,
     ExpectedResult,
-    OptimizationMethod,
+    OptimizationMethodLiteral,
     SampleWeightLike,
     UtilityDict,
     UtilityMatrix,
@@ -31,17 +31,17 @@ def get_optimal_threshold(
     true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethod = "auto",
+    method: OptimizationMethodLiteral = "auto",
     sample_weight: ArrayLike | None = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
     *,
-    mode: EstimationMode = "empirical",
+    mode: EstimationModeLiteral = "empirical",
     utility: UtilityDict | None = None,
     utility_matrix: UtilityMatrix | None = None,
     minimize_cost: bool | None = None,
     beta: float = 1.0,
     class_weight: ArrayLike | None = None,
-    average: AveragingMethod = "macro",
+    average: AveragingMethodLiteral = "macro",
     return_result: bool = False,
 ) -> (
     float
@@ -256,7 +256,7 @@ def _optimal_threshold_unique_scan(
     pred_prob: ArrayLike,
     metric: str = "f1",
     sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
 ) -> float:
     """Find optimal threshold using brute force over unique probabilities."""
     from .binary_optimization import _optimal_threshold_piecewise_fallback
@@ -270,12 +270,12 @@ def _optimize_empirical(
     true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
     metric: str,
-    method: OptimizationMethod,
+    method: OptimizationMethodLiteral,
     sample_weight: ArrayLike | None,
-    comparison: ComparisonOperator,
+    comparison: ComparisonOperatorLiteral,
     utility: UtilityDict | None,
     minimize_cost: bool | None,
-    average: AveragingMethod,
+    average: AveragingMethodLiteral,
 ) -> float | np.ndarray[Any, Any]:
     """Empirical threshold optimization."""
     from .binary_optimization import (
@@ -351,12 +351,12 @@ def _optimize_expected(
     true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
     metric: str,
-    method: OptimizationMethod,
+    method: OptimizationMethodLiteral,
     sample_weight: ArrayLike | None,
-    comparison: ComparisonOperator,
+    comparison: ComparisonOperatorLiteral,
     beta: float,
     class_weight: ArrayLike | None,
-    average: AveragingMethod,
+    average: AveragingMethodLiteral,
 ) -> ExpectedResult | tuple[float, float]:
     """Expected metric optimization using Dinkelbach method."""
     from .expected import (
@@ -396,7 +396,7 @@ def _optimize_bayes(
     utility: UtilityDict | None,
     utility_matrix: UtilityMatrix | None,
     minimize_cost: bool | None,
-    comparison: ComparisonOperator,
+    comparison: ComparisonOperatorLiteral,
 ) -> float | np.ndarray[Any, Any]:
     """Bayes-optimal threshold optimization."""
     from .bayes import (

@@ -4,8 +4,9 @@ from collections.abc import Callable
 from typing import Any, cast
 
 import numpy as np
+from numpy.typing import ArrayLike
 
-from .types import ArrayLike, ComparisonOperator, MetricFunc
+from .types import ComparisonOperatorLiteral, MetricFunc
 from .validation import (
     _validate_comparison_operator,
     _validate_inputs,
@@ -690,7 +691,7 @@ def get_confusion_matrix(
     pred_prob: ArrayLike,
     prob: float,
     sample_weight: ArrayLike | None = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
     *,
     require_proba: bool = True,
 ) -> tuple[int | float, int | float, int | float, int | float]:
@@ -866,12 +867,153 @@ def compute_metric_at_threshold(
     return float(metric_func(tp, tn, fp, fn))
 
 
+def compute_multiclass_metrics_from_labels(
+    true_labels: ArrayLike,
+    pred_labels: ArrayLike,
+    metric: str = "f1",
+    average: str = "macro",
+    sample_weight: ArrayLike | None = None,
+    n_classes: int | None = None,
+) -> float | np.ndarray[Any, Any]:
+    """Compute multiclass metrics from true and predicted class labels.
+
+    This is a centralized function that computes various multiclass metrics
+    without external dependencies, supporting all averaging methods.
+
+    Parameters
+    ----------
+    true_labels : ArrayLike
+        True class labels (integers 0, 1, ..., n_classes-1)
+    pred_labels : ArrayLike
+        Predicted class labels (integers 0, 1, ..., n_classes-1)
+    metric : str, default="f1"
+        Metric to compute ("f1", "precision", "recall", "accuracy")
+    average : str, default="macro"
+        Averaging strategy: "macro", "micro", "weighted", "none"
+    sample_weight : ArrayLike, optional
+        Sample weights
+    n_classes : int, optional
+        Number of classes. If None, inferred from labels.
+
+    Returns
+    -------
+    float or np.ndarray
+        Computed metric score (float) or per-class scores (array if average="none")
+    """
+    true_labels = np.asarray(true_labels, dtype=int)
+    pred_labels = np.asarray(pred_labels, dtype=int)
+
+    if true_labels.shape != pred_labels.shape:
+        raise ValueError("true_labels and pred_labels must have same shape")
+
+    if sample_weight is not None:
+        sample_weight = np.asarray(sample_weight, dtype=float)
+        if sample_weight.shape[0] != true_labels.shape[0]:
+            raise ValueError("sample_weight must have same length as labels")
+    else:
+        sample_weight = np.ones_like(true_labels, dtype=float)
+
+    # Determine number of classes
+    if n_classes is None:
+        n_classes = max(int(np.max(true_labels)) + 1, int(np.max(pred_labels)) + 1)
+
+    # Handle accuracy separately (it's computed differently)
+    if metric == "accuracy":
+        correct = (true_labels == pred_labels).astype(float)
+        return float(np.average(correct, weights=sample_weight))
+
+    # For other metrics, compute per-class confusion matrices
+    tp = np.zeros(n_classes, dtype=float)
+    fp = np.zeros(n_classes, dtype=float)
+    fn = np.zeros(n_classes, dtype=float)
+    support = np.zeros(n_classes, dtype=float)  # for weighted averaging
+
+    for class_idx in range(n_classes):
+        # Binary classification for this class vs all others
+        true_binary = (true_labels == class_idx).astype(int)
+        pred_binary = (pred_labels == class_idx).astype(int)
+
+        # Compute confusion matrix for this class
+        tp[class_idx] = np.sum(sample_weight * (true_binary == 1) * (pred_binary == 1))
+        fp[class_idx] = np.sum(sample_weight * (true_binary == 0) * (pred_binary == 1))
+        fn[class_idx] = np.sum(sample_weight * (true_binary == 1) * (pred_binary == 0))
+        support[class_idx] = np.sum(sample_weight * (true_labels == class_idx))
+
+    # Compute per-class metrics
+    if metric == "precision":
+        per_class_scores = np.divide(
+            tp, tp + fp, out=np.zeros_like(tp), where=(tp + fp) > 0
+        )
+    elif metric == "recall":
+        per_class_scores = np.divide(
+            tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0
+        )
+    elif metric == "f1":
+        precision = np.divide(
+            tp, tp + fp, out=np.zeros_like(tp), where=(tp + fp) > 0
+        )
+        recall = np.divide(
+            tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0
+        )
+        per_class_scores = np.divide(
+            2 * precision * recall,
+            precision + recall,
+            out=np.zeros_like(precision),
+            where=(precision + recall) > 0,
+        )
+    else:
+        raise ValueError(f"Metric '{metric}' not supported")
+
+    # Apply averaging strategy
+    if average == "none":
+        return per_class_scores
+    elif average == "macro":
+        return float(np.mean(per_class_scores))
+    elif average == "micro":
+        # Micro averaging: compute global metric from summed confusion matrices
+        total_tp = np.sum(tp)
+        total_fp = np.sum(fp)
+        total_fn = np.sum(fn)
+
+        if metric == "precision":
+            return float(
+                total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
+            )
+        elif metric == "recall":
+            return float(
+                total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
+            )
+        elif metric == "f1":
+            micro_precision = float(
+                total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
+            )
+            micro_recall = float(
+                total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
+            )
+            return float(
+                2 * micro_precision * micro_recall / (micro_precision + micro_recall)
+                if micro_precision + micro_recall > 0
+                else 0.0
+            )
+        else:
+            raise ValueError(f"Metric '{metric}' not supported for micro averaging")
+    elif average == "weighted":
+        # Weighted averaging by support
+        total_support = np.sum(support)
+        if total_support > 0:
+            return float(np.sum(per_class_scores * support) / total_support)
+        else:
+            return float(np.mean(per_class_scores))
+    else:
+        raise ValueError(f"Invalid average method: {average}")
+
+
 def get_multiclass_confusion_matrix(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     thresholds: ArrayLike,
     sample_weight: ArrayLike | None = None,
-    comparison: ComparisonOperator = ">",
+    comparison: ComparisonOperatorLiteral = ">",
     *,
     require_proba: bool = False,
 ) -> list[tuple[int | float, int | float, int | float, int | float]]:
