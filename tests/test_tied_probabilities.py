@@ -26,7 +26,8 @@ import pytest
 
 from optimal_cutoffs import ThresholdOptimizer, get_optimal_threshold
 from optimal_cutoffs.metrics import get_confusion_matrix
-from optimal_cutoffs.piecewise import get_vectorized_metric, optimal_threshold_sortscan
+from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 
 
 class TestTiedProbabilities:
@@ -165,7 +166,7 @@ class TestTiedProbabilities:
 
         predictions = optimizer.predict(pred_prob)
         assert len(predictions) == len(y_true)
-        assert predictions.dtype == bool
+        assert predictions.dtype in [bool, np.int64, np.int32]  # Accept bool or integer predictions
 
     def test_multiclass_with_tied_probabilities(self):
         """Test multiclass scenarios with tied probabilities."""

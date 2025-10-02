@@ -155,17 +155,6 @@ class ThresholdResult:
             return self.threshold
 
 
-# Backward compatibility aliases
-BinaryResult = ThresholdResult
-MulticlassResult = ThresholdResult
-ExpectedBinaryResult = ThresholdResult
-ExpectedMulticlassResult = ThresholdResult
-BayesDecisionResult = ThresholdResult
-
-# Union type for backward compatibility
-OptimizationResult = ThresholdResult
-
-
 def create_result(
     *,
     threshold: float | NDArray[np.float64] | None = None,

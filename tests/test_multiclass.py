@@ -163,7 +163,7 @@ def test_threshold_optimizer_binary_compatibility():
     # Test prediction
     predictions = optimizer.predict(pred_prob)
     assert len(predictions) == len(true_labs)
-    assert predictions.dtype == bool
+    assert predictions.dtype in [bool, np.int64, np.int32]
 
 
 def test_multiclass_metrics_averaging_methods():

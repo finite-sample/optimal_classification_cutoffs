@@ -154,9 +154,11 @@ class TestComparisonOperators:
         pred_gt = opt_gt.predict(pred_probs)
         pred_gte = opt_gte.predict(pred_probs)
 
-        # Predictions should be boolean arrays
-        assert pred_gt.dtype == bool
-        assert pred_gte.dtype == bool
+        # Predictions should be integer arrays (0/1 labels, like scikit-learn)
+        assert pred_gt.dtype in [np.int32, np.int64, int]
+        assert pred_gte.dtype in [np.int32, np.int64, int]
+        assert set(pred_gt).issubset({0, 1})
+        assert set(pred_gte).issubset({0, 1})
         assert len(pred_gt) == len(true_labels)
         assert len(pred_gte) == len(true_labels)
 

@@ -228,35 +228,20 @@ class TestMulticlassOptimizationAveraging:
         np.testing.assert_array_almost_equal(thresholds_macro, thresholds_weighted)
         np.testing.assert_array_almost_equal(thresholds_macro, thresholds_none)
 
-    def test_vectorized_parameter_works(self):
-        """Test that vectorized parameter is accepted and produces valid results."""
-        thresholds_standard = get_optimal_multiclass_thresholds(
+    def test_standard_optimization_works(self):
+        """Test that standard optimization produces valid results."""
+        thresholds = get_optimal_multiclass_thresholds(
             self.true_labs,
             self.pred_prob,
             "f1",
             "unique_scan",
             average="macro",
-            vectorized=False,
-        )
-        thresholds_vectorized = get_optimal_multiclass_thresholds(
-            self.true_labs,
-            self.pred_prob,
-            "f1",
-            "unique_scan",
-            average="macro",
-            vectorized=True,
         )
 
-        # Both should produce valid thresholds
-        assert isinstance(thresholds_standard, np.ndarray)
-        assert isinstance(thresholds_vectorized, np.ndarray)
-        assert len(thresholds_standard) == 3
-        assert len(thresholds_vectorized) == 3
-
-        # Should produce very similar results (allowing for minor optimization differences)
-        np.testing.assert_array_almost_equal(
-            thresholds_standard, thresholds_vectorized, decimal=3
-        )
+        # Should produce valid thresholds
+        assert isinstance(thresholds, np.ndarray)
+        assert len(thresholds) == 3
+        assert all(0 <= t <= 1 for t in thresholds)
 
     def test_different_averaging_strategies_documented(self):
         """Test that all averaging strategies are properly documented and work."""
@@ -303,8 +288,8 @@ class TestMulticlassOptimizationAveraging:
 class TestPerformanceImprovements:
     """Test suite for performance improvements."""
 
-    def test_vectorized_option_available(self):
-        """Test that vectorized option is available and works."""
+    def test_optimization_available(self):
+        """Test that optimization is available and works."""
         np.random.seed(42)
         true_labs = np.random.randint(0, 3, 100)
         pred_prob = np.random.rand(100, 3)
@@ -312,7 +297,7 @@ class TestPerformanceImprovements:
 
         # Should work without errors
         thresholds = get_optimal_multiclass_thresholds(
-            true_labs, pred_prob, "f1", "unique_scan", average="macro", vectorized=True
+            true_labs, pred_prob, "f1", "unique_scan", average="macro"
         )
 
         assert isinstance(thresholds, np.ndarray)
@@ -332,7 +317,7 @@ class TestPerformanceImprovements:
 
         # Should complete without errors on larger datasets
         thresholds = get_optimal_multiclass_thresholds(
-            true_labs, pred_prob, "f1", "unique_scan", average="macro", vectorized=True
+            true_labs, pred_prob, "f1", "unique_scan", average="macro"
         )
 
         assert isinstance(thresholds, np.ndarray)

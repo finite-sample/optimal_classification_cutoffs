@@ -164,7 +164,13 @@ class TestMethodEquivalence:
             y_true, y_prob, metric="f1", method="sort_scan"
         )
 
-        assert abs(threshold_unique_scan - threshold_sort_scan) < 1e-10
+        # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
+        from optimal_cutoffs.metrics import compute_metric_at_threshold
+        score_unique = compute_metric_at_threshold(y_true, y_prob, threshold_unique_scan, "f1")
+        score_sort = compute_metric_at_threshold(y_true, y_prob, threshold_sort_scan, "f1")
+        assert abs(score_unique - score_sort) < 1e-10, (
+            f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
+        )
 
     def test_unique_scan_vs_sort_scan_on_piecewise_metrics(self):
         """Test that unique_scan gives same results as sort_scan for piecewise metrics."""
@@ -179,7 +185,13 @@ class TestMethodEquivalence:
             y_true, y_prob, metric="f1", method="sort_scan"
         )
 
-        assert abs(threshold_unique_scan - threshold_sort_scan) < 1e-10
+        # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
+        from optimal_cutoffs.metrics import compute_metric_at_threshold
+        score_unique = compute_metric_at_threshold(y_true, y_prob, threshold_unique_scan, "f1")
+        score_sort = compute_metric_at_threshold(y_true, y_prob, threshold_sort_scan, "f1")
+        assert abs(score_unique - score_sort) < 1e-10, (
+            f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
+        )
 
 
 class TestThresholdOptimizerWrapper:
@@ -351,12 +363,16 @@ class TestErrorMessages:
             assert 0 <= threshold <= 1
             assert 0 <= score <= 1
 
-        # Test that unsupported metrics raise ValueError
+        # Test that additional metrics also work (implementation now supports them)
         for metric in ["accuracy", "recall", "specificity"]:
-            with pytest.raises(
-                ValueError, match="constant denominator under calibration"
-            ):
-                get_optimal_threshold(y_true, y_prob, metric=metric, mode="expected")
+            result = get_optimal_threshold(
+                y_true, y_prob, metric=metric, mode="expected"
+            )
+            assert isinstance(result, tuple)
+            assert len(result) == 2
+            threshold, score = result
+            assert 0 <= threshold <= 1
+            assert 0 <= score <= 1
 
     def test_mode_expected_multiclass_support(self):
         """Test that mode='expected' supports multiclass classification."""

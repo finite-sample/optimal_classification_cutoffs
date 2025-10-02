@@ -30,6 +30,8 @@ from .expected import (
 from .metrics import (
     METRIC_REGISTRY,
     VECTORIZED_REGISTRY,
+    compute_confusion_matrix_from_labels,
+    compute_metric_at_threshold,
     get_confusion_matrix,
     get_multiclass_confusion_matrix,
     get_vectorized_metric,
@@ -59,6 +61,8 @@ __all__ = [
     "dinkelbach_expected_fbeta_binary",
     "dinkelbach_expected_fbeta_multilabel",
     # Metrics and confusion matrix
+    "compute_confusion_matrix_from_labels",
+    "compute_metric_at_threshold",
     "get_confusion_matrix",
     "get_multiclass_confusion_matrix",
     "make_cost_metric",

@@ -199,6 +199,46 @@ def get_optimal_multiclass_thresholds(
 
     n_samples, n_classes = pred_prob.shape
 
+    # Handle coordinate ascent method
+    if method == "coord_ascent":
+        # Coordinate ascent has specific requirements and limitations
+        if sample_weight is not None:
+            raise NotImplementedError(
+                "Coordinate ascent does not support sample weights. "
+                "This limitation could be lifted in future versions."
+            )
+        if comparison != ">":
+            raise NotImplementedError(
+                "Coordinate ascent only supports '>' comparison. "
+                "Support for '>=' could be added in future versions."
+            )
+        if metric != "f1":
+            raise NotImplementedError(
+                "Coordinate ascent only supports 'f1' metric. "
+                "Support for other piecewise metrics could be added in future versions."
+            )
+
+        # Import required functions
+        from .metrics import get_vectorized_metric
+        from .multiclass_coord import optimal_multiclass_thresholds_coord_ascent
+        from .piecewise import optimal_threshold_sortscan
+
+        # Get vectorized F1 metric
+        f1_metric = get_vectorized_metric("f1")
+
+        # Call coordinate ascent algorithm
+        thresholds, _, _ = optimal_multiclass_thresholds_coord_ascent(
+            true_labs,
+            pred_prob,
+            sortscan_metric_fn=f1_metric,
+            sortscan_kernel=optimal_threshold_sortscan,
+            max_iter=20,
+            init="ovr_sortscan",
+            tol_stops=1,
+        )
+
+        return thresholds
+
     if average == "micro":
         # Micro averaging: use single global threshold
         # Flatten all class probabilities and create binary labels

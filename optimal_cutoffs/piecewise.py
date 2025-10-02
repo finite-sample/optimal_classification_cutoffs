@@ -9,7 +9,7 @@ complexity with vectorized operations.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -116,17 +116,17 @@ def _vectorized_counts(
     """Compute confusion matrix counts for all possible cuts using cumulative sums.
 
     Given labels and weights sorted in the same order as descending probabilities,
-    returns (tp, tn, fp, fn) as vectors for every cut k, including the
-    "predict nothing" case.
+    returns (tp, tn, fp, fn) as vectors for every cut k.
 
-    At cut k (include indices 0..k as predicted positive):
-      tp[k] = sum_{j<=k} weights_sorted[j] * y_sorted[j]
-      fp[k] = sum_{j<=k} weights_sorted[j] * (1 - y_sorted[j])
-      fn[k] = P - tp[k]
-      tn[k] = N - fp[k]
+    The indexing convention is:
+    - Index 0: "predict nothing as positive" (all negative predictions)
+    - Index k (k > 0): predict first k items as positive, rest as negative
 
-    The first element (index 0) represents the "predict nothing as positive" case.
-    Subsequent elements represent cuts after items 0, 1, 2, ..., n-1.
+    At cut index k:
+      tp[k] = sum of weights for positive labels in first k items
+      fp[k] = sum of weights for negative labels in first k items
+      fn[k] = P - tp[k] (remaining positive weight)
+      tn[k] = N - fp[k] (remaining negative weight)
 
     Where P = total positive weight, N = total negative weight.
 
@@ -140,8 +140,8 @@ def _vectorized_counts(
     Returns
     -------
     Tuple[Array, Array, Array, Array]
-        Arrays of (tp, tn, fp, fn) counts for each cut position, with the first
-        element being the "predict nothing" case.
+        Arrays of (tp, tn, fp, fn) counts for each cut position. Length is n+1
+        where n is the number of samples, with index 0 being "predict nothing".
     """
 
     # Compute total positive and negative weights
@@ -290,11 +290,36 @@ def _compute_threshold_midpoint(
                 # This means tied_prob >= threshold is true, including tied values
                 threshold = float(np.nextafter(tied_prob, -np.inf))
 
-    # Clamp threshold to [0, 1] only for probabilities
-    if require_proba:
-        return max(0.0, min(1.0, threshold))
+    # Don't clamp here - let the main algorithm handle clamping after checking
+    # for discrepancies
+    return threshold
+
+
+def _realized_k(p_sorted: Array, threshold: float, inclusive: bool) -> int:
+    """Compute the realized cut index from final threshold.
+
+    Given a threshold and comparison mode, compute how many samples would actually
+    be predicted positive based on the sorted probabilities.
+
+    Parameters
+    ----------
+    p_sorted : Array
+        Probabilities or scores sorted in descending order.
+    threshold : float
+        Final threshold value.
+    inclusive : bool
+        Whether comparison is inclusive (>=) or exclusive (>).
+
+    Returns
+    -------
+    int
+        Number of samples that would be predicted positive (realized k).
+    """
+    # p_sorted is descending; use -p_sorted to search as ascending
+    if inclusive:
+        return int(np.searchsorted(-p_sorted, -threshold, side="right"))
     else:
-        return threshold
+        return int(np.searchsorted(-p_sorted, -threshold, side="left"))
 
 
 def optimal_threshold_sortscan(
@@ -362,25 +387,6 @@ def optimal_threshold_sortscan(
     weights = _validate_sample_weights(sample_weight, y.shape[0])
 
     n = y.shape[0]
-
-    # Handle edge case: single sample
-    if n == 1:
-        # For single sample, threshold doesn't matter much, use score value
-        if y[0] == 1:
-            # Single positive: TP=w, TN=0, FP=0, FN=0
-            tp_single, tn_single, fp_single, fn_single = weights[0], 0.0, 0.0, 0.0
-        else:
-            # Single negative: TP=0, TN=w, FP=0, FN=0
-            tp_single, tn_single, fp_single, fn_single = 0.0, weights[0], 0.0, 0.0
-        score = float(
-            metric_fn(
-                np.array([tp_single]),
-                np.array([tn_single]),
-                np.array([fp_single]),
-                np.array([fn_single]),
-            )[0]
-        )
-        return float(p[0]), score, 0
 
     # Handle edge case: all same class
     if np.all(y == 0):  # All negatives - optimal threshold should predict all negative
@@ -473,20 +479,38 @@ def optimal_threshold_sortscan(
         )[0]
     )
 
-    # If there's a large discrepancy due to ties, use smart local nudging
+    # If there's a large discrepancy due to ties, use a targeted local fallback
     # Use a tolerance larger than numerical precision
     if abs(actual_score - best_score_theoretical) > max(
         1e-6, NUMERICAL_TOLERANCE * 100
     ):
-        # Try simple local nudges around the optimal threshold
         best_alt_score = actual_score
         best_alt_threshold = threshold
+        fallback_candidates: list[float] = []
 
-        # Try nudging the threshold by small amounts
-        nudge_eps = NUMERICAL_TOLERANCE * 10
-        alt_thresholds = [threshold - nudge_eps, threshold + nudge_eps]
+        # Extremes for "none"/"all" predictions
+        min_s = float(p_sorted[-1])  # smallest score (last in descending order)
+        max_s = float(p_sorted[0])   # largest score (first in descending order)
+        if inclusive:
+            fallback_candidates += [min_s, float(np.nextafter(max_s, np.inf))]
+        else:
+            fallback_candidates += [float(np.nextafter(min_s, -np.inf)), max_s]
 
-        for alt_thresh in alt_thresholds:
+        # Local nudges around the k_star boundary
+        if 0 < k_star < n:
+            inc = float(p_sorted[k_star - 1])  # last included score
+            exc = float(p_sorted[k_star])      # first excluded score
+            fallback_candidates += [
+                float(np.nextafter(inc, -np.inf)),  # just below last included
+                float(np.nextafter(exc,  np.inf)),  # just above first excluded
+            ]
+
+        # Test all fallback candidates
+        for alt_thresh in fallback_candidates:
+            # Clamp to valid range if needed
+            if require_proba:
+                alt_thresh = max(0.0, min(1.0, alt_thresh))
+
             if not inclusive:  # exclusive ">"
                 alt_pred_mask = p > alt_thresh
             else:  # inclusive ">="
@@ -511,121 +535,72 @@ def optimal_threshold_sortscan(
                 best_alt_score = alt_score
                 best_alt_threshold = alt_thresh
 
-        return best_alt_threshold, best_alt_score, k_star
+        # Apply final clamping for probability constraints and recalculate score
+        # if needed
+        if require_proba:
+            original_threshold = best_alt_threshold
+            best_alt_threshold = max(0.0, min(1.0, best_alt_threshold))
 
-    return threshold, actual_score, k_star
+            # If threshold changed due to clamping, recalculate the score
+            # Use a very small tolerance to catch even tiny threshold changes
+            # that can affect scoring
+            if abs(best_alt_threshold - original_threshold) > 0:
+                if not inclusive:
+                    final_pred_mask = p > best_alt_threshold
+                else:
+                    final_pred_mask = p >= best_alt_threshold
 
+                final_tp = float(np.sum(weights * (final_pred_mask & (y == 1))))
+                final_tn = float(np.sum(weights * (~final_pred_mask & (y == 0))))
+                final_fp = float(np.sum(weights * (final_pred_mask & (y == 0))))
+                final_fn = float(np.sum(weights * (~final_pred_mask & (y == 1))))
 
-# Vectorized metric functions for common metrics
-def f1_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
-    """Vectorized F1 score computation."""
-    precision = np.divide(
-        tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0
-    )
-    recall = np.divide(
-        tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0
-    )
-    f1_numerator = 2 * precision * recall
-    f1_denominator = precision + recall
-    return cast(
-        Array,
-        np.divide(
-            f1_numerator,
-            f1_denominator,
-            out=np.zeros_like(tp, dtype=float),
-            where=f1_denominator > 0,
-        ),
-    )
+                best_alt_score = float(
+                    metric_fn(
+                        np.array([final_tp]),
+                        np.array([final_tn]),
+                        np.array([final_fp]),
+                        np.array([final_fn]),
+                    )[0]
+                )
 
+        k_real = _realized_k(p_sorted, best_alt_threshold, inclusive)
+        return best_alt_threshold, best_alt_score, k_real
 
-def accuracy_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
-    """Vectorized accuracy computation."""
-    total = tp + tn + fp + fn
-    return cast(
-        Array,
-        np.divide(tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0),
-    )
+    # Apply final clamping for probability constraints and recalculate score if needed
+    if require_proba:
+        original_threshold = threshold
+        threshold = max(0.0, min(1.0, threshold))
 
+        # If threshold changed due to clamping, recalculate the score
+        # Use a very small tolerance to catch even tiny threshold changes
+        # that can affect scoring
+        if abs(threshold - original_threshold) > 0:
+            if not inclusive:
+                final_pred_mask = p > threshold
+            else:
+                final_pred_mask = p >= threshold
 
-def precision_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
-    """Vectorized precision computation."""
-    return cast(
-        Array,
-        np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0),
-    )
+            if sample_weight is not None:
+                final_tp = float(np.sum(weights * (final_pred_mask & (y == 1))))
+                final_tn = float(np.sum(weights * (~final_pred_mask & (y == 0))))
+                final_fp = float(np.sum(weights * (final_pred_mask & (y == 0))))
+                final_fn = float(np.sum(weights * (~final_pred_mask & (y == 1))))
+            else:
+                final_tp = float(np.sum(final_pred_mask & (y == 1)))
+                final_tn = float(np.sum(~final_pred_mask & (y == 0)))
+                final_fp = float(np.sum(final_pred_mask & (y == 0)))
+                final_fn = float(np.sum(~final_pred_mask & (y == 1)))
 
+            actual_score = float(
+                metric_fn(
+                    np.array([final_tp]),
+                    np.array([final_tn]),
+                    np.array([final_fp]),
+                    np.array([final_fn]),
+                )[0]
+            )
 
-def recall_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
-    """Vectorized recall computation."""
-    return cast(
-        Array,
-        np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0),
-    )
+    k_real = _realized_k(p_sorted, threshold, inclusive)
+    return threshold, actual_score, k_real
 
-
-def iou_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
-    """Vectorized IoU/Jaccard index computation.
-
-    IoU = TP / (TP + FP + FN)
-    """
-    denominator = tp + fp + fn
-    return cast(
-        Array,
-        np.divide(
-            tp, denominator, out=np.zeros_like(tp, dtype=float), where=denominator > 0
-        ),
-    )
-
-
-def specificity_vectorized(tp: Array, tn: Array, fp: Array, fn: Array) -> Array:
-    """Vectorized specificity (true negative rate) computation.
-
-    Specificity = TN / (TN + FP)
-    """
-    denominator = tn + fp
-    return cast(
-        Array,
-        np.divide(
-            tn, denominator, out=np.zeros_like(tn, dtype=float), where=denominator > 0
-        ),
-    )
-
-
-# Mapping from metric names to vectorized functions
-VECTORIZED_METRICS = {
-    "f1": f1_vectorized,
-    "accuracy": accuracy_vectorized,
-    "precision": precision_vectorized,
-    "recall": recall_vectorized,
-    "iou": iou_vectorized,
-    "jaccard": iou_vectorized,  # alias for IoU
-    "specificity": specificity_vectorized,
-}
-
-
-def get_vectorized_metric(
-    metric_name: str,
-) -> Callable[[Array, Array, Array, Array], Array]:
-    """Get vectorized version of a metric function.
-
-    Parameters
-    ----------
-    metric_name : str
-        Name of the metric.
-
-    Returns
-    -------
-    Callable
-        Vectorized metric function.
-
-    Raises
-    ------
-    ValueError
-        If metric is not available in vectorized form.
-    """
-    if metric_name not in VECTORIZED_METRICS:
-        raise ValueError(
-            f"Vectorized implementation not available for metric '{metric_name}'. "
-            f"Available: {list(VECTORIZED_METRICS.keys())}"
-        )
-    return VECTORIZED_METRICS[metric_name]

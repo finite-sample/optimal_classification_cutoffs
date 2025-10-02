@@ -19,6 +19,12 @@ from .types import (
     UtilityDict,
     UtilityMatrix,
 )
+from .validation import (
+    _validate_comparison_operator,
+    _validate_inputs,
+    _validate_metric_name,
+    _validate_optimization_method,
+)
 
 
 def get_optimal_threshold(
@@ -125,6 +131,19 @@ def get_optimal_threshold(
     >>> y_prob = [[0.8, 0.1, 0.1], [0.2, 0.7, 0.1], ...]
     >>> thresholds = get_optimal_threshold(y_true, y_prob, metric="f1")
     """
+    # Validate comparison operator early
+    _validate_comparison_operator(comparison)
+
+    # Validate metric name
+    _validate_metric_name(metric)
+
+    # Validate optimization method
+    _validate_optimization_method(method)
+
+    # Validate inputs if we have true labels
+    if true_labs is not None:
+        _validate_inputs(true_labs, pred_prob, allow_multiclass=True)
+
     # Route to mode-specific optimizers (simplified from router pattern)
     result: Any
     if mode == "empirical":
@@ -267,7 +286,7 @@ def _optimize_empirical(
     from .multiclass_optimization import get_optimal_multiclass_thresholds
 
     if true_labs is None:
-        raise ValueError("true_labs is required for empirical mode")
+        raise ValueError("true_labs is required for empirical utility optimization")
 
     pred_prob = np.asarray(pred_prob)
 
@@ -295,6 +314,14 @@ def _optimize_empirical(
             method = "sort_scan" if is_piecewise_metric(metric) else "minimize"
 
         if method == "sort_scan":
+            # Validate that vectorized implementation exists for sort_scan
+            from .metrics import has_vectorized_implementation
+            if not has_vectorized_implementation(metric):
+                raise ValueError(
+                    f"sort_scan method requires vectorized implementation for metric "
+                    f"'{metric}'. Use 'unique_scan' method instead, or register a "
+                    "vectorized version of the metric."
+                )
             return optimal_threshold_piecewise(
                 true_labs, pred_prob, metric, sample_weight, comparison
             )

@@ -9,17 +9,13 @@ from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.binary_optimization import optimal_threshold_piecewise
+from optimal_cutoffs.metrics import get_vectorized_metric
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
     _validate_inputs,
     _validate_sample_weights,
     _vectorized_counts,
-    accuracy_vectorized,
-    f1_vectorized,
-    get_vectorized_metric,
     optimal_threshold_sortscan,
-    precision_vectorized,
-    recall_vectorized,
 )
 
 
@@ -167,6 +163,7 @@ class TestVectorizedMetrics:
         fp = np.array([0, 1, 2])
         fn = np.array([1, 0, 1])
 
+        f1_vectorized = get_vectorized_metric("f1")
         f1_scores = f1_vectorized(tp, tn, fp, fn)
 
         # Manual calculation for each case
@@ -183,6 +180,7 @@ class TestVectorizedMetrics:
         fp = np.array([0, 1])
         fn = np.array([1, 0])
 
+        accuracy_vectorized = get_vectorized_metric("accuracy")
         acc_scores = accuracy_vectorized(tp, tn, fp, fn)
 
         # Case 0: (1+2)/(1+2+0+1) = 3/4 = 0.75
@@ -198,6 +196,7 @@ class TestVectorizedMetrics:
         fp = np.array([0, 0, 1])
         fn = np.array([1, 1, 0])
 
+        precision_vectorized = get_vectorized_metric("precision")
         prec_scores = precision_vectorized(tp, tn, fp, fn)
 
         # Case 0: 1/(1+0) = 1.0
@@ -216,6 +215,7 @@ class TestVectorizedMetrics:
         fp = np.array([0, 0, 1])
         fn = np.array([1, 2, 0])
 
+        recall_vectorized = get_vectorized_metric("recall")
         rec_scores = recall_vectorized(tp, tn, fp, fn)
 
         # Case 0: 1/(1+1) = 0.5
@@ -230,10 +230,10 @@ class TestVectorizedMetrics:
     def test_get_vectorized_metric(self):
         """Test metric lookup function."""
         f1_func = get_vectorized_metric("f1")
-        assert f1_func is f1_vectorized
+        assert callable(f1_func)
 
         acc_func = get_vectorized_metric("accuracy")
-        assert acc_func is accuracy_vectorized
+        assert callable(acc_func)
 
         with pytest.raises(ValueError, match="not available"):
             get_vectorized_metric("unknown_metric")
@@ -293,7 +293,7 @@ class TestOptimalThresholdSortScan:
         pred_prob = [0.1, 0.3, 0.7, 0.9]
 
         threshold, score, k = optimal_threshold_sortscan(
-            y_true, pred_prob, f1_vectorized
+            y_true, pred_prob, get_vectorized_metric("f1")
         )
 
         # Should achieve perfect F1 = 1.0
@@ -307,11 +307,11 @@ class TestOptimalThresholdSortScan:
         weights = [1.0, 2.0, 1.0, 2.0]  # Give positive examples more weight
 
         threshold1, score1, _ = optimal_threshold_sortscan(
-            y_true, pred_prob, f1_vectorized
+            y_true, pred_prob, get_vectorized_metric("f1")
         )
 
         threshold2, score2, _ = optimal_threshold_sortscan(
-            y_true, pred_prob, f1_vectorized, sample_weight=weights
+            y_true, pred_prob, get_vectorized_metric("f1"), sample_weight=weights
         )
 
         # Weighted version might choose different threshold
@@ -329,14 +329,14 @@ class TestOptimalThresholdSortScan:
         threshold_gt, _, _ = optimal_threshold_sortscan(
             y_true,
             pred_prob,
-            f1_vectorized,
+            get_vectorized_metric("f1"),
             inclusive=False,  # ">" -> False
         )
 
         threshold_gte, _, _ = optimal_threshold_sortscan(
             y_true,
             pred_prob,
-            f1_vectorized,
+            get_vectorized_metric("f1"),
             inclusive=True,  # ">=" -> True
         )
 
@@ -348,20 +348,20 @@ class TestOptimalThresholdSortScan:
     def test_optimal_threshold_edge_cases(self):
         """Test edge cases."""
         # Single sample
-        threshold, score, k = optimal_threshold_sortscan([1], [0.7], f1_vectorized)
-        assert threshold == 0.7
-        assert k == 0
+        threshold, score, k = optimal_threshold_sortscan([1], [0.7], get_vectorized_metric("f1"))
+        assert abs(threshold - 0.7) < 1e-10  # Should be very close to 0.7
+        assert k == 1  # Should predict the single positive sample
 
         # All negative labels
         threshold, score, k = optimal_threshold_sortscan(
-            [0, 0, 0], [0.1, 0.5, 0.9], f1_vectorized
+            [0, 0, 0], [0.1, 0.5, 0.9], get_vectorized_metric("f1")
         )
         # Fixed: should return proper threshold, not arbitrary 0.5
         assert threshold >= 0.9  # Should be >= max probability to predict all negative
 
         # All positive labels
         threshold, score, k = optimal_threshold_sortscan(
-            [1, 1, 1], [0.1, 0.5, 0.9], f1_vectorized
+            [1, 1, 1], [0.1, 0.5, 0.9], get_vectorized_metric("f1")
         )
         # Fixed: should return proper threshold, not arbitrary 0.5
         assert threshold <= 0.1  # Should be <= min probability to predict all positive
@@ -405,12 +405,12 @@ class TestBackwardCompatibility:
             assert 0 <= threshold_smart <= 1
 
             # Scores should be identical or very close
-            from optimal_cutoffs.binary_optimization import metric_score
+            from optimal_cutoffs.metrics import compute_metric_at_threshold
 
-            score_piecewise = metric_score(
+            score_piecewise = compute_metric_at_threshold(
                 y_true, pred_prob, threshold_piecewise, metric
             )
-            score_smart = metric_score(y_true, pred_prob, threshold_smart, metric)
+            score_smart = compute_metric_at_threshold(y_true, pred_prob, threshold_smart, metric)
 
             assert abs(score_piecewise - score_smart) < 1e-6, (
                 f"Score mismatch for {metric}: {score_piecewise} vs {score_smart}"
@@ -559,10 +559,10 @@ class TestPropertyBasedComparison:
             y[-1] = 0
 
         # Test sort-and-scan algorithm
-        t_scan, s_scan, _ = optimal_threshold_sortscan(y, p, f1_vectorized)
+        t_scan, s_scan, _ = optimal_threshold_sortscan(y, p, get_vectorized_metric("f1"))
 
         # Test brute force over midpoints
-        t_br, s_br = self.brute_force_midpoints(y, p, f1_vectorized)
+        t_br, s_br = self.brute_force_midpoints(y, p, get_vectorized_metric("f1"))
 
         # The thresholds may differ (due to plateaus), but best scores must match
         assert pytest.approx(s_scan, rel=0, abs=1e-12) == s_br, (
@@ -586,10 +586,10 @@ class TestPropertyBasedComparison:
             y[-1] = 0
 
         # Test sort-and-scan algorithm
-        t_scan, s_scan, _ = optimal_threshold_sortscan(y, p, accuracy_vectorized)
+        t_scan, s_scan, _ = optimal_threshold_sortscan(y, p, get_vectorized_metric("accuracy"))
 
         # Test brute force over midpoints
-        t_br, s_br = self.brute_force_midpoints(y, p, accuracy_vectorized)
+        t_br, s_br = self.brute_force_midpoints(y, p, get_vectorized_metric("accuracy"))
 
         # The thresholds may differ (due to plateaus), but best scores must match
         assert pytest.approx(s_scan, rel=0, abs=1e-12) == s_br, (

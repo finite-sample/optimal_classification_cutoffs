@@ -692,7 +692,7 @@ def get_confusion_matrix(
     sample_weight: ArrayLike | None = None,
     comparison: ComparisonOperator = ">",
     *,
-    require_proba: bool = False,
+    require_proba: bool = True,
 ) -> tuple[int | float, int | float, int | float, int | float]:
     """Compute confusion-matrix counts for a given threshold.
 
@@ -731,7 +731,7 @@ def get_confusion_matrix(
         allow_multiclass=False,
     )
 
-    # Only enforce [0,1] threshold when treating inputs as probabilities
+    # Validate threshold bounds for public API by default
     if require_proba:
         _validate_threshold(float(prob))
     # For score-based workflows, allow thresholds outside [0,1]
@@ -740,29 +740,130 @@ def get_confusion_matrix(
 
     # Apply threshold with specified comparison operator
     if comparison == ">":
-        pred_labs = pred_prob > prob
+        pred_labs = (pred_prob > prob).astype(int)
     else:  # ">="
-        pred_labs = pred_prob >= prob
+        pred_labs = (pred_prob >= prob).astype(int)
 
+    # Use the centralized confusion matrix function
+    tp, tn, fp, fn = compute_confusion_matrix_from_labels(
+        true_labs, pred_labs, sample_weight=sample_weight
+    )
+
+    # Return appropriate types for backward compatibility
     if sample_weight is None:
-        tp = np.sum(np.logical_and(pred_labs == 1, true_labs == 1))
-        tn = np.sum(np.logical_and(pred_labs == 0, true_labs == 0))
-        fp = np.sum(np.logical_and(pred_labs == 1, true_labs == 0))
-        fn = np.sum(np.logical_and(pred_labs == 0, true_labs == 1))
         return int(tp), int(tn), int(fp), int(fn)
     else:
-        sample_weight = np.asarray(sample_weight)
-        if len(sample_weight) != len(true_labs):
-            raise ValueError(
-                f"Length mismatch: sample_weight ({len(sample_weight)}) "
-                f"vs true_labs ({len(true_labs)})"
-            )
-        tp = np.sum(sample_weight * np.logical_and(pred_labs == 1, true_labs == 1))
-        tn = np.sum(sample_weight * np.logical_and(pred_labs == 0, true_labs == 0))
-        fp = np.sum(sample_weight * np.logical_and(pred_labs == 1, true_labs == 0))
-        fn = np.sum(sample_weight * np.logical_and(pred_labs == 0, true_labs == 1))
-        # Return float values when using sample weights to preserve fractional counts
         return float(tp), float(tn), float(fp), float(fn)
+
+
+def compute_confusion_matrix_from_labels(
+    true_labels: ArrayLike,
+    pred_labels: ArrayLike,
+    sample_weight: ArrayLike | None = None,
+) -> tuple[float, float, float, float]:
+    """Compute confusion matrix components from predicted labels.
+
+    This is a generic function that computes (tp, tn, fp, fn) from true and
+    predicted labels, supporting sample weights.
+
+    Parameters
+    ----------
+    true_labels : ArrayLike
+        True binary labels (0 or 1)
+    pred_labels : ArrayLike
+        Predicted binary labels (0 or 1)
+    sample_weight : ArrayLike, optional
+        Sample weights
+
+    Returns
+    -------
+    tuple[float, float, float, float]
+        True positives, true negatives, false positives, false negatives
+    """
+    import numpy as np
+
+    true_labels = np.asarray(true_labels)
+    pred_labels = np.asarray(pred_labels)
+
+    if sample_weight is not None:
+        weights = np.asarray(sample_weight, dtype=float)
+    else:
+        weights = np.ones_like(true_labels, dtype=float)
+
+    # Compute confusion matrix components
+    tp = float(np.sum(weights[(true_labels == 1) & (pred_labels == 1)]))
+    tn = float(np.sum(weights[(true_labels == 0) & (pred_labels == 0)]))
+    fp = float(np.sum(weights[(true_labels == 0) & (pred_labels == 1)]))
+    fn = float(np.sum(weights[(true_labels == 1) & (pred_labels == 0)]))
+
+    return tp, tn, fp, fn
+
+
+def compute_metric_at_threshold(
+    true_labs: ArrayLike,
+    pred_prob: ArrayLike,
+    threshold: float,
+    metric: str = "f1",
+    sample_weight: ArrayLike | None = None,
+    comparison: str = ">",
+) -> float:
+    """Compute metric score at a given threshold for binary classification.
+
+    This is a generic function that computes a metric score by applying a threshold
+    to probabilities, converting to labels, and computing the specified metric.
+
+    Parameters
+    ----------
+    true_labs : ArrayLike
+        True binary labels (0 or 1)
+    pred_prob : ArrayLike
+        Predicted probabilities
+    threshold : float
+        Classification threshold
+    metric : str, default="f1"
+        Metric to compute (e.g., "f1", "accuracy", "precision", "recall")
+    sample_weight : ArrayLike, optional
+        Sample weights
+    comparison : str, default=">"
+        Comparison operator for threshold application (">" or ">=")
+
+    Returns
+    -------
+    float
+        Metric score at the given threshold
+
+    Raises
+    ------
+    ValueError
+        If metric is not in METRIC_REGISTRY or comparison operator is invalid
+    """
+
+    # Validate inputs
+    true_labs, pred_prob, sample_weight = _validate_inputs(
+        true_labs, pred_prob, sample_weight=sample_weight
+    )
+    _validate_comparison_operator(comparison)
+
+    # Apply threshold to get predictions
+    if comparison == ">":
+        pred_labels = (pred_prob > threshold).astype(int)
+    else:  # ">="
+        pred_labels = (pred_prob >= threshold).astype(int)
+
+    # Get confusion matrix components
+    tp, tn, fp, fn = compute_confusion_matrix_from_labels(
+        true_labs, pred_labels, sample_weight=sample_weight
+    )
+
+    # Compute metric using registry
+    if metric not in METRIC_REGISTRY:
+        raise ValueError(
+            f"Metric '{metric}' not supported. "
+            f"Available: {list(METRIC_REGISTRY.keys())}"
+        )
+
+    metric_func = METRIC_REGISTRY[metric]
+    return float(metric_func(tp, tn, fp, fn))
 
 
 def get_multiclass_confusion_matrix(

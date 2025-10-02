@@ -453,7 +453,7 @@ class TestWrapperEdgeCases:
         # Predictions should work
         predictions = optimizer.predict(probabilities)
         assert len(predictions) == len(probabilities)
-        assert all(isinstance(p, (bool, np.bool_)) for p in predictions)
+        assert all(isinstance(p, (bool, np.bool_, int, np.integer)) for p in predictions)
 
     def test_wrapper_multiclass_edge_cases(self):
         """Test wrapper with multiclass edge cases."""

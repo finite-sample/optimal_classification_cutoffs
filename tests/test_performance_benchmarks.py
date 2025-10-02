@@ -11,7 +11,8 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.piecewise import get_vectorized_metric, optimal_threshold_sortscan
+from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 
 
 class TestAlgorithmicComplexity:

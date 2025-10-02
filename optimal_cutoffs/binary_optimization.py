@@ -6,107 +6,17 @@ extracted to break circular dependencies and provide a clean separation of conce
 
 import numpy as np
 
-from .metrics import METRIC_REGISTRY
-from .piecewise import get_vectorized_metric, optimal_threshold_sortscan
+from .metrics import (
+    compute_metric_at_threshold,
+    get_vectorized_metric,
+)
+from .piecewise import optimal_threshold_sortscan
 from .types import ArrayLike, ComparisonOperator, SampleWeightLike
 from .validation import _validate_inputs
 
-
-def compute_confusion_matrix(
-    true_labels: ArrayLike,
-    pred_labels: ArrayLike,
-    sample_weight: SampleWeightLike = None,
-) -> tuple[float, float, float, float]:
-    """Compute confusion matrix components (tp, tn, fp, fn).
-
-    Parameters
-    ----------
-    true_labels : ArrayLike
-        True binary labels (0 or 1)
-    pred_labels : ArrayLike
-        Predicted binary labels (0 or 1)
-    sample_weight : SampleWeightLike, optional
-        Sample weights
-
-    Returns
-    -------
-    tuple[float, float, float, float]
-        True positives, true negatives, false positives, false negatives
-    """
-    true_labels = np.asarray(true_labels)
-    pred_labels = np.asarray(pred_labels)
-
-    if sample_weight is not None:
-        weights = np.asarray(sample_weight, dtype=float)
-    else:
-        weights = np.ones_like(true_labels, dtype=float)
-
-    # Compute confusion matrix components
-    tp = float(np.sum(weights[(true_labels == 1) & (pred_labels == 1)]))
-    tn = float(np.sum(weights[(true_labels == 0) & (pred_labels == 0)]))
-    fp = float(np.sum(weights[(true_labels == 0) & (pred_labels == 1)]))
-    fn = float(np.sum(weights[(true_labels == 1) & (pred_labels == 0)]))
-
-    return tp, tn, fp, fn
-
-
-def metric_score(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    threshold: float,
-    metric: str = "f1",
-    sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperator = ">",
-) -> float:
-    """Compute metric score at a given threshold for binary classification.
-
-    Parameters
-    ----------
-    true_labs : array-like of shape (n_samples,)
-        True binary labels (0 or 1)
-    pred_prob : array-like of shape (n_samples,)
-        Predicted probabilities
-    threshold : float
-        Classification threshold
-    metric : str, default="f1"
-        Metric to compute (e.g., "f1", "accuracy", "precision", "recall")
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : {">" or ">="}, default=">"
-        Comparison operator for threshold application
-
-    Returns
-    -------
-    float
-        Metric score at the given threshold
-    """
-    true_labs, pred_prob, _ = _validate_inputs(true_labs, pred_prob)
-
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=float)
-        if sample_weight.shape[0] != true_labs.shape[0]:
-            raise ValueError("sample_weight must have same length as true_labs")
-
-    # Apply threshold to get predictions
-    if comparison == ">":
-        pred_labels = (pred_prob > threshold).astype(int)
-    else:  # ">="
-        pred_labels = (pred_prob >= threshold).astype(int)
-
-    # Get confusion matrix components
-    tp, tn, fp, fn = compute_confusion_matrix(
-        true_labs, pred_labels, sample_weight=sample_weight
-    )
-
-    # Compute metric using registry
-    if metric not in METRIC_REGISTRY:
-        raise ValueError(
-            f"Metric '{metric}' not supported. "
-            f"Available: {list(METRIC_REGISTRY.keys())}"
-        )
-
-    metric_func = METRIC_REGISTRY[metric]
-    return float(metric_func(tp, tn, fp, fn))
+# Note: confusion matrix and metric computation functions are now centralized
+# in metrics.py. Use compute_confusion_matrix_from_labels() and
+# compute_metric_at_threshold() instead.
 
 
 def optimal_threshold_piecewise(
@@ -168,9 +78,15 @@ def optimal_threshold_piecewise(
             inclusive=(comparison == ">="),
             require_proba=require_proba,
         )
-        # Ensure threshold is in valid range when using probabilities
+        # Allow slight tolerance outside [0,1] for edge cases
+        # (e.g., all-negative with >=)
+        # Use machine epsilon for floating point precision
         if require_proba:
-            threshold = max(0.0, min(1.0, threshold))
+            eps = np.finfo(float).eps  # approximately 2.22e-16
+            tolerance = eps * 10  # small buffer for floating point comparisons
+            threshold = max(
+                float(-tolerance), min(float(1.0 + tolerance), float(threshold))
+            )
         return float(threshold)
     except (ValueError, NotImplementedError, KeyError):
         pass
@@ -208,7 +124,7 @@ def _optimal_threshold_piecewise_fallback(
 
     for threshold in candidates:
         try:
-            score = metric_score(
+            score = compute_metric_at_threshold(
                 true_labs, pred_prob, threshold, metric, sample_weight, comparison
             )
             if score > best_score:
@@ -258,7 +174,7 @@ def optimal_threshold_minimize(
     def objective(threshold: float) -> float:
         """Objective function to minimize (negative metric score)."""
         try:
-            score = metric_score(
+            score = compute_metric_at_threshold(
                 true_labs, pred_prob, threshold, metric, sample_weight, comparison
             )
             return -score  # Minimize negative score = maximize score
@@ -266,19 +182,53 @@ def optimal_threshold_minimize(
             return np.inf  # Return large value for invalid thresholds
 
     # Optimize over [0, 1] interval
+    scipy_threshold = None
+    scipy_score = -np.inf
+
     try:
         result = optimize.minimize_scalar(
             objective, bounds=(0.0, 1.0), method="bounded"
         )
         if result.success:
-            return float(result.x)
+            scipy_threshold = float(result.x)
+            scipy_score = -result.fun  # Convert back from negative
     except Exception:
         pass
 
-    # Fallback to piecewise method
-    return optimal_threshold_piecewise(
-        true_labs, pred_prob, metric, sample_weight, comparison
-    )
+    # Always try a few key candidate thresholds to ensure we don't miss obvious optima
+    unique_probs = np.unique(pred_prob)
+    candidates = [0.0, 1.0]
+
+    # Add unique probabilities and their neighbors for discrete optimization
+    for prob in unique_probs:
+        candidates.extend([prob - 1e-10, prob, prob + 1e-10])
+
+    # Remove duplicates and sort
+    candidates = sorted(set(candidates))
+    candidates = [c for c in candidates if 0.0 <= c <= 1.0]
+
+    best_threshold = scipy_threshold if scipy_threshold is not None else 0.5
+    best_score = scipy_score
+
+    # Test candidate thresholds
+    for threshold in candidates:
+        try:
+            score = compute_metric_at_threshold(
+                true_labs, pred_prob, threshold, metric, sample_weight, comparison
+            )
+            if score > best_score:
+                best_score = score
+                best_threshold = threshold
+        except (ValueError, ZeroDivisionError):
+            continue
+
+    # If we still don't have a good result, fallback to piecewise method
+    if best_score == -np.inf or best_threshold is None:
+        return optimal_threshold_piecewise(
+            true_labs, pred_prob, metric, sample_weight, comparison
+        )
+
+    return float(best_threshold)
 
 
 def optimal_threshold_gradient(
@@ -336,10 +286,10 @@ def optimal_threshold_gradient(
         thresh_minus = max(threshold - eps, 0.0)
 
         try:
-            score_plus = metric_score(
+            score_plus = compute_metric_at_threshold(
                 true_labs, pred_prob, thresh_plus, metric, sample_weight, comparison
             )
-            score_minus = metric_score(
+            score_minus = compute_metric_at_threshold(
                 true_labs, pred_prob, thresh_minus, metric, sample_weight, comparison
             )
 
