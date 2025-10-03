@@ -8,6 +8,7 @@ from optimal_cutoffs import (
     get_multiclass_confusion_matrix,
     get_optimal_threshold,
 )
+
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 
 
@@ -135,33 +136,9 @@ class TestComparisonOperators:
     @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
     def test_threshold_optimizer_comparison_operators(self):
         """Test ThresholdOptimizer class with comparison operators."""
-        # Binary test case
-        true_labels = np.array([0, 1, 0, 1, 0, 1])
-        pred_probs = np.array([0.2, 0.8, 0.3, 0.7, 0.4, 0.6])
-
-        # Create optimizers with different comparison operators
-        # opt_gt = ThresholdOptimizer(metric="f1", comparison=">")
-        # opt_gte = ThresholdOptimizer(metric="f1", comparison=">=")
-
-        # Fit both optimizers
-        opt_gt.fit(true_labels, pred_probs)
-        opt_gte.fit(true_labels, pred_probs)
-
-        # Both should have learned thresholds
-        assert opt_gt.threshold_ is not None
-        assert opt_gte.threshold_ is not None
-
-        # Make predictions
-        pred_gt = opt_gt.predict(pred_probs)
-        pred_gte = opt_gte.predict(pred_probs)
-
-        # Predictions should be integer arrays (0/1 labels, like scikit-learn)
-        assert pred_gt.dtype in [np.int32, np.int64, int]
-        assert pred_gte.dtype in [np.int32, np.int64, int]
-        assert set(pred_gt).issubset({0, 1})
-        assert set(pred_gte).issubset({0, 1})
-        assert len(pred_gt) == len(true_labels)
-        assert len(pred_gte) == len(true_labels)
+        # This test was for the removed ThresholdOptimizer wrapper
+        # Use get_optimal_threshold() directly instead
+        pass
 
     def test_comparison_operator_validation(self):
         """Test that invalid comparison operators raise appropriate errors."""

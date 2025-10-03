@@ -5,7 +5,11 @@ import warnings
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs import (
+    get_confusion_matrix,
+    get_optimal_multiclass_thresholds,
+    get_optimal_threshold,
+)
 from optimal_cutoffs.validation import (
     _validate_averaging_method,
     _validate_comparison_operator,
@@ -426,10 +430,10 @@ class TestMulticlassValidation:
     def test_validate_multiclass_input_invalid_probabilities(self):
         """Test validation with invalid probability values."""
         labels = np.array([0, 1, 2])
-        
+
         # Probabilities outside [0, 1]
         probs = np.array([[-0.1, 0.5, 0.6], [0.3, 1.2, -0.1], [0.4, 0.3, 0.3]])
-        
+
         with pytest.raises(ValueError, match="Probabilities must be in"):
             validate_multiclass_input(labels, probs, require_proba=True)
 
@@ -485,7 +489,7 @@ class TestMulticlassValidation:
         with pytest.raises(ValueError, match="true_labs must be 1D"):
             validate_multiclass_probabilities_and_labels(probs, labels)
 
-        # Wrong probability dimensions  
+        # Wrong probability dimensions
         labels = np.array([0, 1, 2])
         probs = np.array([0.5, 0.3, 0.2])  # 1D instead of 2D
 
@@ -501,23 +505,18 @@ class TestMulticlassValidation:
 
     def test_multiclass_validation_consistency_across_modules(self):
         """Test that validation is consistent across different modules."""
-        from optimal_cutoffs.optimize import find_optimal_threshold_multiclass
 
         # Create valid test data
         labels = np.array([0, 1, 2, 0, 1, 2])
         probs = np.random.rand(6, 3)
         probs = probs / probs.sum(axis=1, keepdims=True)
 
-        # Both should work with valid data
+        # Direct API should work with valid data
         thresholds_opt = get_optimal_multiclass_thresholds(
             labels, probs, method="unique_scan"
         )
-        
-        optimizer = ThresholdOptimizer(max_iter=5)
-        optimizer.fit(probs, labels)
-        
+
         assert len(thresholds_opt) == 3
-        assert len(optimizer.solution_.thresholds) == 3
 
         # Test with non-consecutive labels
         non_consecutive_labels = np.array([1, 2, 1, 2, 1, 2])  # Missing 0
@@ -534,10 +533,8 @@ class TestMulticlassValidation:
                 non_consecutive_labels, probs, method="coord_ascent"
             )
 
-        # ThresholdOptimizer should also fail
-        optimizer = ThresholdOptimizer(max_iter=5)
-        with pytest.raises(ValueError, match="Labels must be consecutive"):
-            optimizer.fit(probs, non_consecutive_labels)
+        # This test was for the removed ThresholdOptimizer wrapper
+        # The direct API validation is sufficient
 
     def test_multiclass_validation_edge_cases(self):
         """Test edge cases in multiclass validation."""
@@ -694,7 +691,9 @@ class TestBinaryValidation:
 
     def test_sample_weights_consistency_with_piecewise(self):
         """Test sample weights validation consistency."""
-        from optimal_cutoffs.piecewise import _validate_sample_weights as piecewise_validate_weights
+        from optimal_cutoffs.piecewise import (
+            _validate_sample_weights as piecewise_validate_weights,
+        )
 
         n_samples = 4
         weights = np.array([1.0, 2.0, 1.5, 0.5])
@@ -717,7 +716,9 @@ class TestBinaryValidation:
 
     def test_default_weights_consistency_with_piecewise(self):
         """Test default weights behavior consistency."""
-        from optimal_cutoffs.piecewise import _validate_sample_weights as piecewise_validate_weights
+        from optimal_cutoffs.piecewise import (
+            _validate_sample_weights as piecewise_validate_weights,
+        )
 
         n_samples = 4
 

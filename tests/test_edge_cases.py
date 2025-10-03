@@ -45,13 +45,13 @@ The test suite ensures robust behavior across all boundary conditions while
 maintaining performance guarantees and clear error reporting.
 """
 
-import warnings
 
 import numpy as np
 import pytest
 
 from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
 from optimal_cutoffs.optimize import find_optimal_threshold
+
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 
 
@@ -437,43 +437,16 @@ class TestWrapperEdgeCases:
     @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
     def test_wrapper_with_edge_cases(self):
         """Test that the wrapper handles edge cases properly."""
-        # Test with all same class
-        labels = np.array([0, 0, 0, 0])
-        probabilities = np.array([0.1, 0.3, 0.5, 0.7])
-
-        # optimizer = ThresholdOptimizer(metric="accuracy")
-
-        # Should handle gracefully (might issue warnings)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress expected warnings
-            optimizer.fit(labels, probabilities)
-
-        assert optimizer.threshold_ is not None
-        assert 0 <= optimizer.threshold_ <= 1
-
-        # Predictions should work
-        predictions = optimizer.predict(probabilities)
-        assert len(predictions) == len(probabilities)
-        assert all(isinstance(p, (bool, np.bool_, int, np.integer)) for p in predictions)
+        # This test was for the removed ThresholdOptimizer wrapper
+        # Use get_optimal_threshold() directly instead
+        pass
 
     @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
     def test_wrapper_multiclass_edge_cases(self):
         """Test wrapper with multiclass edge cases."""
-        # Single class multiclass (degenerate)
-        labels = np.array([0, 0, 0])
-        probabilities = np.array([[1.0], [1.0], [1.0]])
-
-        # optimizer = ThresholdOptimizer(metric="f1")
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            optimizer.fit(labels, probabilities)
-
-        assert optimizer.threshold_ is not None
-
-        predictions = optimizer.predict(probabilities)
-        assert len(predictions) == len(labels)
-        assert all(isinstance(p, (int, np.integer)) for p in predictions)
+        # This test was for the removed ThresholdOptimizer wrapper
+        # Use get_optimal_threshold() directly instead
+        pass
 
 
 class TestPerformanceEdgeCases:

@@ -11,12 +11,12 @@ from optimal_cutoffs import (
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
 )
-from optimal_cutoffs.optimize import find_optimal_threshold
-from optimal_cutoffs.metrics import compute_metric_at_threshold
 from optimal_cutoffs.metrics import (
+    compute_metric_at_threshold,
     get_multiclass_confusion_matrix,
     multiclass_metric,
 )
+from optimal_cutoffs.optimize import find_optimal_threshold
 
 
 # Custom strategies for generating test data

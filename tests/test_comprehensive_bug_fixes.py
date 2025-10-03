@@ -331,7 +331,7 @@ class TestMicroOptimizationDocumentation:
             comparison=">",
             average="micro",
         )
-        
+
         assert len(thresholds) == 3  # One per class
         assert all(0.0 <= t <= 1.0 for t in thresholds)
 
@@ -411,7 +411,6 @@ class TestExclusivePredictionRule:
         # Case where argmax != max margin
         pred_prob = np.array([[0.49, 0.10, 0.41]])  # Class 0 has highest prob
         thresholds = np.array([0.3, 0.5, 0.2])  # Class 2 has highest margin
-        y_dummy = np.array([0])  # Not used in prediction logic
 
         predictions = _compute_exclusive_predictions(
             pred_prob, thresholds, comparison=">"
@@ -425,7 +424,6 @@ class TestExclusivePredictionRule:
         """Should fall back to argmax when no class has positive margin."""
         pred_prob = np.array([[0.2, 0.3, 0.5]])
         thresholds = np.array([0.4, 0.4, 0.6])  # All margins negative
-        y_dummy = np.array([0])
 
         predictions = _compute_exclusive_predictions(
             pred_prob, thresholds, comparison=">"

@@ -8,8 +8,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
     _validate_inputs,

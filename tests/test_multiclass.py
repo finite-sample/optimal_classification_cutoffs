@@ -114,8 +114,8 @@ def test_get_optimal_threshold_multiclass_auto():
     assert all(0 <= t <= 1 for t in thresholds)
 
 
-def test_threshold_optimizer_multiclass():
-    """Test ThresholdOptimizer with multiclass data."""
+def test_multiclass_direct_api():
+    """Test direct API with multiclass data."""
     np.random.seed(42)
     true_labs = np.array([0, 1, 2, 0, 1, 2, 0, 1, 2])
     pred_prob = np.array(
@@ -132,37 +132,26 @@ def test_threshold_optimizer_multiclass():
         ]
     )
 
-    optimizer = ThresholdOptimizer(metric="f1")
-    optimizer.fit(true_labs, pred_prob)
+    # Use direct API instead of removed wrapper
+    thresholds = get_optimal_threshold(true_labs, pred_prob, metric="f1")
 
-    # Check that multiclass mode was detected
-    assert optimizer.is_multiclass_
-    assert isinstance(optimizer.threshold_, np.ndarray)
-    assert len(optimizer.threshold_) == 3
-
-    # Test prediction
-    predictions = optimizer.predict(pred_prob)
-    assert len(predictions) == len(true_labs)
-    assert all(0 <= p < 3 for p in predictions)
-    assert predictions.dtype == int
+    # Check multiclass result
+    assert isinstance(thresholds, np.ndarray)
+    assert len(thresholds) == 3
+    assert all(0 <= t <= 1 for t in thresholds)
 
 
-def test_threshold_optimizer_binary_compatibility():
-    """Test that ThresholdOptimizer still works with binary data."""
+def test_binary_direct_api_compatibility():
+    """Test that direct API works with binary data."""
     true_labs = np.array([0, 1, 1, 0, 1])
     pred_prob = np.array([0.2, 0.8, 0.7, 0.3, 0.9])
 
-    optimizer = ThresholdOptimizer(metric="f1")
-    optimizer.fit(true_labs, pred_prob)
+    # Use direct API instead of removed wrapper
+    threshold = get_optimal_threshold(true_labs, pred_prob, metric="f1")
 
-    # Check that binary mode was detected
-    assert not optimizer.is_multiclass_
-    assert isinstance(optimizer.threshold_, float)
-
-    # Test prediction
-    predictions = optimizer.predict(pred_prob)
-    assert len(predictions) == len(true_labs)
-    assert predictions.dtype in [bool, np.int64, np.int32]
+    # Check binary result
+    assert isinstance(threshold, float)
+    assert 0 <= threshold <= 1
 
 
 def test_multiclass_metrics_averaging_methods():

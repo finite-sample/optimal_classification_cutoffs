@@ -25,8 +25,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import get_confusion_matrix
-from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.metrics import get_confusion_matrix, get_vectorized_metric
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 
 
@@ -156,17 +155,16 @@ class TestTiedProbabilities:
             )
             assert 0.0 <= threshold_sort <= 1.0
 
-    def test_threshold_optimizer_with_ties(self):
-        """Test ThresholdOptimizer class with tied probabilities."""
+    def test_direct_api_with_ties(self):
+        """Test direct API with tied probabilities."""
         y_true = [0, 1, 0, 1, 1, 0]
         pred_prob = [0.4, 0.6, 0.4, 0.6, 0.6, 0.4]
 
-        optimizer = ThresholdOptimizer(metric="f1", method="unique_scan")
-        optimizer.fit(y_true, pred_prob)
+        # Use direct API instead of removed wrapper
+        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1", method="unique_scan")
 
-        predictions = optimizer.predict(pred_prob)
-        assert len(predictions) == len(y_true)
-        assert predictions.dtype in [bool, np.int64, np.int32]  # Accept bool or integer predictions
+        assert isinstance(threshold, float)
+        assert 0 <= threshold <= 1
 
     def test_multiclass_with_tied_probabilities(self):
         """Test multiclass scenarios with tied probabilities."""

@@ -322,56 +322,6 @@ class TestRealisticMulticlassOptimization:
         )
 
 
-class TestRealisticThresholdOptimizerWrapper:
-    """Test ThresholdOptimizer wrapper with realistic datasets."""
-
-    def test_wrapper_with_realistic_data(self):
-        """Test ThresholdOptimizer wrapper functionality."""
-        y_true, y_prob = STANDARD_BINARY.y_true, STANDARD_BINARY.y_prob
-
-        # Test basic functionality
-        optimizer = ThresholdOptimizer(metric="f1", method="sort_scan")
-        optimizer.fit(y_true, y_prob)
-
-        assert hasattr(optimizer, "threshold_")
-        assert 0.0 <= optimizer.threshold_ <= 1.0
-
-        # Test predictions
-        predictions = optimizer.predict(y_prob)
-        assert len(predictions) == len(y_true)
-        assert all(pred in [0, 1] for pred in predictions)
-
-    def test_wrapper_different_modes(self):
-        """Test wrapper with different estimation modes."""
-        y_true, y_prob = CALIBRATED_BINARY.y_true, CALIBRATED_BINARY.y_prob
-
-        # Test empirical mode
-        optimizer_emp = ThresholdOptimizer(metric="f1", mode="empirical")
-        optimizer_emp.fit(y_true, y_prob)
-
-        # Test expected mode (returns tuple, wrapper should handle this)
-        optimizer_exp = ThresholdOptimizer(metric="f1", mode="expected")
-        optimizer_exp.fit(y_true, y_prob)
-
-        # Both should have thresholds (expected mode may store tuple)
-        assert hasattr(optimizer_emp, "threshold_")
-        assert hasattr(optimizer_exp, "threshold_")
-        assert 0.0 <= optimizer_emp.threshold_ <= 1.0
-
-        # For expected mode, threshold_ might be a tuple, extract first element if so
-        exp_threshold = optimizer_exp.threshold_
-        if isinstance(exp_threshold, tuple):
-            exp_threshold = exp_threshold[0]
-        assert 0.0 <= exp_threshold <= 1.0
-
-        # Test that they can both make predictions
-        pred_emp = optimizer_emp.predict(y_prob)
-        pred_exp = optimizer_exp.predict(y_prob)
-
-        assert len(pred_emp) == len(y_true)
-        assert len(pred_exp) == len(y_true)
-
-
 class TestRealisticUtilityOptimization:
     """Test utility-based optimization with realistic datasets."""
 

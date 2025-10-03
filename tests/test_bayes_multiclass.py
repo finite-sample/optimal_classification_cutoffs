@@ -5,11 +5,9 @@ import pytest
 
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.bayes import (
-    BayesOptimal,
     bayes_optimal_decisions,
     bayes_optimal_threshold,
     bayes_thresholds_from_costs,
-    compute_bayes_threshold,
 )
 
 
@@ -47,10 +45,10 @@ class TestBayesDecisionFromUtilityMatrix:
         U = np.eye(3)
 
         decisions = bayes_optimal_decisions(y_prob, U)
-        
+
         # Compute expected utilities manually for verification
         expected_utilities = y_prob @ U.T  # (n_samples, n_classes) @ (n_classes, n_decisions)
-        
+
         # Decisions should match argmax of expected utilities
         expected_decisions = np.argmax(expected_utilities, axis=1)
         np.testing.assert_array_equal(decisions, expected_decisions)
@@ -106,7 +104,7 @@ class TestBayesThresholdsFromCostsVector:
         """Test with benefits for correct predictions."""
         fp_cost = [-1, -1, -1]
         fn_cost = [-5, -3, -2]
-        
+
         # For the new API, we just need fp and fn costs
         # The new API computes thresholds as fp_cost / (fp_cost + fn_cost)
         # = 1 / (1 + |fn|) for our values
@@ -121,7 +119,7 @@ class TestBayesThresholdsFromCostsVector:
         # Case with very high false negative cost
         fp_cost = [-1, -1]
         fn_cost = [-100, -1000]
-        
+
         thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
 
         # τ_k = |fp| / (|fp| + |fn|) = 1 / (1 + |fn|)
@@ -180,7 +178,7 @@ class TestBayesThresholdFromCostsScalar:
         fn_cost = 5.0
 
         threshold = bayes_optimal_threshold(fp_cost, fn_cost)
-        
+
         # Should be fp_cost / (fp_cost + fn_cost) = 1 / (1 + 5) = 1/6
         expected = 1.0 / 6.0
         assert abs(threshold - expected) < 1e-10
@@ -191,7 +189,7 @@ class TestBayesThresholdFromCostsScalar:
         threshold = bayes_optimal_threshold(
             fp_cost=1, fn_cost=5, tp_benefit=2, tn_benefit=1
         )
-        
+
         # Using the formula from BayesOptimal.compute_threshold()
         # A = tp - fn = 2 - (-5) = 7, B = tn - fp = 1 - (-1) = 2
         # threshold = B / (A + B) = 2 / (7 + 2) = 2/9
@@ -261,19 +259,19 @@ class TestBayesEdgeCases:
         # Very high FN cost relative to FP cost
         fp_cost = 1.0
         fn_cost = 1000.0
-        
+
         threshold = bayes_optimal_threshold(fp_cost, fn_cost)
-        
+
         # Should be very low threshold (almost always predict positive)
         expected = 1.0 / 1001.0
         assert abs(threshold - expected) < 1e-10
-        
+
         # Very high FP cost relative to FN cost
         fp_cost = 1000.0
         fn_cost = 1.0
-        
+
         threshold = bayes_optimal_threshold(fp_cost, fn_cost)
-        
+
         # Should be very high threshold (almost never predict positive)
         expected = 1000.0 / 1001.0
         assert abs(threshold - expected) < 1e-10
@@ -281,12 +279,12 @@ class TestBayesEdgeCases:
     def test_utility_matrix_validation(self):
         """Test utility matrix validation."""
         P = np.array([[0.7, 0.3]])
-        
+
         # Test wrong dimensions
         U_1d = np.array([1, 0, 1])  # 1D array instead of 2D
         with pytest.raises(ValueError, match="utility_matrix must be 2D array"):
             bayes_optimal_decisions(P, U_1d)
-            
+
         # Test mismatched shape
         U_wrong = np.array([[1, 0, 0], [0, 1, 0]])  # 3 classes but P has 2
         with pytest.raises(ValueError, match="probabilities has 2 classes but utility_matrix has 3"):
@@ -296,9 +294,9 @@ class TestBayesEdgeCases:
         """Test with equal FP and FN costs."""
         fp_cost = 1.0
         fn_cost = 1.0
-        
+
         threshold = bayes_optimal_threshold(fp_cost, fn_cost)
-        
+
         # Should be 0.5 when costs are equal
         expected = 0.5
         assert abs(threshold - expected) < 1e-10

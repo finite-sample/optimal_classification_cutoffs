@@ -134,21 +134,19 @@ def test_multiclass_optimal_thresholds_with_sample_weights():
     assert all(0 <= t <= 1 for t in thresholds)
 
 
-def test_threshold_optimizer_with_sample_weights():
-    """Test ThresholdOptimizer with sample weights."""
+def test_direct_api_with_sample_weights():
+    """Test direct API with sample weights."""
     true_labs = np.array([0, 0, 1, 1, 1])
     pred_prob = np.array([0.2, 0.3, 0.6, 0.7, 0.8])
     sample_weight = np.array([1.0, 1.0, 2.0, 2.0, 2.0])  # Weight positive class more
 
-    optimizer = ThresholdOptimizer(metric="f1")
-    optimizer.fit(true_labs, pred_prob, sample_weight=sample_weight)
+    # Use direct API instead of removed wrapper
+    threshold = get_optimal_threshold(
+        true_labs, pred_prob, metric="f1", sample_weight=sample_weight
+    )
 
-    assert optimizer.threshold_ is not None
-    assert 0 <= optimizer.threshold_ <= 1
-
-    # Test prediction
-    predictions = optimizer.predict(pred_prob)
-    assert len(predictions) == len(true_labs)
+    assert isinstance(threshold, float)
+    assert 0 <= threshold <= 1
 
 
 def test_cv_with_sample_weights():
@@ -280,10 +278,8 @@ def test_backward_compatibility():
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, 0.5)
     assert all(isinstance(x, int) for x in [tp, tn, fp, fn])
 
-    optimizer = ThresholdOptimizer()
-    optimizer.fit(true_labs, pred_prob)
-    predictions = optimizer.predict(pred_prob)
-    assert len(predictions) == len(true_labs)
+    # ThresholdOptimizer wrapper was removed - use direct API instead
+    # The direct API functions provide the core functionality
 
 
 if __name__ == "__main__":

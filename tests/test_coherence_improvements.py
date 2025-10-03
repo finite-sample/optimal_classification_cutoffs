@@ -141,12 +141,6 @@ class TestDeprecatedParameterRejection:
         with pytest.raises(ValueError, match="Invalid optimization method"):
             get_optimal_threshold(y_true, y_prob, metric="f1", method="smart_brute")
 
-    def test_deprecated_objective_parameter_rejected_in_wrapper(self):
-        """Test that deprecated objective parameter in ThresholdOptimizer raises TypeError."""
-        with pytest.raises(TypeError, match="unexpected keyword argument"):
-            ThresholdOptimizer(objective="f1")
-
-
 class TestMethodEquivalence:
     """Test that different methods produce equivalent results."""
 
@@ -191,60 +185,6 @@ class TestMethodEquivalence:
         assert abs(score_unique - score_sort) < 1e-10, (
             f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
         )
-
-
-class TestThresholdOptimizerWrapper:
-    """Test the enhanced ThresholdOptimizer wrapper."""
-
-    def test_metric_parameter_works(self):
-        """Test that metric parameter works in ThresholdOptimizer."""
-        y_true = np.array([0, 0, 1, 1, 0, 1])
-        y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
-
-        optimizer = ThresholdOptimizer(metric="f1")
-        optimizer.fit(y_true, y_prob)
-
-        assert optimizer.metric == "f1"
-        assert optimizer.threshold_ is not None
-
-    def test_valid_metric_parameter(self):
-        """Test that valid metric parameter works."""
-        optimizer = ThresholdOptimizer(metric="f1")
-        assert optimizer.metric == "f1"
-
-    def test_mode_parameter_in_wrapper(self):
-        """Test that mode parameter works in ThresholdOptimizer."""
-        y_true = np.array([0, 0, 1, 1, 0, 1])
-        y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
-
-        optimizer = ThresholdOptimizer(metric="f1", mode="expected")
-        optimizer.fit(y_true, y_prob)
-
-        assert optimizer.mode == "expected"
-        assert optimizer.threshold_ is not None
-
-    def test_utility_parameter_in_wrapper(self):
-        """Test that utility parameter works in ThresholdOptimizer."""
-        y_true = np.array([0, 0, 1, 1, 0, 1])
-        y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
-        utility = {"tp": 1, "tn": 1, "fp": -2, "fn": -5}
-
-        optimizer = ThresholdOptimizer(utility=utility)
-        optimizer.fit(y_true, y_prob)
-
-        assert optimizer.utility == utility
-        assert optimizer.threshold_ is not None
-
-    def test_bayes_mode_in_wrapper(self):
-        """Test that mode='bayes' works in ThresholdOptimizer."""
-        y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
-        utility = {"tp": 0, "tn": 0, "fp": -1, "fn": -5}
-
-        optimizer = ThresholdOptimizer(mode="bayes", utility=utility)
-        optimizer.fit(None, y_prob)  # No true_labs needed for Bayes
-
-        assert optimizer.mode == "bayes"
-        assert optimizer.threshold_ is not None
 
 
 class TestCVDefaultMethods:

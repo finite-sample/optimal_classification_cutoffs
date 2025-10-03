@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import cv_threshold_optimization, get_optimal_threshold
-from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.metrics import is_piecewise_metric, register_metric
+from optimal_cutoffs.optimize import find_optimal_threshold
 
 
 def test_get_optimal_threshold_methods():
