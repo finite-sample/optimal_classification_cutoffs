@@ -1,4 +1,8 @@
-"""Threshold search strategies for optimizing classification metrics."""
+"""Core threshold optimization functionality.
+
+This module contains the main get_optimal_threshold function and its supporting
+infrastructure, serving as the primary entry point for threshold optimization.
+"""
 
 from typing import Any
 
@@ -6,8 +10,9 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .metrics import is_piecewise_metric
-from .results import ThresholdResult, create_result
-from .types import (
+
+# Removed ThresholdResult - now using simple return types
+from .types_minimal import (
     AveragingMethodLiteral,
     ComparisonOperatorLiteral,
     EstimationModeLiteral,
@@ -40,14 +45,7 @@ def get_optimal_threshold(
     beta: float = 1.0,
     class_weight: ArrayLike | None = None,
     average: AveragingMethodLiteral = "macro",
-    return_result: bool = False,
-) -> (
-    float
-    | np.ndarray[Any, Any]
-    | ExpectedResult
-    | tuple[float, float]
-    | ThresholdResult
-):
+) -> float | np.ndarray[Any, Any] | ExpectedResult | tuple[float, float]:
     """Find the optimal classification threshold(s) for a given metric.
 
     This is the main entry point for threshold optimization, supporting both
@@ -100,22 +98,15 @@ def get_optimal_threshold(
         Per-class weights for weighted averaging in expected mode.
     average : {"macro", "micro", "weighted", "none"}, default="macro"
         Averaging strategy for multiclass metrics.
-    return_result : bool, default=False
-        If True, return unified ThresholdResult object. If False, return
-        legacy format for backward compatibility.
 
     Returns
     -------
-    threshold : float or np.ndarray or ExpectedResult or tuple or ThresholdResult
-        Optimal threshold(s). Return type depends on return_result parameter:
-
-        If return_result=True: Always returns ThresholdResult with consistent interface
-
-        If return_result=False (default): Legacy format depends on mode and input:
+    threshold : float or np.ndarray or ExpectedResult or tuple[float, float]
+        Optimal threshold(s) in simple, direct format:
         - Binary empirical: float (single threshold)
         - Multiclass empirical: np.ndarray (per-class thresholds)
         - Expected mode: ExpectedResult dict or tuple[float, float]
-        - Bayes mode: varies based on utility specification
+        - Bayes mode: threshold(s) or decisions based on utility specification
 
     Examples
     --------
@@ -175,78 +166,11 @@ def get_optimal_threshold(
     else:
         raise ValueError(f"Unknown mode: {mode}")
 
-    # Handle return format
-    if return_result:
-        # Convert to ThresholdResult if not already
-        if isinstance(result, ThresholdResult):
-            return result
-        else:
-            # Convert legacy format to ThresholdResult
-            return _convert_to_result(result, mode, method, average)
-    else:
-        # Return legacy format
-        if isinstance(result, ThresholdResult):
-            return result.to_legacy_format()
-        else:
-            return result  # type: ignore[no-any-return]
+    # Return result directly - no more conversion layers
+    return result  # type: ignore[no-any-return]
 
 
-def _convert_to_result(
-    legacy_result: Any, mode: str, method: str, average: str
-) -> ThresholdResult:
-    """Convert legacy result format to ThresholdResult."""
-    if isinstance(legacy_result, (int, float)):
-        # Binary empirical
-        return create_result(
-            threshold=float(legacy_result),
-            method=method,
-            mode=mode,
-        )
-    elif isinstance(legacy_result, np.ndarray):
-        # Multiclass empirical or Bayes
-        return create_result(
-            threshold=legacy_result,
-            method=method,
-            mode=mode,
-            averaging_method=average,
-        )
-    elif isinstance(legacy_result, tuple) and len(legacy_result) == 2:
-        # Expected binary
-        threshold, score = legacy_result
-        return create_result(
-            threshold=float(threshold),
-            score=float(score),
-            method=method,
-            mode=mode,
-        )
-    elif isinstance(legacy_result, dict):
-        # Expected multiclass
-        if "threshold" in legacy_result:
-            # Micro averaging
-            return create_result(
-                threshold=legacy_result["threshold"],
-                score=legacy_result.get("f_beta"),
-                method=method,
-                mode=mode,
-                averaging_method="micro",
-            )
-        else:
-            # Macro/weighted/none averaging
-            return create_result(
-                threshold=legacy_result["thresholds"],
-                score=legacy_result.get("f_beta"),
-                per_class_scores=legacy_result.get("f_beta_per_class"),
-                method=method,
-                mode=mode,
-                averaging_method=average,
-            )
-    else:
-        # Fallback - just wrap the result
-        return create_result(
-            threshold=legacy_result,
-            method=method,
-            mode=mode,
-        )
+# Removed _convert_to_result - no longer needed with direct return types
 
 
 def _optimal_threshold_unique_scan(
@@ -257,7 +181,7 @@ def _optimal_threshold_unique_scan(
     comparison: ComparisonOperatorLiteral = ">",
 ) -> float:
     """Find optimal threshold using brute force over unique probabilities."""
-    from .binary_optimization import find_optimal_threshold
+    from .optimize import find_optimal_threshold
 
     operator = ">=" if comparison == ">=" else ">"
     threshold, _ = find_optimal_threshold(
@@ -284,8 +208,7 @@ def _optimize_empirical(
     average: AveragingMethodLiteral,
 ) -> float | np.ndarray[Any, Any]:
     """Empirical threshold optimization."""
-    from .binary_optimization import find_optimal_threshold
-    from .multiclass_optimization import get_optimal_multiclass_thresholds
+    from .optimize import find_optimal_threshold, find_optimal_threshold_multiclass
 
     if true_labs is None:
         raise ValueError("true_labs is required for empirical utility optimization")
@@ -297,7 +220,7 @@ def _optimize_empirical(
 
     if is_multiclass:
         # Multiclass optimization
-        return get_optimal_multiclass_thresholds(
+        return find_optimal_threshold_multiclass(
             true_labs, pred_prob, metric, method, average, sample_weight, comparison
         )
     else:
@@ -311,14 +234,19 @@ def _optimize_empirical(
             # This would need implementation
             pass
 
+        # Handle specific method cases
+        if method == "unique_scan":
+            return _optimal_threshold_unique_scan(
+                true_labs, pred_prob, metric, sample_weight, comparison
+            )
+
         # Select optimization method
         if method == "auto":
             method = "sort_scan" if is_piecewise_metric(metric) else "minimize"
 
-        # Map old method names to new strategy names
+        # Map remaining method names to strategy names
         method_mapping = {
             "sort_scan": "sort_scan",
-            "unique_scan": "sort_scan",  # Both use sort_scan now
             "minimize": "scipy",
             "gradient": "gradient",
             "coord_ascent": "sort_scan",  # Fallback to sort_scan for binary
@@ -396,9 +324,9 @@ def _optimize_bayes(
 ) -> float | np.ndarray[Any, Any]:
     """Bayes-optimal threshold optimization."""
     from .bayes import (
-        bayes_decision_from_utility_matrix,
-        bayes_threshold_from_costs_scalar,
-        bayes_thresholds_from_costs_vector,
+        bayes_optimal_decisions,
+        bayes_optimal_threshold,
+        bayes_thresholds_from_costs,
     )
 
     pred_prob = np.asarray(pred_prob)
@@ -408,7 +336,7 @@ def _optimize_bayes(
         # Use utility matrix for Bayes decisions
         if not is_multiclass:
             raise ValueError("utility_matrix requires multiclass probabilities")
-        return bayes_decision_from_utility_matrix(pred_prob, utility_matrix)  # type: ignore[return-value]
+        return bayes_optimal_decisions(pred_prob, utility_matrix)  # type: ignore[return-value]
 
     elif utility is not None:
         # Use utility dict for threshold computation
@@ -418,59 +346,33 @@ def _optimize_bayes(
             if "fp" not in utility or "fn" not in utility:
                 raise ValueError("Multiclass Bayes requires 'fp' and 'fn' as arrays")
 
+        # Extract costs and benefits
+        fp_cost = utility.get("fp", 0)
+        fn_cost = utility.get("fn", 0)
+        tp_benefit = utility.get("tp", 0)
+        tn_benefit = utility.get("tn", 0)
+
+        # Handle minimize_cost flag
         if minimize_cost:
             # Negate costs to convert to utilities
-            fp_cost = -utility.get("fp", 0)
-            fn_cost = -utility.get("fn", 0)
-            tp_benefit = -utility.get("tp", 0)
-            tn_benefit = -utility.get("tn", 0)
-        else:
-            fp_cost = utility.get("fp", 0)
-            fn_cost = utility.get("fn", 0)
-            tp_benefit = utility.get("tp", 0)
-            tn_benefit = utility.get("tn", 0)
+            fp_cost = -abs(fp_cost) if fp_cost >= 0 else fp_cost
+            fn_cost = -abs(fn_cost) if fn_cost >= 0 else fn_cost
 
         if is_multiclass:
-            # Per-class thresholds
-            n_classes = pred_prob.shape[1]
+            # Per-class thresholds using vectorized function
+            fp_costs = np.asarray(fp_cost) if not np.isscalar(fp_cost) else [fp_cost]
+            fn_costs = np.asarray(fn_cost) if not np.isscalar(fn_cost) else [fn_cost]
 
-            # Handle both scalar and vector costs
-            def _expand_cost(cost: Any, n_classes: int) -> list[float]:
-                if np.isscalar(cost):
-                    return [float(cost)] * n_classes  # type: ignore[arg-type]
-                else:
-                    cost_array = np.asarray(cost)
-                    if cost_array.size == 1:
-                        return [float(cost_array.item())] * n_classes
-                    elif cost_array.size == n_classes:
-                        return [float(x) for x in cost_array.tolist()]
-                    else:
-                        raise ValueError(
-                            f"Cost array size {cost_array.size} doesn't match "
-                            f"n_classes {n_classes}"
-                        )
-
-            fp_costs = _expand_cost(fp_cost, n_classes)
-            fn_costs = _expand_cost(fn_cost, n_classes)
-            tp_benefits = _expand_cost(tp_benefit, n_classes)
-            tn_benefits = _expand_cost(tn_benefit, n_classes)
-
-            return bayes_thresholds_from_costs_vector(
-                fp_costs, fn_costs, tp_benefits, tn_benefits, comparison
-            )  # type: ignore[return-value]
+            return bayes_thresholds_from_costs(fp_costs, fn_costs)  # type: ignore[return-value]
         else:
             # Single threshold
-            return bayes_threshold_from_costs_scalar(
-                fp_cost, fn_cost, tp_benefit, tn_benefit, comparison
+            return bayes_optimal_threshold(
+                float(fp_cost), float(fn_cost), float(tp_benefit), float(tn_benefit)
             )
 
     else:
         raise ValueError("mode='bayes' requires utility parameter or utility_matrix")
 
-
-# Legacy function removal - these are now in separate modules:
-# - get_optimal_multiclass_thresholds -> multiclass_optimization.py
-# Functions that are no longer needed due to router/handler elimination
 
 __all__ = [
     "get_optimal_threshold",

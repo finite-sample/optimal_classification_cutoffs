@@ -4,12 +4,7 @@ import numpy as np
 import pytest
 import warnings
 
-from optimal_cutoffs.binary_optimization import (
-    optimal_threshold_piecewise,
-    optimal_threshold_minimize,
-    optimal_threshold_gradient,
-    _optimal_threshold_piecewise_fallback,
-)
+from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.metrics import compute_metric_at_threshold
 
 
@@ -23,15 +18,15 @@ class TestFallbackTieHandling:
         p_tied = np.array([0.5, 0.5, 0.5, 0.5])
 
         # Should not crash and return a valid threshold
-        threshold = _optimal_threshold_piecewise_fallback(
-            y_true, p_tied, metric="f1", comparison=">="
+        threshold, _ = find_optimal_threshold(
+            y_true, p_tied, metric="f1", strategy="sort_scan", operator=">="
         )
         assert isinstance(threshold, float)
         assert np.isfinite(threshold)
         
-        # Test with main piecewise function too
-        threshold_main = optimal_threshold_piecewise(
-            y_true, p_tied, metric="f1", comparison=">="
+        # Test with main function too
+        threshold_main, _ = find_optimal_threshold(
+            y_true, p_tied, metric="f1", strategy="sort_scan", operator=">="
         )
         assert isinstance(threshold_main, float)
         assert np.isfinite(threshold_main)
@@ -41,8 +36,8 @@ class TestFallbackTieHandling:
         y_true = np.array([1, 0, 1, 0])
         p_tied = np.array([0.5, 0.5, 0.5, 0.5])
 
-        threshold = _optimal_threshold_piecewise_fallback(
-            y_true, p_tied, metric="f1", comparison=">"
+        threshold, _ = find_optimal_threshold(
+            y_true, p_tied, metric="f1", strategy="sort_scan", operator=">"
         )
         assert isinstance(threshold, float)
         assert np.isfinite(threshold)
@@ -64,14 +59,14 @@ class TestFallbackTieHandling:
         register_metric("test_nonvectorized", custom_metric, is_piecewise=True)
         
         try:
-            # Force fallback by using non-vectorized metric
-            threshold_fallback = _optimal_threshold_piecewise_fallback(
-                y_true, p_test, metric="test_nonvectorized", comparison=">"
+            # Use new API instead of testing fallback
+            threshold_fallback, _ = find_optimal_threshold(
+                y_true, p_test, metric="test_nonvectorized", strategy="sort_scan", operator=">"
             )
             
-            # Should get same result from main function when it falls back
-            threshold_main = optimal_threshold_piecewise(
-                y_true, p_test, metric="test_nonvectorized", comparison=">"
+            # Should get same result from main function
+            threshold_main, _ = find_optimal_threshold(
+                y_true, p_test, metric="test_nonvectorized", strategy="scipy", operator=">"
             )
             
             assert abs(threshold_fallback - threshold_main) < 1e-10
@@ -92,8 +87,8 @@ class TestScoreHandling:
         y_true = np.array([0, 1, 0, 1])
         scores = np.array([-2.1, 0.3, 0.1, 3.7])
 
-        threshold = _optimal_threshold_piecewise_fallback(
-            y_true, scores, metric="f1", require_proba=False
+        threshold, _ = find_optimal_threshold(
+            y_true, scores, metric="f1", strategy="sort_scan", require_probability=False
         )
         
         # Should be in extended score range (nextafter can go slightly beyond)
@@ -106,8 +101,8 @@ class TestScoreHandling:
         y_true = np.array([0, 1, 0, 1])
         scores = np.array([-2.1, 0.3, 0.1, 3.7])
 
-        threshold = optimal_threshold_piecewise(
-            y_true, scores, metric="f1", require_proba=False
+        threshold, _ = find_optimal_threshold(
+            y_true, scores, metric="f1", strategy="sort_scan", require_probability=False
         )
         
         # Should work and give reasonable threshold
@@ -119,8 +114,8 @@ class TestScoreHandling:
         y_true = np.array([0, 0, 1, 1, 0])
         scores = np.array([-3.0, -2.0, 0.0, 2.0, 3.0])
 
-        threshold = optimal_threshold_minimize(
-            y_true, scores, metric="f1", require_proba=False
+        threshold, _ = find_optimal_threshold(
+            y_true, scores, metric="f1", strategy="scipy", require_probability=False
         )
         
         # Should be within reasonable bounds of the score range
@@ -134,8 +129,8 @@ class TestScoreHandling:
         # Should warn about piecewise metric but still work
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            threshold = optimal_threshold_gradient(
-                y_true, scores, metric="f1", require_proba=False, max_iter=5
+            threshold, _ = find_optimal_threshold(
+                y_true, scores, metric="f1", strategy="gradient", require_probability=False
             )
             
             # Should issue warning about piecewise metric
@@ -155,11 +150,11 @@ class TestEdgeCases:
         y_all_pos = np.array([1, 1, 1, 1])
         p_test = np.array([0.2, 0.5, 0.7, 0.9])
 
-        threshold_gt = _optimal_threshold_piecewise_fallback(
-            y_all_pos, p_test, metric="f1", comparison=">"
+        threshold_gt, _ = find_optimal_threshold(
+            y_all_pos, p_test, metric="f1", strategy="sort_scan", operator=">"
         )
-        threshold_gte = _optimal_threshold_piecewise_fallback(
-            y_all_pos, p_test, metric="f1", comparison=">="
+        threshold_gte, _ = find_optimal_threshold(
+            y_all_pos, p_test, metric="f1", strategy="sort_scan", operator=">="
         )
         
         assert isinstance(threshold_gt, float)
@@ -176,11 +171,11 @@ class TestEdgeCases:
         p_test = np.array([0.2, 0.5, 0.7, 0.9])
 
         # Use accuracy instead of F1 since F1 is undefined with all negatives
-        threshold_gt = _optimal_threshold_piecewise_fallback(
-            y_all_neg, p_test, metric="accuracy", comparison=">"
+        threshold_gt, _ = find_optimal_threshold(
+            y_all_neg, p_test, metric="accuracy", strategy="sort_scan", operator=">"
         )
-        threshold_gte = _optimal_threshold_piecewise_fallback(
-            y_all_neg, p_test, metric="accuracy", comparison=">="
+        threshold_gte, _ = find_optimal_threshold(
+            y_all_neg, p_test, metric="accuracy", strategy="sort_scan", operator=">="
         )
         
         assert isinstance(threshold_gt, float)
@@ -196,8 +191,8 @@ class TestEdgeCases:
         y_single = np.array([1])
         p_single = np.array([0.7])
 
-        threshold = _optimal_threshold_piecewise_fallback(
-            y_single, p_single, metric="f1", comparison=">"
+        threshold, _ = find_optimal_threshold(
+            y_single, p_single, metric="f1", strategy="sort_scan", operator=">"
         )
         
         assert isinstance(threshold, float)
@@ -209,8 +204,8 @@ class TestEdgeCases:
         p_empty = np.array([])
 
         with pytest.raises(ValueError):
-            _optimal_threshold_piecewise_fallback(
-                y_empty, p_empty, metric="f1"
+            find_optimal_threshold(
+                y_empty, p_empty, metric="f1", strategy="sort_scan"
             )
 
 
@@ -223,9 +218,9 @@ class TestCandidateGeneration:
         # Test with distinct probabilities
         p_distinct = np.array([0.2, 0.4, 0.6, 0.8])
 
-        # Directly test the fallback to see its behavior
-        threshold = _optimal_threshold_piecewise_fallback(
-            y_true, p_distinct, metric="f1", comparison=">"
+        # Test the sort_scan strategy behavior
+        threshold, _ = find_optimal_threshold(
+            y_true, p_distinct, metric="f1", strategy="sort_scan", operator=">"
         )
         
         # Should find a good threshold, not just boundary values
@@ -237,12 +232,12 @@ class TestCandidateGeneration:
         y_true = np.array([0, 1])
         p_test = np.array([0.3, 0.7])
 
-        # The fallback should consider nextafter values for extremes
-        threshold_gt = _optimal_threshold_piecewise_fallback(
-            y_true, p_test, metric="accuracy", comparison=">"
+        # The sort_scan should handle boundary conditions correctly
+        threshold_gt, _ = find_optimal_threshold(
+            y_true, p_test, metric="accuracy", strategy="sort_scan", operator=">"
         )
-        threshold_gte = _optimal_threshold_piecewise_fallback(
-            y_true, p_test, metric="accuracy", comparison=">="
+        threshold_gte, _ = find_optimal_threshold(
+            y_true, p_test, metric="accuracy", strategy="sort_scan", operator=">="
         )
         
         assert isinstance(threshold_gt, float)
@@ -258,11 +253,11 @@ class TestConsistencyAcrossMethods:
         p_test = np.array([0.1, 0.3, 0.7, 0.9])
 
         # All methods should find similar thresholds for this clear case
-        thresh_piecewise = optimal_threshold_piecewise(
-            y_true, p_test, metric="f1", comparison=">"
+        thresh_piecewise, _ = find_optimal_threshold(
+            y_true, p_test, metric="f1", strategy="sort_scan", operator=">"
         )
-        thresh_minimize = optimal_threshold_minimize(
-            y_true, p_test, metric="f1", comparison=">"
+        thresh_minimize, _ = find_optimal_threshold(
+            y_true, p_test, metric="f1", strategy="scipy", operator=">"
         )
         
         # Compute F1 scores at both thresholds - they should be close
@@ -281,12 +276,12 @@ class TestConsistencyAcrossMethods:
         y_true = np.array([0, 1, 0, 1, 0])
         p_test = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
-        # Run fallback multiple times - should be deterministic
-        thresh1 = _optimal_threshold_piecewise_fallback(
-            y_true, p_test, metric="f1", comparison=">"
+        # Run sort_scan multiple times - should be deterministic
+        thresh1, _ = find_optimal_threshold(
+            y_true, p_test, metric="f1", strategy="sort_scan", operator=">"
         )
-        thresh2 = _optimal_threshold_piecewise_fallback(
-            y_true, p_test, metric="f1", comparison=">"
+        thresh2, _ = find_optimal_threshold(
+            y_true, p_test, metric="f1", strategy="sort_scan", operator=">"
         )
         
         assert thresh1 == thresh2
@@ -305,8 +300,8 @@ class TestGradientWarnings:
         for metric in piecewise_metrics:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                optimal_threshold_gradient(
-                    y_true, p_test, metric=metric, max_iter=5
+                find_optimal_threshold(
+                    y_true, p_test, metric=metric, strategy="gradient"
                 )
                 
                 # Should issue warning
@@ -333,8 +328,8 @@ class TestGradientWarnings:
         try:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
-                optimal_threshold_gradient(
-                    y_true, p_test, metric="test_smooth", max_iter=5
+                find_optimal_threshold(
+                    y_true, p_test, metric="test_smooth", strategy="gradient"
                 )
                     
                 # Should not issue piecewise warning

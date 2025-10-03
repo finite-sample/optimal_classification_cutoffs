@@ -42,16 +42,12 @@ def _validate_sample_weights(sample_weight: Array | None, n_samples: int) -> Arr
 
     This is a thin wrapper around the centralized validation for compatibility.
     """
-    _, _, validated_weights = validate_binary_classification(
-        true_labs=np.zeros(n_samples),  # Dummy labels for weight validation
-        pred_prob=np.zeros(n_samples),  # Dummy probabilities for weight validation
-        sample_weight=sample_weight,
-        return_default_weights=True,  # Return ones array when None
-        require_proba=False,  # Skip prob validation for dummy data
-    )
+    if sample_weight is None:
+        return np.ones(n_samples, dtype=np.float64)
 
-    # validated_weights is guaranteed to be non-None due to return_default_weights=True
-    return validated_weights
+    from .validation import validate_weights
+
+    return validate_weights(sample_weight, n_samples)
 
 
 def _vectorized_counts(
@@ -383,9 +379,7 @@ def optimal_threshold_sortscan(
     weights_sorted = weights[sort_idx]
 
     # Vectorized confusion matrix counts for all cuts
-    tp_vec, tn_vec, fp_vec, fn_vec = _vectorized_counts(
-        y_sorted, weights_sorted
-    )  # type: tuple[Array, Array, Array, Array]
+    tp_vec, tn_vec, fp_vec, fn_vec = _vectorized_counts(y_sorted, weights_sorted)  # type: tuple[Array, Array, Array, Array]
 
     # Vectorized metric computation over all cuts
     scores = _metric_from_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)

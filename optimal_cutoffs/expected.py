@@ -1,10 +1,100 @@
-"""Expected F-beta optimization using Dinkelbach method under calibration."""
+"""Expected metric optimization under calibration assumption.
+
+This module implements expected threshold optimization using Dinkelbach's algorithm.
+Under the calibration assumption, expected metrics can be optimized exactly by
+finding optimal thresholds on calibrated probabilities.
+
+Key simplifications:
+- Single Dinkelbach implementation for all metrics
+- Direct computation instead of coefficient abstraction
+- Clear separation: core algorithm vs metrics vs multiclass
+"""
 
 from __future__ import annotations
 
 from typing import Any, Literal
 
 import numpy as np
+
+# ============================================================================
+# Core Algorithm - Single Dinkelbach implementation
+# ============================================================================
+
+
+def dinkelbach_optimize(
+    probabilities: np.ndarray[Any, Any],
+    numerator_fn: callable,
+    denominator_fn: callable,
+    max_iter: int = 100,
+    tol: float = 1e-12,
+) -> tuple[float, float]:
+    """Core Dinkelbach algorithm for ratio optimization.
+
+    Solves: max_t numerator(t) / denominator(t)
+
+    Parameters
+    ----------
+    probabilities : array of shape (n,)
+        Calibrated probabilities
+    numerator_fn : callable(threshold) -> float
+        Computes numerator at given threshold
+    denominator_fn : callable(threshold) -> float
+        Computes denominator at given threshold
+    max_iter : int
+        Maximum iterations
+    tol : float
+        Convergence tolerance
+
+    Returns
+    -------
+    threshold : float
+        Optimal threshold
+    score : float
+        Optimal ratio value
+    """
+    # Sort probabilities once
+    p = np.sort(probabilities)
+
+    # Initial lambda
+    lam = 0.5
+
+    for _ in range(max_iter):
+        # Find threshold that maximizes: numerator - lambda * denominator
+        def objective(t, lambda_val=lam):
+            return numerator_fn(t) - lambda_val * denominator_fn(t)
+
+        # Simple grid search over unique probabilities
+        # (This is fast enough for most cases)
+        candidates = np.unique(p)
+        best_t = 0.5
+        best_val = -np.inf
+
+        for t in candidates:
+            val = objective(t)
+            if val > best_val:
+                best_val = val
+                best_t = t
+
+        # Update lambda
+        num = numerator_fn(best_t)
+        den = denominator_fn(best_t)
+
+        if den == 0:
+            break
+
+        new_lam = num / den
+
+        if abs(new_lam - lam) < tol:
+            return float(best_t), float(new_lam)
+
+        lam = new_lam
+
+    return float(best_t), float(lam)
+
+
+# ============================================================================
+# Metric-specific expected optimization
+# ============================================================================
 
 
 def dinkelbach_expected_fbeta_binary(
@@ -13,261 +103,352 @@ def dinkelbach_expected_fbeta_binary(
     sample_weight: np.ndarray[Any, Any] | None = None,
     comparison: str = ">",
 ) -> tuple[float, float]:
-    """
-    Expected F-beta under calibration, binary case, with nonnegative sample weights.
-
-    Under perfect calibration, maximizes:
-    F_beta(S) = ((1+beta^2) A) / (A + C + beta^2 P)
-    where:
-    - A = sum_{i in S} w_i p_i (expected true positives)
-    - C = sum_{i in S} w_i (1 - p_i) (expected false positives)
-    - P = sum_i w_i p_i (total expected positives)
-    - S = {i : p_i threshold_op t} (selected set)
-
-    Uses Dinkelbach's algorithm to solve the ratio optimization problem.
+    """Expected F-beta optimization under calibration.
 
     Parameters
     ----------
-    y_prob : ndarray of shape (n_samples,)
-        Calibrated probabilities for the positive class.
-    beta : float, default=1.0
-        Beta parameter (beta >= 0). beta=1 gives F1, beta < 1 emphasizes precision,
-        beta > 1 emphasizes recall.
-    sample_weight : ndarray of shape (n_samples,), optional
-        Nonnegative weights. If None, uses uniform weights.
-    comparison : {">" or ">="}, default=">"
-        Decision boundary convention.
+    y_prob : array of shape (n,)
+        Calibrated probabilities for positive class
+    beta : float
+        F-beta parameter
+    sample_weight : array of shape (n,), optional
+        Sample weights
+    comparison : str
+        Comparison operator (kept for backward compatibility)
 
     Returns
     -------
-    t_star : float
-        Optimal threshold in [0, 1].
-    f_star : float
-        Optimal expected F_beta value in [0, 1].
-
-    Examples
-    --------
-    >>> y_prob = np.array([0.1, 0.3, 0.7, 0.9])
-    >>> t_star, f_star = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
-    >>> print(f"Threshold: {t_star:.3f}, F1: {f_star:.3f}")
-    Threshold: 0.500, F1: 0.750
-
-    >>> # With sample weights
-    >>> weights = np.array([1, 2, 1, 1])
-    >>> t_star, f_star = dinkelbach_expected_fbeta_binary(y_prob, sample_weight=weights)
-
-    Notes
-    -----
-    This method assumes perfect calibration: p_i = P(y_i = 1 | p_i).
-    For miscalibrated probabilities, use empirical optimization instead.
-
-    The Dinkelbach algorithm iteratively refines λ = a(S)/b(S) and maximizes
-    a(S) - λb(S) until convergence, yielding the optimal ratio a*/b*.
+    threshold : float
+        Optimal threshold
+    score : float
+        Expected F-beta score
     """
-    p = np.asarray(y_prob, dtype=float).reshape(-1)
+    p = np.asarray(y_prob, dtype=np.float64)
 
-    if np.any((p < 0) | (p > 1)):
-        raise ValueError("Probabilities must be in [0, 1].")
+    if sample_weight is None:
+        weights = np.ones_like(p)
+    else:
+        weights = np.asarray(sample_weight, dtype=np.float64)
 
-    if len(p) == 0:
-        return 0.0, 0.0
+    # Validate inputs
+    if not np.all((0 <= p) & (p <= 1)):
+        raise ValueError("Probabilities must be in [0, 1]")
+    if np.any(weights < 0):
+        raise ValueError("Weights must be non-negative")
 
-    # Handle sample weights
-    w = (
-        np.ones_like(p)
-        if sample_weight is None
-        else np.asarray(sample_weight, dtype=float).reshape(-1)
-    )
-    if w.shape != p.shape:
-        raise ValueError("sample_weight must have shape (n_samples,).")
-    if np.any(w < 0):
-        raise ValueError("sample_weight must be nonnegative.")
+    # Expected confusion matrix components as functions of threshold
+    # Under calibration: E[TP|p>t] = sum(w_i * p_i) for i where p_i > t
 
-    # Validate beta
-    if beta < 0:
-        raise ValueError("beta must be nonnegative.")
+    # Pre-compute for efficiency
+    wp = weights * p  # weighted probabilities
+    w1mp = weights * (1 - p)  # weighted (1-p)
 
-    beta2 = float(beta) ** 2
-    P_total = float(np.sum(w * p))
+    def expected_tp(t):
+        mask = p > t
+        return np.sum(wp[mask])
 
-    if P_total == 0.0:
-        # No positives in expectation -> never predict positive
-        return 1.0, 0.0
+    def expected_fp(t):
+        mask = p > t
+        return np.sum(w1mp[mask])
 
-    # Dinkelbach iterations
-    lam = 0.5  # initial ratio guess
-    tol = 1e-10
-    max_iter = 100
+    def expected_fn(t):
+        mask = p <= t
+        return np.sum(wp[mask])
 
-    for _iteration in range(max_iter):
-        # Threshold for current lambda
-        t = lam / (1.0 + beta2)
-        t = np.clip(t, 0.0, 1.0)  # Ensure valid threshold
+    # F-beta numerator and denominator
+    beta2 = beta**2
 
-        # Selected set based on comparison operator
-        if comparison == ">":
-            S = p > t
-        else:  # ">="
-            S = p >= t
+    def numerator(t):
+        tp = expected_tp(t)
+        return (1 + beta2) * tp
 
-        # Expected counts
-        if np.any(S):
-            A = float(np.sum(w[S] * p[S]))  # Expected TP
-            C = float(np.sum(w[S] * (1.0 - p[S])))  # Expected FP
-        else:
-            A = C = 0.0
+    def denominator(t):
+        tp = expected_tp(t)
+        fp = expected_fp(t)
+        fn = expected_fn(t)
+        return (1 + beta2) * tp + fp + beta2 * fn
 
-        # Compute new lambda
-        denom = A + C + beta2 * P_total
-        new_lam = 0.0 if denom == 0.0 else (1.0 + beta2) * A / denom
+    return dinkelbach_optimize(p, numerator, denominator)
 
-        # Check convergence
-        if abs(new_lam - lam) <= tol:
-            lam = new_lam
-            break
 
-        lam = new_lam
+def expected_precision(
+    probabilities: np.ndarray[Any, Any], weights: np.ndarray[Any, Any] | None = None
+) -> tuple[float, float]:
+    """Expected precision optimization.
 
-    # Final threshold and F-beta value
-    t_star = lam / (1.0 + beta2)
-    f_star = lam  # At convergence, lambda equals the optimal F-beta
+    Precision = TP / (TP + FP)
+    """
+    p = np.asarray(probabilities, dtype=np.float64)
 
-    return float(np.clip(t_star, 0.0, 1.0)), float(np.clip(f_star, 0.0, 1.0))
+    if weights is None:
+        weights = np.ones_like(p)
+
+    wp = weights * p
+    w1mp = weights * (1 - p)
+
+    def numerator(t):
+        mask = p > t
+        return np.sum(wp[mask])  # Expected TP
+
+    def denominator(t):
+        mask = p > t
+        return np.sum(wp[mask]) + np.sum(w1mp[mask])  # Expected TP + FP
+
+    return dinkelbach_optimize(p, numerator, denominator)
+
+
+def expected_jaccard(
+    probabilities: np.ndarray[Any, Any], weights: np.ndarray[Any, Any] | None = None
+) -> tuple[float, float]:
+    """Expected Jaccard/IoU optimization.
+
+    Jaccard = TP / (TP + FP + FN)
+    """
+    p = np.asarray(probabilities, dtype=np.float64)
+
+    if weights is None:
+        weights = np.ones_like(p)
+
+    wp = weights * p
+
+    def numerator(t):
+        mask = p > t
+        return np.sum(wp[mask])  # Expected TP
+
+    def denominator(t):
+        # TP + FP + FN = all predicted positive + all actual positive - TP
+        mask = p > t
+        tp = np.sum(wp[mask])
+        predicted_pos = np.sum(weights[mask])
+        actual_pos = np.sum(wp)  # Total expected positives
+        return predicted_pos + actual_pos - tp
+
+    return dinkelbach_optimize(p, numerator, denominator)
+
+
+# ============================================================================
+# Multiclass/Multilabel wrapper
+# ============================================================================
 
 
 def dinkelbach_expected_fbeta_multilabel(
     y_prob: np.ndarray[Any, Any],
     beta: float = 1.0,
-    average: Literal["macro", "weighted", "micro"] = "macro",
     sample_weight: np.ndarray[Any, Any] | None = None,
-    class_weight: np.ndarray[Any, Any] | None = None,
+    average: Literal["macro", "micro", "weighted"] = "macro",
     comparison: str = ">",
-) -> dict[str, np.ndarray[Any, Any] | float]:
-    """
-    Expected F-beta for multilabel or multiclass-OvR under calibration.
-
-    Supports three averaging strategies:
-    - macro: Per-class thresholds, unweighted mean F-beta
-    - weighted: Per-class thresholds, class-weighted mean F-beta
-    - micro: Single global threshold across all classes/instances
+) -> dict[str, Any]:
+    """Expected F-beta optimization for multilabel/multiclass.
 
     Parameters
     ----------
-    y_prob : ndarray of shape (n_samples, K)
-        Calibrated probabilities per class.
-    beta : float, default=1.0
-        F-beta parameter (>= 0).
-    average : {"macro", "weighted", "micro"}, default="macro"
-        Averaging scheme:
-        - "macro": per-class thresholds, unweighted mean score
-        - "weighted": per-class thresholds, weighted by class_weight
-        - "micro": single global threshold across all classes/instances
-    sample_weight : ndarray of shape (n_samples,), optional
-        Nonnegative weights per sample.
-    class_weight : ndarray of shape (K,), optional
-        Nonnegative weights per class (used when average="weighted").
-    comparison : {">" or ">="}, default=">"
-        Decision boundary convention.
+    y_prob : array of shape (n_samples, n_classes)
+        Class probabilities
+    beta : float
+        F-beta parameter
+    sample_weight : array of shape (n_samples,), optional
+        Sample weights
+    average : str
+        Averaging strategy:
+        - "macro": Per-class thresholds, unweighted mean
+        - "micro": Single global threshold
+        - "weighted": Per-class thresholds, weighted mean
+    comparison : str
+        Comparison operator (kept for backward compatibility)
 
     Returns
     -------
-    result : dict
-        For "macro"/"weighted":
-        {
-            "thresholds": ndarray of shape (K,),
-            "f_beta_per_class": ndarray of shape (K,),
-            "f_beta": float
-        }
-        For "micro":
-        {
-            "threshold": float,
-            "f_beta": float
-        }
-
-    Examples
-    --------
-    >>> # Multilabel case with 3 classes
-    >>> y_prob = np.array([[0.1, 0.8, 0.3], [0.9, 0.2, 0.7]])
-    >>> result = dinkelbach_expected_fbeta_multilabel(y_prob, average="macro")
-    >>> print(f"Per-class thresholds: {result['thresholds']}")
-    >>> print(f"Macro F1: {result['f_beta']:.3f}")
-
-    >>> # Micro averaging (single threshold)
-    >>> result_micro = dinkelbach_expected_fbeta_multilabel(y_prob, average="micro")
-    >>> print(f"Global threshold: {result_micro['threshold']:.3f}")
-
-    Notes
-    -----
-    Micro averaging flattens all class-instance pairs and treats them as a
-    single binary problem. This can be more computationally efficient and
-    provides a global decision boundary.
-
-    For single-label multiclass, consider using empirical coordinate ascent
-    on validation data after getting initial thresholds from this function.
+    dict
+        Results with 'thresholds' and 'score' keys
     """
-    P = np.asarray(y_prob, dtype=float)
+    P = np.asarray(y_prob, dtype=np.float64)
+
     if P.ndim != 2:
-        raise ValueError("y_prob must have shape (n_samples, K).")
+        raise ValueError(f"Expected 2D probabilities, got shape {P.shape}")
 
-    n, K = P.shape
+    n_samples, n_classes = P.shape
 
-    # Validate sample weights
-    sw = (
-        np.ones(n, dtype=float)
-        if sample_weight is None
-        else np.asarray(sample_weight, dtype=float)
-    )
-    if sw.shape != (n,):
-        raise ValueError("sample_weight must have shape (n_samples,).")
-    if np.any(sw < 0):
-        raise ValueError("sample_weight must be nonnegative.")
-
-    # Handle micro averaging separately (flatten to single binary problem)
     if average == "micro":
-        # Flatten probabilities and repeat weights
-        p_flat = P.reshape(-1)
-        sw_flat = np.repeat(sw, K)
+        # Flatten all probabilities into single binary problem
+        p_flat = P.ravel()
 
-        t, f = dinkelbach_expected_fbeta_binary(
-            p_flat, beta=beta, sample_weight=sw_flat, comparison=comparison
-        )
-        return {"threshold": t, "f_beta": f}
+        if sample_weight is not None:
+            # Repeat weights for each class
+            w_flat = np.repeat(sample_weight, n_classes)
+        else:
+            w_flat = None
 
-    # For macro and weighted averaging, solve per-class
-    thresholds = np.zeros(K, dtype=float)
-    f_per_class = np.zeros(K, dtype=float)
+        threshold, score = dinkelbach_expected_fbeta_binary(p_flat, beta, w_flat)
 
-    # Validate class weights
-    cw = (
-        np.ones(K, dtype=float)
-        if class_weight is None
-        else np.asarray(class_weight, dtype=float)
-    )
-    if cw.shape != (K,):
-        raise ValueError("class_weight must have shape (K,).")
-    if np.any(cw < 0):
-        raise ValueError("class_weight must be nonnegative.")
+        return {"threshold": threshold, "score": score}
 
-    # Per-class Dinkelbach optimization
-    for k in range(K):
-        t_k, f_k = dinkelbach_expected_fbeta_binary(
-            P[:, k], beta=beta, sample_weight=sw, comparison=comparison
-        )
-        thresholds[k] = t_k
-        f_per_class[k] = f_k
+    else:  # macro or weighted
+        # Optimize per-class thresholds
+        thresholds = np.zeros(n_classes)
+        scores = np.zeros(n_classes)
 
-    # Compute averaged F-beta
-    if average == "macro":
-        f_avg = float(np.mean(f_per_class))
-    elif average == "weighted":
-        # Normalize class weights
-        w_norm = cw / (cw.sum() if cw.sum() > 0 else 1.0)
-        f_avg = float(np.sum(w_norm * f_per_class))
+        for k in range(n_classes):
+            thresholds[k], scores[k] = dinkelbach_expected_fbeta_binary(
+                P[:, k], beta, sample_weight
+            )
+
+        # Compute average score
+        if average == "macro":
+            avg_score = np.mean(scores)
+        else:  # weighted
+            # Weight by class frequency
+            if sample_weight is not None:
+                # This is a simplification - proper weighting would need true labels
+                class_weights = np.sum(P * sample_weight[:, None], axis=0)
+            else:
+                class_weights = np.sum(P, axis=0)
+
+            class_weights /= class_weights.sum()
+            avg_score = np.average(scores, weights=class_weights)
+
+        return {
+            "thresholds": thresholds,
+            "per_class": scores,
+            "score": float(avg_score),
+        }
+
+
+def expected_optimize_multiclass(
+    probabilities: np.ndarray[Any, Any],
+    metric: str = "f1",
+    average: Literal["macro", "micro", "weighted"] = "macro",
+    weights: np.ndarray[Any, Any] | None = None,
+    **metric_params,
+) -> dict[str, Any]:
+    """Expected optimization for multiclass/multilabel.
+
+    Parameters
+    ----------
+    probabilities : array of shape (n_samples, n_classes)
+        Class probabilities
+    metric : str
+        Metric to optimize ("f1", "precision", "jaccard")
+    average : str
+        Averaging strategy
+    weights : array of shape (n_samples,), optional
+        Sample weights
+    **metric_params
+        Additional parameters (e.g., beta for F-beta)
+
+    Returns
+    -------
+    dict
+        Results with 'thresholds' and 'score' keys
+    """
+    P = np.asarray(probabilities, dtype=np.float64)
+
+    if P.ndim != 2:
+        raise ValueError(f"Expected 2D probabilities, got shape {P.shape}")
+
+    n_samples, n_classes = P.shape
+
+    # Select metric function
+    if metric.lower() in {"f1", "fbeta"}:
+        beta = metric_params.get("beta", 1.0)
+
+        def metric_fn(p, w):
+            return dinkelbach_expected_fbeta_binary(p, beta, w)
+    elif metric.lower() == "precision":
+        metric_fn = expected_precision
+    elif metric.lower() in {"jaccard", "iou"}:
+        metric_fn = expected_jaccard
     else:
-        raise ValueError('average must be one of {"macro", "weighted", "micro"}.')
+        raise ValueError(f"Unsupported metric: {metric}")
 
-    return {
-        "thresholds": thresholds,
-        "f_beta_per_class": f_per_class,
-        "f_beta": f_avg,
-    }
+    # Handle different averaging strategies
+    if average == "micro":
+        # Flatten all probabilities into single binary problem
+        p_flat = P.ravel()
+
+        if weights is not None:
+            # Repeat weights for each class
+            w_flat = np.repeat(weights, n_classes)
+        else:
+            w_flat = None
+
+        threshold, score = metric_fn(p_flat, w_flat)
+
+        return {"threshold": threshold, "score": score}
+
+    else:  # macro or weighted
+        # Optimize per-class thresholds
+        thresholds = np.zeros(n_classes)
+        scores = np.zeros(n_classes)
+
+        for k in range(n_classes):
+            thresholds[k], scores[k] = metric_fn(P[:, k], weights)
+
+        # Compute average score
+        if average == "macro":
+            avg_score = np.mean(scores)
+        else:  # weighted
+            # Weight by class frequency
+            if weights is not None:
+                class_weights = np.sum(P * weights[:, None], axis=0)
+            else:
+                class_weights = np.sum(P, axis=0)
+
+            class_weights /= class_weights.sum()
+            avg_score = np.average(scores, weights=class_weights)
+
+        return {
+            "thresholds": thresholds,
+            "per_class": scores,
+            "score": float(avg_score),
+        }
+
+
+# ============================================================================
+# Simple API
+# ============================================================================
+
+
+def optimize_expected_threshold(
+    probabilities: np.ndarray[Any, Any], metric: str = "f1", **kwargs
+) -> float | np.ndarray[Any, Any]:
+    """Simple API for expected threshold optimization.
+
+    Parameters
+    ----------
+    probabilities : array
+        Probabilities (1D for binary, 2D for multiclass)
+    metric : str
+        Metric to optimize
+    **kwargs
+        Additional parameters
+
+    Returns
+    -------
+    float or array
+        Optimal threshold(s)
+    """
+    p = np.asarray(probabilities)
+
+    if p.ndim == 1:
+        # Binary case
+        if metric.lower() in {"f1", "fbeta"}:
+            threshold, _ = dinkelbach_expected_fbeta_binary(
+                p, beta=kwargs.get("beta", 1.0)
+            )
+        elif metric.lower() == "precision":
+            threshold, _ = expected_precision(p)
+        elif metric.lower() in {"jaccard", "iou"}:
+            threshold, _ = expected_jaccard(p)
+        else:
+            raise ValueError(f"Unknown metric: {metric}")
+
+        return threshold
+
+    else:
+        # Multiclass case
+        result = expected_optimize_multiclass(p, metric, **kwargs)
+
+        if "threshold" in result:
+            return result["threshold"]
+        else:
+            return result["thresholds"]

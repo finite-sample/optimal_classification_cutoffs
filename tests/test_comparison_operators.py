@@ -8,7 +8,7 @@ from optimal_cutoffs import (
     get_multiclass_confusion_matrix,
     get_optimal_threshold,
 )
-from optimal_cutoffs.wrapper import ThresholdOptimizer
+# from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 
 
 class TestComparisonOperators:
@@ -132,6 +132,7 @@ class TestComparisonOperators:
         assert np.all((thresh_gt >= 0) & (thresh_gt <= 1))
         assert np.all((thresh_gte >= 0) & (thresh_gte <= 1))
 
+    @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
     def test_threshold_optimizer_comparison_operators(self):
         """Test ThresholdOptimizer class with comparison operators."""
         # Binary test case
@@ -139,8 +140,8 @@ class TestComparisonOperators:
         pred_probs = np.array([0.2, 0.8, 0.3, 0.7, 0.4, 0.6])
 
         # Create optimizers with different comparison operators
-        opt_gt = ThresholdOptimizer(metric="f1", comparison=">")
-        opt_gte = ThresholdOptimizer(metric="f1", comparison=">=")
+        # opt_gt = ThresholdOptimizer(metric="f1", comparison=">")
+        # opt_gte = ThresholdOptimizer(metric="f1", comparison=">=")
 
         # Fit both optimizers
         opt_gt.fit(true_labels, pred_probs)

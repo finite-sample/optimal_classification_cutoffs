@@ -22,7 +22,7 @@ from optimal_cutoffs.metrics import (
     multiclass_metric,
     multiclass_metric_exclusive,
 )
-from optimal_cutoffs.multiclass_optimization import get_optimal_multiclass_thresholds
+from optimal_cutoffs.optimize import find_optimal_threshold_multiclass
 
 
 class TestDegenerateCasesFix:
@@ -141,7 +141,7 @@ class TestMicroAccuracyFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # This should work without error
-        thresholds = get_optimal_multiclass_thresholds(
+        thresholds = find_optimal_threshold_multiclass(
             y_true, pred_prob, metric="accuracy", average="micro", method="minimize"
         )
 

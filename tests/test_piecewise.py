@@ -8,7 +8,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.binary_optimization import optimal_threshold_piecewise
+from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.metrics import get_vectorized_metric
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
@@ -380,7 +380,7 @@ class TestBackwardCompatibility:
 
             for metric in ["f1", "accuracy", "precision", "recall"]:
                 # New implementation through optimal_threshold_piecewise
-                threshold_new = optimal_threshold_piecewise(y_true, pred_prob, metric)
+                threshold_new, _ = find_optimal_threshold(y_true, pred_prob, metric, strategy="sort_scan")
 
                 # Should be valid threshold
                 assert 0 <= threshold_new <= 1, (
@@ -395,7 +395,7 @@ class TestBackwardCompatibility:
         pred_prob = [0.1, 0.3, 0.4, 0.6, 0.8, 0.9]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold_piecewise = optimal_threshold_piecewise(y_true, pred_prob, metric)
+            threshold_piecewise, _ = find_optimal_threshold(y_true, pred_prob, metric, strategy="sort_scan")
             threshold_smart = get_optimal_threshold(
                 y_true, pred_prob, metric, method="unique_scan"
             )
@@ -423,8 +423,8 @@ class TestBackwardCompatibility:
         weights = [1.0, 2.0, 1.5, 0.5]
 
         # Should work without errors
-        threshold = optimal_threshold_piecewise(
-            y_true, pred_prob, "f1", sample_weight=weights
+        threshold, _ = find_optimal_threshold(
+            y_true, pred_prob, "f1", weights=weights, strategy="sort_scan"
         )
 
         assert 0 <= threshold <= 1
@@ -443,7 +443,7 @@ class TestPerformance:
 
         # Time the new implementation
         start_time = time.time()
-        threshold = optimal_threshold_piecewise(y_true, pred_prob, "f1")
+        threshold, _ = find_optimal_threshold(y_true, pred_prob, "f1", strategy="sort_scan")
         end_time = time.time()
 
         duration = end_time - start_time
@@ -459,7 +459,7 @@ class TestPerformance:
         pred_prob = np.linspace(0, 1, n)  # All unique values
 
         start_time = time.time()
-        threshold = optimal_threshold_piecewise(y_true, pred_prob, "f1")
+        threshold, _ = find_optimal_threshold(y_true, pred_prob, "f1", strategy="sort_scan")
         end_time = time.time()
 
         duration = end_time - start_time

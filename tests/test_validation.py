@@ -501,8 +501,7 @@ class TestMulticlassValidation:
 
     def test_multiclass_validation_consistency_across_modules(self):
         """Test that validation is consistent across different modules."""
-        from optimal_cutoffs.multiclass_optimization import get_optimal_multiclass_thresholds
-        from optimal_cutoffs.multiclass_coord import ThresholdOptimizer
+        from optimal_cutoffs.optimize import find_optimal_threshold_multiclass
 
         # Create valid test data
         labels = np.array([0, 1, 2, 0, 1, 2])

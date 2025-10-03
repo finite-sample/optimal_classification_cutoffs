@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    ThresholdOptimizer,
     cv_threshold_optimization,
     get_confusion_matrix,
     get_multiclass_confusion_matrix,

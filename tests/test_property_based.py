@@ -11,7 +11,7 @@ from optimal_cutoffs import (
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
 )
-from optimal_cutoffs.binary_optimization import optimal_threshold_piecewise
+from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.metrics import compute_metric_at_threshold
 from optimal_cutoffs.metrics import (
     get_multiclass_confusion_matrix,
@@ -127,7 +127,7 @@ class TestCoreInvariants:
         # Test on multiple metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
             # Use piecewise optimization
-            piecewise_threshold = optimal_threshold_piecewise(
+            piecewise_threshold = find_optimal_threshold(
                 labels, probabilities, metric
             )
 
@@ -181,15 +181,15 @@ class TestCoreInvariants:
             return
 
         # Get original optimal threshold
-        original_threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
+        original_threshold = find_optimal_threshold(labels, probabilities, "f1")
 
         # Shift probabilities by epsilon (both directions)
         shifted_up = probabilities + epsilon
         shifted_down = probabilities - epsilon
 
         # Get new optimal thresholds
-        threshold_up = optimal_threshold_piecewise(labels, shifted_up, "f1")
-        threshold_down = optimal_threshold_piecewise(labels, shifted_down, "f1")
+        threshold_up = find_optimal_threshold(labels, shifted_up, "f1")
+        threshold_down = find_optimal_threshold(labels, shifted_down, "f1")
 
         # For cases without extensive ties, threshold should shift approximately by epsilon
         # But allow larger tolerance for edge cases
@@ -219,7 +219,7 @@ class TestCoreInvariants:
             return
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold = optimal_threshold_piecewise(labels, probabilities, metric)
+            threshold = find_optimal_threshold(labels, probabilities, metric)
             assert 0 <= threshold <= 1, (
                 f"Threshold {threshold} out of bounds for {metric}"
             )
@@ -237,7 +237,7 @@ class TestCoreInvariants:
         # Run optimization multiple times
         thresholds = []
         for _ in range(3):
-            threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
+            threshold = find_optimal_threshold(labels, probabilities, "f1")
             thresholds.append(threshold)
 
         # All results should be identical
@@ -863,7 +863,7 @@ class TestPerformanceProperties:
 
         # Time the piecewise optimization
         start_time = time.time()
-        threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
+        threshold = find_optimal_threshold(labels, probabilities, "f1")
         piecewise_time = time.time() - start_time
 
         # Should complete in reasonable time even for large inputs

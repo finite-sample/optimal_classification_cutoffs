@@ -6,9 +6,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 
 from optimal_cutoffs import (
-    ThresholdOptimizer,
     get_multiclass_confusion_matrix,
     get_optimal_multiclass_thresholds,
+    get_optimal_threshold,
     multiclass_metric,
 )
 
@@ -36,17 +36,27 @@ print(f"Number of classes: {len(np.unique(y))}")
 print(f"Class distribution: {np.bincount(y)}")
 print(f"Probability matrix shape: {y_prob.shape}\n")
 
-# Method 1: Using ThresholdOptimizer (recommended)
-print("=== Method 1: ThresholdOptimizer ===")
+# Method 1: Using get_optimal_threshold for multiclass
+print("=== Method 1: get_optimal_threshold ===")
 
-optimizer = ThresholdOptimizer(metric="f1", method="unique_scan")
-optimizer.fit(y, y_prob)
+# Get optimal thresholds for multiclass
+thresholds = get_optimal_threshold(y, y_prob, metric="f1", method="unique_scan")
+print(f"Optimal thresholds per class: {thresholds}")
 
-print(f"Optimal thresholds per class: {optimizer.threshold_}")
-print(f"Is multiclass: {optimizer.is_multiclass_}")
+# Apply thresholds to make predictions (simple approach)
+# For each sample, predict class with highest probability among those above threshold
+y_pred_optimized = []
+for i in range(len(y_prob)):
+    above_threshold = y_prob[i] > thresholds
+    if np.any(above_threshold):
+        # Among classes above threshold, pick highest probability
+        candidates = np.where(above_threshold)[0]
+        y_pred_optimized.append(candidates[np.argmax(y_prob[i, candidates])])
+    else:
+        # No class above threshold, pick highest probability
+        y_pred_optimized.append(np.argmax(y_prob[i]))
 
-# Make predictions using optimized thresholds
-y_pred_optimized = optimizer.predict(y_prob)
+y_pred_optimized = np.array(y_pred_optimized)
 print(f"Optimized predictions: {y_pred_optimized[:10]}...")
 
 # Compare with default argmax predictions

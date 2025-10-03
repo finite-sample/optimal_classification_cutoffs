@@ -51,8 +51,8 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
-from optimal_cutoffs.binary_optimization import optimal_threshold_piecewise
-from optimal_cutoffs.wrapper import ThresholdOptimizer
+from optimal_cutoffs.optimize import find_optimal_threshold
+# from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 
 
 class TestLabelDistributionEdgeCases:
@@ -64,7 +64,7 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
-        threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
+        threshold = find_optimal_threshold(labels, probabilities, "f1")
         # All negatives -> threshold should predict all negative for optimal accuracy
         assert threshold >= 0.9  # Should be >= max probability to predict all negative
 
@@ -84,7 +84,7 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
-        threshold = optimal_threshold_piecewise(labels, probabilities, "f1")
+        threshold = find_optimal_threshold(labels, probabilities, "f1")
         # All positives -> threshold should predict all positive for optimal accuracy
         assert threshold <= 0.1  # Should be <= min probability to predict all positive
 
@@ -432,15 +432,16 @@ class TestErrorConditionEdgeCases:
 
 
 class TestWrapperEdgeCases:
-    """Test ThresholdOptimizer wrapper with edge cases."""
+    """Test wrapper edge cases - disabled after wrapper removal."""
 
+    @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
     def test_wrapper_with_edge_cases(self):
         """Test that the wrapper handles edge cases properly."""
         # Test with all same class
         labels = np.array([0, 0, 0, 0])
         probabilities = np.array([0.1, 0.3, 0.5, 0.7])
 
-        optimizer = ThresholdOptimizer(metric="accuracy")
+        # optimizer = ThresholdOptimizer(metric="accuracy")
 
         # Should handle gracefully (might issue warnings)
         with warnings.catch_warnings():
@@ -455,13 +456,14 @@ class TestWrapperEdgeCases:
         assert len(predictions) == len(probabilities)
         assert all(isinstance(p, (bool, np.bool_, int, np.integer)) for p in predictions)
 
+    @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
     def test_wrapper_multiclass_edge_cases(self):
         """Test wrapper with multiclass edge cases."""
         # Single class multiclass (degenerate)
         labels = np.array([0, 0, 0])
         probabilities = np.array([[1.0], [1.0], [1.0]])
 
-        optimizer = ThresholdOptimizer(metric="f1")
+        # optimizer = ThresholdOptimizer(metric="f1")
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

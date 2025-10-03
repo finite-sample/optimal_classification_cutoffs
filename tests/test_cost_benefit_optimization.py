@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    bayes_threshold_from_costs_scalar,
+    bayes_optimal_threshold,
     get_optimal_threshold,
     make_cost_metric,
     make_linear_counts_metric,
@@ -58,14 +58,14 @@ class TestBayesThresholds:
     def test_bayes_threshold_classic_cost_case(self):
         """Test classic cost case: C_FP=1, C_FN=5."""
         # Expected threshold: C_FP / (C_FP + C_FN) = 1/(1+5) = 1/6 ≈ 0.1667
-        threshold = bayes_threshold_from_costs_scalar(fp_cost=-1, fn_cost=-5)
+        threshold = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
         expected = 1.0 / 6.0
         assert abs(threshold - expected) < 1e-10
 
     def test_bayes_threshold_from_costs_equivalent(self):
         """Test that costs wrapper gives same result as utilities."""
-        threshold1 = bayes_threshold_from_costs_scalar(fp_cost=-1, fn_cost=-5)
-        threshold2 = bayes_threshold_from_costs_scalar(fp_cost=-1.0, fn_cost=-5.0)
+        threshold1 = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
+        threshold2 = bayes_optimal_threshold(fp_cost=1.0, fn_cost=5.0)
         assert abs(threshold1 - threshold2) < 1e-12
 
     def test_bayes_threshold_with_benefits(self):
@@ -73,8 +73,8 @@ class TestBayesThresholds:
         # U_tp=2, U_tn=1, U_fp=-1, U_fn=-5
         # t* = (U_tn - U_fp) / [(U_tn - U_fp) + (U_tp - U_fn)]
         # t* = (1 - (-1)) / [(1 - (-1)) + (2 - (-5))] = 2 / (2 + 7) = 2/9
-        threshold = bayes_threshold_from_costs_scalar(
-            fp_cost=-1, fn_cost=-5, tp_benefit=2, tn_benefit=1
+        threshold = bayes_optimal_threshold(
+            fp_cost=1, fn_cost=5, tp_benefit=2, tn_benefit=1
         )
         expected = 2.0 / 9.0
         assert abs(threshold - expected) < 1e-10
@@ -82,7 +82,7 @@ class TestBayesThresholds:
     def test_bayes_threshold_degenerate_cases(self):
         """Test degenerate cases where one action dominates."""
         # Case 1: Positive always better (very high TP benefit, no costs)
-        threshold = bayes_threshold_from_costs_scalar(
+        threshold = bayes_optimal_threshold(
             fp_cost=0, fn_cost=0, tp_benefit=100, tn_benefit=0
         )
         # Should predict all as positive -> very low threshold
@@ -90,8 +90,8 @@ class TestBayesThresholds:
 
         # Case 2: Negative always better (U_fn >= U_tp to get threshold >= 1.0)
         # Make false negative utility higher than true positive utility
-        threshold = bayes_threshold_from_costs_scalar(
-            fp_cost=-100, fn_cost=0, tp_benefit=-10, tn_benefit=1
+        threshold = bayes_optimal_threshold(
+            fp_cost=100, fn_cost=0, tp_benefit=-10, tn_benefit=1
         )
         # Should predict all as negative -> very high threshold
         assert threshold >= 1.0
@@ -102,11 +102,12 @@ class TestBayesThresholds:
         # U_tp = U_tn = 1.0, U_fp = U_fn = 0.0
         # t* = (1-0) / [(1-0) + (1-0)] = 1/2 = 0.5
 
-        thresh_excl = bayes_threshold_from_costs_scalar(
-            fp_cost=0, fn_cost=0, tp_benefit=1, tn_benefit=1, comparison=">"
+        # New API doesn't have comparison parameter - both should give same result
+        thresh_excl = bayes_optimal_threshold(
+            fp_cost=0, fn_cost=0, tp_benefit=1, tn_benefit=1
         )
-        thresh_incl = bayes_threshold_from_costs_scalar(
-            fp_cost=0, fn_cost=0, tp_benefit=1, tn_benefit=1, comparison=">="
+        thresh_incl = bayes_optimal_threshold(
+            fp_cost=0, fn_cost=0, tp_benefit=1, tn_benefit=1
         )
 
         # Both should be close to 0.5, with slight differences for tie handling

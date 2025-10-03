@@ -6,8 +6,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .multiclass_coord import _assign_labels_shifted
-from .optimizers import get_optimal_threshold
-from .types import (
+from .core import get_optimal_threshold
+from .types_minimal import (
     AveragingMethodLiteral,
     ComparisonOperatorLiteral,
     EstimationModeLiteral,

@@ -10,7 +10,7 @@ import pytest
 from sklearn.metrics import accuracy_score as sklearn_accuracy
 from sklearn.metrics import f1_score as sklearn_f1
 
-from optimal_cutoffs import ThresholdOptimizer, get_optimal_threshold
+from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.metrics import accuracy_score, f1_score, get_confusion_matrix
 from tests.fixtures import (
     CALIBRATED_BINARY,

@@ -18,10 +18,15 @@ except Exception:
         __version__ = "unknown"
 
 from .bayes import (
-    bayes_decision_from_utility_matrix,
-    bayes_threshold_from_costs_scalar,
-    bayes_thresholds_from_costs_vector,
+    BayesOptimal,
+    BayesThresholdResult,
+    bayes_optimal_decisions,
+    bayes_optimal_threshold,
+    bayes_thresholds_from_costs,
+    compute_bayes_threshold,
+    optimize_bayes_thresholds,
 )
+from .core import get_optimal_threshold
 from .cv import cv_threshold_optimization, nested_cv_threshold_optimization
 from .expected import (
     dinkelbach_expected_fbeta_binary,
@@ -47,23 +52,29 @@ from .metrics import (
     register_metrics,
     should_maximize_metric,
 )
-from .multiclass_optimization import get_optimal_multiclass_thresholds
-from .optimizers import get_optimal_threshold
-from .types import (
+from .optimize import (
+    find_optimal_threshold_multiclass as get_optimal_multiclass_thresholds,
+)
+from .types_minimal import (
     AveragingMethod,
     ComparisonOperator,
     EstimationMode,
     MulticlassMetricReturn,
     OptimizationMethod,
 )
-from .wrapper import ThresholdOptimizer
+
+# Removed ThresholdOptimizer - use get_optimal_threshold() directly
 
 __all__ = [
     "__version__",
     # Enhanced Bayes functions
-    "bayes_decision_from_utility_matrix",
-    "bayes_thresholds_from_costs_vector",
-    "bayes_threshold_from_costs_scalar",
+    "BayesOptimal",
+    "BayesThresholdResult",
+    "bayes_optimal_decisions",
+    "bayes_optimal_threshold",
+    "bayes_thresholds_from_costs",
+    "compute_bayes_threshold",
+    "optimize_bayes_thresholds",
     # Enhanced expected functions
     "dinkelbach_expected_fbeta_binary",
     "dinkelbach_expected_fbeta_multilabel",
@@ -92,8 +103,7 @@ __all__ = [
     # Cross-validation
     "cv_threshold_optimization",
     "nested_cv_threshold_optimization",
-    # High-level wrapper
-    "ThresholdOptimizer",
+    # High-level wrapper removed - use get_optimal_threshold() directly
     # Types and Enums
     "MulticlassMetricReturn",
     "OptimizationMethod",

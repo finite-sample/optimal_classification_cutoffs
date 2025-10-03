@@ -3,7 +3,6 @@
 import numpy as np
 
 from optimal_cutoffs import (
-    ThresholdOptimizer,
     get_confusion_matrix,
     get_optimal_threshold,
 )
@@ -19,8 +18,7 @@ print(f"Optimal threshold (accuracy): {best_threshold:.2f}")
 tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, best_threshold)
 print(f"Confusion matrix - TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
 
-# Using ThresholdOptimizer class
-optimizer = ThresholdOptimizer(metric="accuracy")
-optimizer.fit(y_true, y_prob)
-pred_labels = optimizer.predict(y_prob)
-print("Predictions:", pred_labels.astype(int))
+# Using direct threshold application instead of ThresholdOptimizer
+# Simple approach for binary classification
+predictions = (y_prob > best_threshold).astype(int)
+print("Predictions:", predictions)

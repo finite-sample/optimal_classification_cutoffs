@@ -6,7 +6,7 @@ from typing import Any, cast
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .types import ComparisonOperatorLiteral, MetricFunc
+from .types_minimal import ComparisonOperatorLiteral, MetricFunc
 from .validation import (
     _validate_comparison_operator,
     _validate_inputs,

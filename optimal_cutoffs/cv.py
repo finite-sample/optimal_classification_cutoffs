@@ -9,6 +9,7 @@ from sklearn.model_selection import (
     StratifiedKFold,
 )
 
+from .core import get_optimal_threshold
 from .metrics import (
     METRIC_REGISTRY,
     get_confusion_matrix,
@@ -16,8 +17,7 @@ from .metrics import (
     multiclass_metric,
     multiclass_metric_exclusive,
 )
-from .optimizers import get_optimal_threshold
-from .types import (
+from .types_minimal import (
     ComparisonOperatorLiteral,
     OptimizationMethodLiteral,
     SampleWeightLike,

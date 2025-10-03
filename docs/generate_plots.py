@@ -15,7 +15,7 @@ from scipy import optimize
 # Add the parent directory to sys.path to import optimal_cutoffs
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from optimal_cutoffs.optimizers import _metric_score
+from optimal_cutoffs.metrics import compute_metric_at_threshold
 
 
 def plot_piecewise_f1_demonstration():
@@ -27,7 +27,7 @@ def plot_piecewise_f1_demonstration():
 
     # Generate a dense grid of thresholds for plotting
     thresholds = np.linspace(0.05, 0.95, 1000)
-    f1_scores = [_metric_score(y_true, y_prob, t, "f1") for t in thresholds]
+    f1_scores = [compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in thresholds]
 
     # Find unique probabilities (the breakpoints)
     unique_probs = np.unique(y_prob)
@@ -180,7 +180,7 @@ def plot_optimization_methods_comparison():
     y_prob = np.random.beta(2, 2, n_samples)  # Bell-shaped distribution
 
     thresholds = np.linspace(0.01, 0.99, 500)
-    f1_scores = [_metric_score(y_true, y_prob, t, "f1") for t in thresholds]
+    f1_scores = [compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in thresholds]
 
     # Smart brute force approach
     unique_probs = np.unique(y_prob)

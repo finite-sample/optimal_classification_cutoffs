@@ -7,11 +7,9 @@ from optimal_cutoffs import get_optimal_multiclass_thresholds
 from optimal_cutoffs.metrics import (
     compute_multiclass_metrics_from_labels,
 )
-from optimal_cutoffs.multiclass_coord import (
+from optimal_cutoffs.optimize import (
     _assign_labels_shifted,
     coordinate_ascent_kernel,
-    ThresholdOptimizer,
-    optimize_thresholds,
 )
 
 
@@ -223,14 +221,14 @@ class TestCoordinateAscentIntegration:
             )
 
     def test_threshold_optimizer_coord_ascent(self):
-        """Test ThresholdOptimizer wrapper with coordinate ascent."""
+        """Test CoordinateAscentOptimizer wrapper with coordinate ascent."""
         rng = np.random.default_rng(42)
         n, C = 100, 3
         P = rng.dirichlet(alpha=np.ones(C), size=n)
         y_true = rng.integers(0, C, size=n)
 
         # Test through wrapper (new API)
-        optimizer = ThresholdOptimizer(max_iter=10)
+        optimizer = CoordinateAscentOptimizer(max_iter=10)
         optimizer.fit(P, y_true)  # Note: X, y order for new API
 
         # Check that thresholds were learned
@@ -259,7 +257,7 @@ class TestCoordinateAscentIntegration:
         y_pred_manual = _assign_labels_shifted(P, tau)
 
         # Prediction via wrapper (new API)
-        optimizer = ThresholdOptimizer(max_iter=10)
+        optimizer = CoordinateAscentOptimizer(max_iter=10)
         optimizer.fit(P, y_true)  # Note: X, y order for new API
         y_pred_wrapper = optimizer.predict(P)
 

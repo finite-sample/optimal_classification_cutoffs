@@ -12,17 +12,12 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 
-from optimal_cutoffs.multiclass_coord import (
-    AdaptiveThresholdOptimizer,
-    OnlineThresholdOptimizer,
-    ThresholdOptimizer,
-    ThresholdSolution,
+from optimal_cutoffs.optimize import (
     _assign_labels_shifted,
     coordinate_ascent_kernel,
     get_performance_info,
-    optimize_thresholds,
-    NUMBA_AVAILABLE,
 )
+from optimal_cutoffs.numba_utils import NUMBA_AVAILABLE
 
 
 class TestThresholdSolution:
@@ -244,8 +239,8 @@ class TestCoordinateAscentKernel:
         np.testing.assert_array_almost_equal(result1[2], result2[2])
 
 
-class TestThresholdOptimizer:
-    """Test the scikit-learn compatible ThresholdOptimizer."""
+class TestCoordinateAscentOptimizer:
+    """Test the scikit-learn compatible CoordinateAscentOptimizer."""
 
     def test_basic_fit_predict_workflow(self):
         """Test basic fit/predict workflow."""
@@ -262,7 +257,7 @@ class TestThresholdOptimizer:
         probs = clf.predict_proba(X)
         
         # Fit threshold optimizer
-        optimizer = ThresholdOptimizer(max_iter=15, verbose=1)
+        optimizer = CoordinateAscentOptimizer(max_iter=15, verbose=1)
         optimizer.fit(probs, y)
         
         # Check fitted attributes
@@ -281,7 +276,7 @@ class TestThresholdOptimizer:
 
     def test_input_validation(self):
         """Test input validation."""
-        optimizer = ThresholdOptimizer()
+        optimizer = CoordinateAscentOptimizer()
         
         # Wrong dimensions
         with pytest.raises(ValueError, match="X must be 2D"):
@@ -307,7 +302,7 @@ class TestThresholdOptimizer:
 
     def test_predict_without_fitting(self):
         """Test that predict raises error when not fitted."""
-        optimizer = ThresholdOptimizer()
+        optimizer = CoordinateAscentOptimizer()
         with pytest.raises(ValueError, match="must be fitted"):
             optimizer.predict(np.array([[0.5, 0.3, 0.2]]))
 
@@ -327,7 +322,7 @@ class TestThresholdOptimizer:
         
         # Test with Pipeline
         pipeline = Pipeline([
-            ('optimizer', ThresholdOptimizer(max_iter=10))
+            ('optimizer', CoordinateAscentOptimizer(max_iter=10))
         ])
         
         pipeline.fit(probs, y)
@@ -340,7 +335,7 @@ class TestThresholdOptimizer:
         # Test with GridSearchCV
         param_grid = {'max_iter': [5, 10], 'tol': [1e-10, 1e-8]}
         grid_search = GridSearchCV(
-            ThresholdOptimizer(), param_grid, cv=3, scoring='f1_macro'
+            CoordinateAscentOptimizer(), param_grid, cv=3, scoring='f1_macro'
         )
         
         grid_search.fit(probs, y)
@@ -360,7 +355,7 @@ class TestThresholdOptimizer:
         probs = clf.predict_proba(X)
         
         # Fit optimizer
-        optimizer = ThresholdOptimizer(max_iter=10)
+        optimizer = CoordinateAscentOptimizer(max_iter=10)
         optimizer.fit(probs, y)
         
         # Test pickle serialization
@@ -385,7 +380,7 @@ class TestAdaptiveThresholdOptimizer:
             clf.fit(X, y)
             probs = clf.predict_proba(X)
             
-            optimizer = AdaptiveThresholdOptimizer(auto_tune=True, verbose=1)
+            optimizer = AdaptiveCoordinateAscentOptimizer(auto_tune=True, verbose=1)
             optimizer.fit(probs, y)  # Should work without crashing
             
             assert hasattr(optimizer, 'solution_')
@@ -400,7 +395,7 @@ class TestAdaptiveThresholdOptimizer:
         clf.fit(X, y)
         probs = clf.predict_proba(X)
         
-        optimizer = AdaptiveThresholdOptimizer(
+        optimizer = AdaptiveCoordinateAscentOptimizer(
             auto_tune=True, tuning_calls=5, verbose=1
         )
         optimizer.fit(probs, y)
@@ -417,7 +412,7 @@ class TestAdaptiveThresholdOptimizer:
         clf.fit(X, y)
         probs = clf.predict_proba(X)
         
-        optimizer = AdaptiveThresholdOptimizer(auto_tune=False)
+        optimizer = AdaptiveCoordinateAscentOptimizer(auto_tune=False)
         optimizer.fit(probs, y)
         
         assert hasattr(optimizer, 'solution_')
@@ -429,7 +424,7 @@ class TestOnlineThresholdOptimizer:
     def test_basic_online_workflow(self):
         """Test basic online learning workflow."""
         n_classes = 3
-        optimizer = OnlineThresholdOptimizer(n_classes=n_classes)
+        optimizer = OnlineCoordinateAscentOptimizer(n_classes=n_classes)
         
         # Initial state
         assert len(optimizer.thresholds) == n_classes
@@ -473,7 +468,7 @@ class TestOnlineThresholdOptimizer:
                 if j != true_class:
                     X[i, j] = 0.3 / (n_classes - 1)
         
-        optimizer = OnlineThresholdOptimizer(
+        optimizer = OnlineCoordinateAscentOptimizer(
             n_classes=n_classes, learning_rate=0.1
         )
         
@@ -496,7 +491,7 @@ class TestOnlineThresholdOptimizer:
 
     def test_get_params(self):
         """Test parameter retrieval."""
-        optimizer = OnlineThresholdOptimizer(
+        optimizer = OnlineCoordinateAscentOptimizer(
             n_classes=4, learning_rate=0.05, momentum=0.8
         )
         
@@ -555,7 +550,7 @@ class TestFunctionalAPI:
         probs = np.array([[0.5, 0.3, 0.2]])
         labels = np.array([0])
         
-        with pytest.raises(ValueError, match="Use OnlineThresholdOptimizer directly"):
+        with pytest.raises(ValueError, match="Use OnlineCoordinateAscentOptimizer directly"):
             optimize_thresholds(probs, labels, method='online')
 
 
@@ -628,7 +623,7 @@ class TestRobustness:
         # Create probabilities that reflect the imbalance
         probs = np.random.dirichlet([10, 1, 0.1], n_samples).astype(np.float64)
         
-        optimizer = ThresholdOptimizer(max_iter=15)
+        optimizer = CoordinateAscentOptimizer(max_iter=15)
         optimizer.fit(probs, y)
         
         # Should complete without errors
@@ -652,7 +647,7 @@ class TestRobustness:
                 if j != y[i]:
                     probs[i, j] = 0.001 / (n_classes - 1)
         
-        optimizer = ThresholdOptimizer(max_iter=10)
+        optimizer = CoordinateAscentOptimizer(max_iter=10)
         optimizer.fit(probs, y)
         
         # Should achieve very high score
@@ -675,7 +670,7 @@ class TestRobustness:
         # Renormalize to valid probabilities
         probs = probs / probs.sum(axis=1, keepdims=True)
         
-        optimizer = ThresholdOptimizer(max_iter=10)
+        optimizer = CoordinateAscentOptimizer(max_iter=10)
         optimizer.fit(probs, y)
         
         # Should complete without errors
@@ -698,7 +693,7 @@ class TestRobustness:
             probs[i, y[i]] += 1e-10
             probs[i] = probs[i] / probs[i].sum()  # Renormalize
         
-        optimizer = ThresholdOptimizer(max_iter=10, tol=1e-15)
+        optimizer = CoordinateAscentOptimizer(max_iter=10, tol=1e-15)
         optimizer.fit(probs, y)
         
         # Should handle numerical precision gracefully
