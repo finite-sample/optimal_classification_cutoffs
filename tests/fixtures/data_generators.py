@@ -4,7 +4,6 @@ This module provides standardized data generation functions for consistent
 testing across all test modules.
 """
 
-
 import numpy as np
 
 
@@ -12,7 +11,7 @@ def generate_binary_data(
     n_samples: int = 100,
     imbalance_ratio: float = 0.5,
     noise: float = 0.1,
-    random_state: int | None = None
+    random_state: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate binary classification test data.
 
@@ -38,7 +37,9 @@ def generate_binary_data(
     base_probs = rng.beta(2, 2, n_samples)  # Bell-shaped distribution
 
     # Generate labels based on probabilities with noise
-    labels = (base_probs + noise * rng.normal(0, 1, n_samples) > (1 - imbalance_ratio)).astype(int)
+    labels = (
+        base_probs + noise * rng.normal(0, 1, n_samples) > (1 - imbalance_ratio)
+    ).astype(int)
 
     # Ensure both classes are present
     if labels.sum() == 0:
@@ -50,9 +51,7 @@ def generate_binary_data(
 
 
 def generate_multiclass_data(
-    n_samples: int = 100,
-    n_classes: int = 3,
-    random_state: int | None = None
+    n_samples: int = 100, n_classes: int = 3, random_state: int | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate multiclass classification test data.
 
@@ -85,8 +84,7 @@ def generate_multiclass_data(
 
 
 def generate_calibrated_probabilities(
-    n_samples: int = 200,
-    random_state: int | None = None
+    n_samples: int = 200, random_state: int | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate perfectly calibrated binary data.
 
@@ -120,7 +118,7 @@ def generate_tied_probabilities(
     n_samples: int = 50,
     base_prob: float = 0.5,
     tie_fraction: float = 0.3,
-    random_state: int | None = None
+    random_state: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate data with many tied probability values.
 
@@ -157,8 +155,7 @@ def generate_tied_probabilities(
 
 
 def generate_extreme_probabilities(
-    n_samples: int = 20,
-    random_state: int | None = None
+    n_samples: int = 20, random_state: int | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate data with extreme probability values.
 
@@ -200,9 +197,7 @@ def generate_extreme_probabilities(
 
 
 def generate_sample_weights(
-    n_samples: int,
-    weight_type: str = "uniform",
-    random_state: int | None = None
+    n_samples: int, weight_type: str = "uniform", random_state: int | None = None
 ) -> np.ndarray:
     """Generate sample weights for testing.
 
@@ -241,7 +236,7 @@ def generate_sample_weights(
 def generate_imbalanced_data(
     n_samples: int = 1000,
     imbalance_ratio: float = 0.01,
-    random_state: int | None = None
+    random_state: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate highly imbalanced binary data.
 

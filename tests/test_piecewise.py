@@ -348,7 +348,9 @@ class TestOptimalThresholdSortScan:
     def test_optimal_threshold_edge_cases(self):
         """Test edge cases."""
         # Single sample
-        threshold, score, k = optimal_threshold_sortscan([1], [0.7], get_vectorized_metric("f1"))
+        threshold, score, k = optimal_threshold_sortscan(
+            [1], [0.7], get_vectorized_metric("f1")
+        )
         assert abs(threshold - 0.7) < 1e-10  # Should be very close to 0.7
         assert k == 1  # Should predict the single positive sample
 
@@ -380,7 +382,9 @@ class TestBackwardCompatibility:
 
             for metric in ["f1", "accuracy", "precision", "recall"]:
                 # New implementation through optimal_threshold_piecewise
-                threshold_new, _ = find_optimal_threshold(y_true, pred_prob, metric, strategy="sort_scan")
+                threshold_new, _ = find_optimal_threshold(
+                    y_true, pred_prob, metric, strategy="sort_scan"
+                )
 
                 # Should be valid threshold
                 assert 0 <= threshold_new <= 1, (
@@ -395,7 +399,9 @@ class TestBackwardCompatibility:
         pred_prob = [0.1, 0.3, 0.4, 0.6, 0.8, 0.9]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold_piecewise, _ = find_optimal_threshold(y_true, pred_prob, metric, strategy="sort_scan")
+            threshold_piecewise, _ = find_optimal_threshold(
+                y_true, pred_prob, metric, strategy="sort_scan"
+            )
             threshold_smart = get_optimal_threshold(
                 y_true, pred_prob, metric, method="unique_scan"
             )
@@ -410,7 +416,9 @@ class TestBackwardCompatibility:
             score_piecewise = compute_metric_at_threshold(
                 y_true, pred_prob, threshold_piecewise, metric
             )
-            score_smart = compute_metric_at_threshold(y_true, pred_prob, threshold_smart, metric)
+            score_smart = compute_metric_at_threshold(
+                y_true, pred_prob, threshold_smart, metric
+            )
 
             assert abs(score_piecewise - score_smart) < 1e-6, (
                 f"Score mismatch for {metric}: {score_piecewise} vs {score_smart}"
@@ -443,7 +451,9 @@ class TestPerformance:
 
         # Time the new implementation
         start_time = time.time()
-        threshold, _ = find_optimal_threshold(y_true, pred_prob, "f1", strategy="sort_scan")
+        threshold, _ = find_optimal_threshold(
+            y_true, pred_prob, "f1", strategy="sort_scan"
+        )
         end_time = time.time()
 
         duration = end_time - start_time
@@ -459,7 +469,9 @@ class TestPerformance:
         pred_prob = np.linspace(0, 1, n)  # All unique values
 
         start_time = time.time()
-        threshold, _ = find_optimal_threshold(y_true, pred_prob, "f1", strategy="sort_scan")
+        threshold, _ = find_optimal_threshold(
+            y_true, pred_prob, "f1", strategy="sort_scan"
+        )
         end_time = time.time()
 
         duration = end_time - start_time
@@ -559,7 +571,9 @@ class TestPropertyBasedComparison:
             y[-1] = 0
 
         # Test sort-and-scan algorithm
-        t_scan, s_scan, _ = optimal_threshold_sortscan(y, p, get_vectorized_metric("f1"))
+        t_scan, s_scan, _ = optimal_threshold_sortscan(
+            y, p, get_vectorized_metric("f1")
+        )
 
         # Test brute force over midpoints
         t_br, s_br = self.brute_force_midpoints(y, p, get_vectorized_metric("f1"))
@@ -586,7 +600,9 @@ class TestPropertyBasedComparison:
             y[-1] = 0
 
         # Test sort-and-scan algorithm
-        t_scan, s_scan, _ = optimal_threshold_sortscan(y, p, get_vectorized_metric("accuracy"))
+        t_scan, s_scan, _ = optimal_threshold_sortscan(
+            y, p, get_vectorized_metric("accuracy")
+        )
 
         # Test brute force over midpoints
         t_br, s_br = self.brute_force_midpoints(y, p, get_vectorized_metric("accuracy"))

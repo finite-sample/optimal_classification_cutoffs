@@ -141,6 +141,7 @@ class TestDeprecatedParameterRejection:
         with pytest.raises(ValueError, match="Invalid optimization method"):
             get_optimal_threshold(y_true, y_prob, metric="f1", method="smart_brute")
 
+
 class TestMethodEquivalence:
     """Test that different methods produce equivalent results."""
 
@@ -159,8 +160,13 @@ class TestMethodEquivalence:
 
         # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
         from optimal_cutoffs.metrics import compute_metric_at_threshold
-        score_unique = compute_metric_at_threshold(y_true, y_prob, threshold_unique_scan, "f1")
-        score_sort = compute_metric_at_threshold(y_true, y_prob, threshold_sort_scan, "f1")
+
+        score_unique = compute_metric_at_threshold(
+            y_true, y_prob, threshold_unique_scan, "f1"
+        )
+        score_sort = compute_metric_at_threshold(
+            y_true, y_prob, threshold_sort_scan, "f1"
+        )
         assert abs(score_unique - score_sort) < 1e-10, (
             f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
         )
@@ -180,8 +186,13 @@ class TestMethodEquivalence:
 
         # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
         from optimal_cutoffs.metrics import compute_metric_at_threshold
-        score_unique = compute_metric_at_threshold(y_true, y_prob, threshold_unique_scan, "f1")
-        score_sort = compute_metric_at_threshold(y_true, y_prob, threshold_sort_scan, "f1")
+
+        score_unique = compute_metric_at_threshold(
+            y_true, y_prob, threshold_unique_scan, "f1"
+        )
+        score_sort = compute_metric_at_threshold(
+            y_true, y_prob, threshold_sort_scan, "f1"
+        )
         assert abs(score_unique - score_sort) < 1e-10, (
             f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
         )

@@ -46,8 +46,11 @@ class TestBinaryClassificationWorkflows:
             if metric == "f1":
                 precision = tp / (tp + fp) if tp + fp > 0 else 0.0
                 recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-                score = (2 * precision * recall / (precision + recall)
-                        if precision + recall > 0 else 0.0)
+                score = (
+                    2 * precision * recall / (precision + recall)
+                    if precision + recall > 0
+                    else 0.0
+                )
             elif metric == "accuracy":
                 score = (tp + tn) / (tp + tn + fp + fn)
             elif metric == "precision":
@@ -65,15 +68,20 @@ class TestBinaryClassificationWorkflows:
         results = {}
 
         for method in methods:
-            threshold = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
+            threshold = get_optimal_threshold(
+                y_true, y_prob, metric="f1", method=method
+            )
             assert_valid_threshold(threshold)
 
             # Compute achieved F1 score
             tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
             precision = tp / (tp + fp) if tp + fp > 0 else 0.0
             recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-            f1 = (2 * precision * recall / (precision + recall)
-                  if precision + recall > 0 else 0.0)
+            f1 = (
+                2 * precision * recall / (precision + recall)
+                if precision + recall > 0
+                else 0.0
+            )
 
             results[method] = (threshold, f1)
 
@@ -134,8 +142,11 @@ class TestSampleWeights:
 
         # Should be nearly identical
         assert_method_consistency(
-            threshold_weighted, threshold_expanded,
-            "weighted", "expanded", tolerance=1e-10
+            threshold_weighted,
+            threshold_expanded,
+            "weighted",
+            "expanded",
+            tolerance=1e-10,
         )
 
     def test_sample_weights_different_types(self):
@@ -239,7 +250,9 @@ class TestImbalancedData:
 
     def test_highly_imbalanced_data(self):
         """Test optimization on highly imbalanced datasets."""
-        y_true, y_prob = generate_imbalanced_data(1000, imbalance_ratio=0.01, random_state=42)
+        y_true, y_prob = generate_imbalanced_data(
+            1000, imbalance_ratio=0.01, random_state=42
+        )
 
         # Should handle extreme imbalance
         threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
@@ -251,7 +264,9 @@ class TestImbalancedData:
 
     def test_imbalanced_different_metrics(self):
         """Test different metrics on imbalanced data."""
-        y_true, y_prob = generate_imbalanced_data(500, imbalance_ratio=0.05, random_state=42)
+        y_true, y_prob = generate_imbalanced_data(
+            500, imbalance_ratio=0.05, random_state=42
+        )
 
         # Test metrics that handle imbalance differently
         metrics = ["f1", "accuracy", "precision", "recall"]
@@ -265,7 +280,9 @@ class TestImbalancedData:
 
     def test_imbalanced_with_weights(self):
         """Test imbalanced data with sample weights."""
-        y_true, y_prob = generate_imbalanced_data(200, imbalance_ratio=0.1, random_state=42)
+        y_true, y_prob = generate_imbalanced_data(
+            200, imbalance_ratio=0.1, random_state=42
+        )
 
         # Generate weights that favor minority class
         weights = np.ones(len(y_true))
@@ -362,9 +379,7 @@ class TestMethodInteractions:
 
         for comparison in [">", ">="]:
             threshold = get_optimal_threshold(
-                y_true, y_prob,
-                comparison=comparison,
-                sample_weight=weights
+                y_true, y_prob, comparison=comparison, sample_weight=weights
             )
             assert_valid_threshold(threshold)
 

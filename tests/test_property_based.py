@@ -115,7 +115,9 @@ class TestCoreInvariants:
             # Also test a few edge cases
             for edge_threshold in [0.001, 0.999]:
                 try:
-                    score = compute_metric_at_threshold(y_true, p, edge_threshold, metric)
+                    score = compute_metric_at_threshold(
+                        y_true, p, edge_threshold, metric
+                    )
                     if score > best_score:
                         best_score = score
                         best_threshold = edge_threshold
@@ -127,9 +129,7 @@ class TestCoreInvariants:
         # Test on multiple metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
             # Use piecewise optimization
-            piecewise_threshold = find_optimal_threshold(
-                labels, probabilities, metric
-            )
+            piecewise_threshold = find_optimal_threshold(labels, probabilities, metric)
 
             # Use naive brute force
             naive_threshold = naive_brute_force(labels, probabilities, metric)
@@ -138,14 +138,23 @@ class TestCoreInvariants:
             piecewise_score = compute_metric_at_threshold(
                 labels, probabilities, piecewise_threshold, metric
             )
-            naive_score = compute_metric_at_threshold(labels, probabilities, naive_threshold, metric)
+            naive_score = compute_metric_at_threshold(
+                labels, probabilities, naive_threshold, metric
+            )
 
             # Piecewise should generally be at least as good as naive
             # However, edge cases with identical probabilities may have implementation differences
             tolerance = 1e-10
             unique_probs = np.unique(probabilities)
-            has_ties = len(unique_probs) < len(probabilities)  # Check for tied probabilities
-            if len(unique_probs) <= 3 or 0.0 in probabilities or 1.0 in probabilities or has_ties:
+            has_ties = len(unique_probs) < len(
+                probabilities
+            )  # Check for tied probabilities
+            if (
+                len(unique_probs) <= 3
+                or 0.0 in probabilities
+                or 1.0 in probabilities
+                or has_ties
+            ):
                 tolerance = 0.2  # More lenient for edge cases with boundary/tied values
 
             assert piecewise_score >= naive_score - tolerance, (
@@ -316,7 +325,9 @@ class TestStatisticalProperties:
 
         # Check if original separation is already very good
         original_threshold = get_optimal_threshold(labels, probabilities, "f1")
-        original_f1 = compute_metric_at_threshold(labels, probabilities, original_threshold, "f1")
+        original_f1 = compute_metric_at_threshold(
+            labels, probabilities, original_threshold, "f1"
+        )
 
         # If original F1 is already very high (>=0.9), skip the test
         # as there's little room for improvement and "perfect" separation may not actually be better
@@ -393,7 +404,9 @@ class TestStatisticalProperties:
 
         # Test all registered metrics
         for metric_name in ["f1", "accuracy", "precision", "recall"]:
-            score = compute_metric_at_threshold(labels, probabilities, threshold, metric_name)
+            score = compute_metric_at_threshold(
+                labels, probabilities, threshold, metric_name
+            )
 
             # All these metrics should be in [0, 1] range
             assert 0 <= score <= 1, f"Metric {metric_name} out of bounds: {score}"

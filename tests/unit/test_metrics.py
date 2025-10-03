@@ -50,7 +50,11 @@ class TestBasicMetrics:
 
         precision = tp / (tp + fp) if tp + fp > 0 else 0.0
         recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-        f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
+        f1 = (
+            2 * precision * recall / (precision + recall)
+            if precision + recall > 0
+            else 0.0
+        )
 
         assert_valid_metric_score(precision, "precision")
         assert_valid_metric_score(recall, "recall")
@@ -86,6 +90,7 @@ class TestMetricRegistry:
 
     def test_custom_metric_registration(self):
         """Test registering custom metrics."""
+
         @register_metric("sum_tp_tn")
         def sum_tp_tn(tp, tn, fp, fn):
             return tp + tn
@@ -95,6 +100,7 @@ class TestMetricRegistry:
 
     def test_batch_metric_registration(self):
         """Test registering multiple metrics at once."""
+
         def tpr(tp, tn, fp, fn):
             return tp / (tp + fn) if tp + fn > 0 else 0.0
 
@@ -168,7 +174,9 @@ class TestVectorizedMetrics:
         # Compute scalar results
         scalar_results = []
         for i in range(len(tp_vals)):
-            scalar_results.append(f1_scalar(tp_vals[i], tn_vals[i], fp_vals[i], fn_vals[i]))
+            scalar_results.append(
+                f1_scalar(tp_vals[i], tn_vals[i], fp_vals[i], fn_vals[i])
+            )
 
         np.testing.assert_allclose(vec_results, scalar_results, rtol=1e-10)
 
@@ -182,7 +190,7 @@ class TestAveragingIdentities:
         # Manually constructed confusion matrices with known properties
         confusion_matrices = [
             (10, 80, 5, 5),  # Class 0
-            (8, 85, 3, 4),   # Class 1
+            (8, 85, 3, 4),  # Class 1
             (12, 82, 2, 4),  # Class 2
         ]
         return confusion_matrices
@@ -206,8 +214,11 @@ class TestAveragingIdentities:
         for tp, tn, fp, fn in cms:
             precision = tp / (tp + fp) if tp + fp > 0 else 0.0
             recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-            f1 = (2 * precision * recall / (precision + recall)
-                  if precision + recall > 0 else 0.0)
+            f1 = (
+                2 * precision * recall / (precision + recall)
+                if precision + recall > 0
+                else 0.0
+            )
             per_class_f1_manual.append(f1)
 
         expected_macro_f1 = np.mean(per_class_f1_manual)
@@ -228,10 +239,17 @@ class TestAveragingIdentities:
         total_fn = sum(fn for tp, tn, fp, fn in cms)
 
         # Compute micro F1 manually
-        micro_precision = total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
-        micro_recall = total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
-        expected_micro_f1 = (2 * micro_precision * micro_recall / (micro_precision + micro_recall)
-                             if micro_precision + micro_recall > 0 else 0.0)
+        micro_precision = (
+            total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
+        )
+        micro_recall = (
+            total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
+        )
+        expected_micro_f1 = (
+            2 * micro_precision * micro_recall / (micro_precision + micro_recall)
+            if micro_precision + micro_recall > 0
+            else 0.0
+        )
 
         # Compute using library function
         computed_micro_f1 = multiclass_metric(cms, "f1", "micro")
@@ -309,9 +327,9 @@ class TestMulticlassMetrics:
         """Test metric calculation when some classes have no true positives."""
         # Create confusion matrices where one class has no true instances
         cms = [
-            (5, 90, 2, 3),   # Class 0: normal
-            (0, 95, 0, 5),   # Class 1: no true positives (TP=0, FN=5)
-            (8, 87, 3, 2),   # Class 2: normal
+            (5, 90, 2, 3),  # Class 0: normal
+            (0, 95, 0, 5),  # Class 1: no true positives (TP=0, FN=5)
+            (8, 87, 3, 2),  # Class 2: normal
         ]
 
         # Should handle gracefully without division by zero

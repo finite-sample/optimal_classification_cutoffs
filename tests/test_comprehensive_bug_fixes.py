@@ -373,9 +373,7 @@ class TestCoordinateAscentDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work for basic F1 optimization
-        thresholds = get_optimal_threshold(
-            y_true, pred_prob, method="coord_ascent"
-        )
+        thresholds = get_optimal_threshold(y_true, pred_prob, method="coord_ascent")
         assert len(thresholds) == 3
 
     def test_coord_ascent_comparison_basic(self):

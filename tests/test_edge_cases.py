@@ -45,7 +45,6 @@ The test suite ensures robust behavior across all boundary conditions while
 maintaining performance guarantees and clear error reporting.
 """
 
-
 import numpy as np
 import pytest
 
@@ -434,14 +433,18 @@ class TestErrorConditionEdgeCases:
 class TestWrapperEdgeCases:
     """Test wrapper edge cases - disabled after wrapper removal."""
 
-    @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
+    @pytest.mark.skip(
+        reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly"
+    )
     def test_wrapper_with_edge_cases(self):
         """Test that the wrapper handles edge cases properly."""
         # This test was for the removed ThresholdOptimizer wrapper
         # Use get_optimal_threshold() directly instead
         pass
 
-    @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
+    @pytest.mark.skip(
+        reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly"
+    )
     def test_wrapper_multiclass_edge_cases(self):
         """Test wrapper with multiclass edge cases."""
         # This test was for the removed ThresholdOptimizer wrapper

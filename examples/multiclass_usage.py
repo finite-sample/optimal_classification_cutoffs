@@ -108,11 +108,10 @@ for class_idx in range(len(np.unique(y))):
     y_prob_binary = y_prob[:, class_idx]
 
     # Optimize threshold for this specific class
-    class_optimizer = ThresholdOptimizer(metric="f1")
-    class_optimizer.fit(y_binary, y_prob_binary)
+    optimal_threshold = get_optimal_threshold(y_binary, y_prob_binary, metric="f1")
 
     print(f"Class {class_idx}:")
-    print(f"  Optimal threshold: {class_optimizer.threshold_:.3f}")
+    print(f"  Optimal threshold: {optimal_threshold:.3f}")
     print(
         f"  Class frequency:   {np.sum(y_binary)}/{len(y_binary)} "
         f"({np.mean(y_binary):.1%})"

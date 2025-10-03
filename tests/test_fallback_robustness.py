@@ -62,18 +62,27 @@ class TestFallbackTieHandling:
         try:
             # Use new API instead of testing fallback
             threshold_fallback, _ = find_optimal_threshold(
-                y_true, p_test, metric="test_nonvectorized", strategy="sort_scan", operator=">"
+                y_true,
+                p_test,
+                metric="test_nonvectorized",
+                strategy="sort_scan",
+                operator=">",
             )
 
             # Should get same result from main function
             threshold_main, _ = find_optimal_threshold(
-                y_true, p_test, metric="test_nonvectorized", strategy="scipy", operator=">"
+                y_true,
+                p_test,
+                metric="test_nonvectorized",
+                strategy="scipy",
+                operator=">",
             )
 
             assert abs(threshold_fallback - threshold_main) < 1e-10
         finally:
             # Clean up
             from optimal_cutoffs.metrics import METRIC_PROPERTIES, METRIC_REGISTRY
+
             if "test_nonvectorized" in METRIC_REGISTRY:
                 del METRIC_REGISTRY["test_nonvectorized"]
             if "test_nonvectorized" in METRIC_PROPERTIES:
@@ -131,7 +140,11 @@ class TestScoreHandling:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             threshold, _ = find_optimal_threshold(
-                y_true, scores, metric="f1", strategy="gradient", require_probability=False
+                y_true,
+                scores,
+                metric="f1",
+                strategy="gradient",
+                require_probability=False,
             )
 
             # Should issue warning about piecewise metric
@@ -205,9 +218,7 @@ class TestEdgeCases:
         p_empty = np.array([])
 
         with pytest.raises(ValueError):
-            find_optimal_threshold(
-                y_empty, p_empty, metric="f1", strategy="sort_scan"
-            )
+            find_optimal_threshold(y_empty, p_empty, metric="f1", strategy="sort_scan")
 
 
 class TestCandidateGeneration:
@@ -335,13 +346,15 @@ class TestGradientWarnings:
 
                 # Should not issue piecewise warning
                 piecewise_warnings = [
-                    warning for warning in w
+                    warning
+                    for warning in w
                     if "piecewise" in str(warning.message).lower()
                 ]
                 assert len(piecewise_warnings) == 0
         finally:
             # Clean up the registered metric
             from optimal_cutoffs.metrics import METRIC_PROPERTIES, METRIC_REGISTRY
+
             if "test_smooth" in METRIC_REGISTRY:
                 del METRIC_REGISTRY["test_smooth"]
             if "test_smooth" in METRIC_PROPERTIES:

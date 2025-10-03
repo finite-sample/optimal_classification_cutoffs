@@ -39,7 +39,9 @@ class TestDinkelbachBasic:
 
         beta_values = [0.5, 1.0, 2.0]
         for beta in beta_values:
-            threshold, expected_score = dinkelbach_expected_fbeta_binary(y_prob, beta=beta)
+            threshold, expected_score = dinkelbach_expected_fbeta_binary(
+                y_prob, beta=beta
+            )
 
             assert_valid_threshold(threshold)
             assert_valid_metric_score(expected_score, f"expected_f{beta}")
@@ -183,10 +185,18 @@ class TestDinkelbachLabelIndependence:
 
         for comparison in [">", ">="]:
             result_cal = get_optimal_threshold(
-                labels_calibrated, probs, metric="f1", mode="expected", comparison=comparison
+                labels_calibrated,
+                probs,
+                metric="f1",
+                mode="expected",
+                comparison=comparison,
             )
             result_rand = get_optimal_threshold(
-                labels_random, probs, metric="f1", mode="expected", comparison=comparison
+                labels_random,
+                probs,
+                metric="f1",
+                mode="expected",
+                comparison=comparison,
             )
 
             threshold_cal, expected_cal = result_cal
@@ -318,8 +328,12 @@ class TestDinkelbachComparison:
         y_true, y_prob = generate_calibrated_probabilities(100, random_state=42)
 
         # Get results from both methods
-        threshold_empirical = get_optimal_threshold(y_true, y_prob, mode="empirical", metric="f1")
-        result_expected = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
+        threshold_empirical = get_optimal_threshold(
+            y_true, y_prob, mode="empirical", metric="f1"
+        )
+        result_expected = get_optimal_threshold(
+            y_true, y_prob, mode="expected", metric="f1"
+        )
         threshold_expected, expected_f1 = result_expected
 
         # Both should be valid
@@ -327,8 +341,12 @@ class TestDinkelbachComparison:
         assert_valid_threshold(threshold_expected)
 
         # Compute empirical F1 for both thresholds
-        tp_emp, tn_emp, fp_emp, fn_emp = get_confusion_matrix(y_true, y_prob, threshold_empirical)
-        tp_exp, tn_exp, fp_exp, fn_exp = get_confusion_matrix(y_true, y_prob, threshold_expected)
+        tp_emp, tn_emp, fp_emp, fn_emp = get_confusion_matrix(
+            y_true, y_prob, threshold_empirical
+        )
+        tp_exp, tn_exp, fp_exp, fn_exp = get_confusion_matrix(
+            y_true, y_prob, threshold_expected
+        )
 
         f1_emp = f1_score(tp_emp, tn_emp, fp_emp, fn_emp)
         f1_exp = f1_score(tp_exp, tn_exp, fp_exp, fn_exp)
@@ -342,9 +360,13 @@ class TestDinkelbachComparison:
         y_prob = np.array([0.2, 0.4, 0.6, 0.8])
 
         # Get thresholds for different beta values
-        threshold_05, _ = dinkelbach_expected_fbeta_binary(y_prob, beta=0.5)  # Precision-weighted
+        threshold_05, _ = dinkelbach_expected_fbeta_binary(
+            y_prob, beta=0.5
+        )  # Precision-weighted
         threshold_10, _ = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)  # F1
-        threshold_20, _ = dinkelbach_expected_fbeta_binary(y_prob, beta=2.0)  # Recall-weighted
+        threshold_20, _ = dinkelbach_expected_fbeta_binary(
+            y_prob, beta=2.0
+        )  # Recall-weighted
 
         # All should be valid
         for threshold in [threshold_05, threshold_10, threshold_20]:

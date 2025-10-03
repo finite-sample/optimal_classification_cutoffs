@@ -129,7 +129,9 @@ class TestCrossValidationWithWeights:
         )
 
         # Should be very similar
-        np.testing.assert_allclose(thresholds_no_weights, thresholds_uniform, rtol=1e-10)
+        np.testing.assert_allclose(
+            thresholds_no_weights, thresholds_uniform, rtol=1e-10
+        )
 
         # CV with non-uniform weights (should be different)
         non_uniform_weights = np.random.uniform(0.1, 3.0, len(y_true))
@@ -177,10 +179,12 @@ class TestCrossValidationStrategies:
         """Test cross-validation on imbalanced data."""
         # Create imbalanced data
         y_true = np.concatenate([np.zeros(90), np.ones(10)])
-        y_prob = np.concatenate([
-            np.random.uniform(0.0, 0.4, 90),  # Negative class
-            np.random.uniform(0.6, 1.0, 10)   # Positive class
-        ])
+        y_prob = np.concatenate(
+            [
+                np.random.uniform(0.0, 0.4, 90),  # Negative class
+                np.random.uniform(0.6, 1.0, 10),  # Positive class
+            ]
+        )
 
         # Shuffle
         shuffle_idx = np.random.RandomState(42).permutation(100)
@@ -189,7 +193,9 @@ class TestCrossValidationStrategies:
 
         # Use stratified CV for imbalanced data
         thresholds, scores = cv_threshold_optimization(
-            y_true, y_prob, cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+            y_true,
+            y_prob,
+            cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
         )
 
         assert len(thresholds) == 5
@@ -213,7 +219,9 @@ class TestCrossValidationConsistency:
 
         # CV mean should be in reasonable range of full data optimization
         mean_threshold_cv = np.mean(thresholds_cv)
-        assert abs(mean_threshold_cv - threshold_full) < 0.3  # Allow reasonable variation
+        assert (
+            abs(mean_threshold_cv - threshold_full) < 0.3
+        )  # Allow reasonable variation
 
     def test_cv_score_variance(self):
         """Test that CV scores have reasonable variance."""
@@ -231,9 +239,7 @@ class TestCrossValidationConsistency:
         """Test that CV thresholds have reasonable variance."""
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
-        thresholds, _ = cv_threshold_optimization(
-            y_true, y_prob, cv=8, random_state=42
-        )
+        thresholds, _ = cv_threshold_optimization(y_true, y_prob, cv=8, random_state=42)
 
         # Threshold variance should be reasonable
         threshold_std = np.std(thresholds)

@@ -47,7 +47,9 @@ class TestBayesDecisionFromUtilityMatrix:
         decisions = bayes_optimal_decisions(y_prob, U)
 
         # Compute expected utilities manually for verification
-        expected_utilities = y_prob @ U.T  # (n_samples, n_classes) @ (n_classes, n_decisions)
+        expected_utilities = (
+            y_prob @ U.T
+        )  # (n_samples, n_classes) @ (n_classes, n_decisions)
 
         # Decisions should match argmax of expected utilities
         expected_decisions = np.argmax(expected_utilities, axis=1)
@@ -287,7 +289,9 @@ class TestBayesEdgeCases:
 
         # Test mismatched shape
         U_wrong = np.array([[1, 0, 0], [0, 1, 0]])  # 3 classes but P has 2
-        with pytest.raises(ValueError, match="probabilities has 2 classes but utility_matrix has 3"):
+        with pytest.raises(
+            ValueError, match="probabilities has 2 classes but utility_matrix has 3"
+        ):
             bayes_optimal_decisions(P, U_wrong)
 
     def test_equal_costs(self):

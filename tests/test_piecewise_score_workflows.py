@@ -112,7 +112,11 @@ class TestScoreBasedWorkflows:
         weights = [1.0, 3.0, 1.0, 2.0]  # Weight positive samples more
 
         threshold, score, k = optimal_threshold_sortscan(
-            y_true, scores, get_vectorized_metric("f1"), sample_weight=weights, require_proba=False
+            y_true,
+            scores,
+            get_vectorized_metric("f1"),
+            sample_weight=weights,
+            require_proba=False,
         )
 
         # Should be valid threshold and score

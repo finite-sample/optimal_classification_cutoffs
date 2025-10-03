@@ -70,13 +70,10 @@ class TestCoordinateAscentCore:
 
         # Convert to proper types for the new kernel
         y_true_int32 = np.asarray(y_true, dtype=np.int32)
-        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         tau, best_macro, history = coordinate_ascent_kernel(
-            y_true_int32,
-            P_float64,
-            max_iter=10,
-            tol=1e-12
+            y_true_int32, P_float64, max_iter=10, tol=1e-12
         )
 
         # Check monotone ascent in history
@@ -111,14 +108,11 @@ class TestCoordinateAscentCore:
 
         # Convert to proper types for the new kernel
         y_true_int32 = np.asarray(y_true, dtype=np.int32)
-        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         # Coordinate ascent
         tau, best_macro, _ = coordinate_ascent_kernel(
-            y_true_int32,
-            P_float64,
-            max_iter=10,
-            tol=1e-12
+            y_true_int32, P_float64, max_iter=10, tol=1e-12
         )
 
         # Coordinate ascent should be >= OvR baseline
@@ -132,13 +126,10 @@ class TestCoordinateAscentCore:
 
         # Convert to proper types for the new kernel
         y_true_int32 = np.asarray(y_true, dtype=np.int32)
-        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         tau, best_macro, history = coordinate_ascent_kernel(
-            y_true_int32,
-            P_float64,
-            max_iter=5,
-            tol=1e-12
+            y_true_int32, P_float64, max_iter=5, tol=1e-12
         )
 
         assert len(tau) == 2
@@ -154,15 +145,12 @@ class TestCoordinateAscentCore:
 
         # Convert to proper types for the new kernel
         y_true_int32 = np.asarray(y_true, dtype=np.int32)
-        P_float64 = np.asarray(P, dtype=np.float64, order='C')
+        P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         # Test with different tolerances (replacing init strategies)
         for tol in [1e-10, 1e-12]:
             tau, best_macro, _ = coordinate_ascent_kernel(
-                y_true_int32,
-                P_float64,
-                max_iter=5,
-                tol=tol
+                y_true_int32, P_float64, max_iter=5, tol=tol
             )
             assert len(tau) == C
             assert 0.0 <= best_macro <= 1.0
@@ -173,7 +161,7 @@ class TestCoordinateAscentCore:
                 y_true_int32,
                 P_float64,
                 max_iter=5,
-                tol="invalid_tol"  # Should be numeric
+                tol="invalid_tol",  # Should be numeric
             )
 
 
@@ -245,9 +233,7 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Get thresholds via coordinate ascent - test that it completes without error
-        get_optimal_multiclass_thresholds(
-            y_true, P, metric="f1", method="coord_ascent"
-        )
+        get_optimal_multiclass_thresholds(y_true, P, metric="f1", method="coord_ascent")
 
         # This part tested the removed CoordinateAscentOptimizer wrapper
         # The coordinate ascent optimization completed successfully
@@ -312,13 +298,10 @@ class TestCoordinateAscentPerformance:
         for tol in [1e-10, 1e-12, 1e-14]:
             # Convert to proper types for the new kernel
             y_true_int32 = np.asarray(y_true, dtype=np.int32)
-            P_float64 = np.asarray(P, dtype=np.float64, order='C')
+            P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
             tau, best_macro, history = coordinate_ascent_kernel(
-                y_true_int32,
-                P_float64,
-                max_iter=20,
-                tol=tol
+                y_true_int32, P_float64, max_iter=20, tol=tol
             )
 
             # Should terminate before max_iter due to convergence

@@ -94,14 +94,16 @@ class TestMulticlassConfusionMatrix:
         """Test basic multiclass confusion matrix computation."""
         # 3-class problem with known outcomes
         true_labs = np.array([0, 1, 2, 0, 1, 2])
-        pred_prob = np.array([
-            [0.8, 0.1, 0.1],  # True: 0, should predict 0
-            [0.2, 0.7, 0.1],  # True: 1, should predict 1
-            [0.1, 0.2, 0.7],  # True: 2, should predict 2
-            [0.6, 0.3, 0.1],  # True: 0, should predict 0
-            [0.3, 0.6, 0.1],  # True: 1, should predict 1
-            [0.2, 0.2, 0.6],  # True: 2, should predict 2
-        ])
+        pred_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],  # True: 0, should predict 0
+                [0.2, 0.7, 0.1],  # True: 1, should predict 1
+                [0.1, 0.2, 0.7],  # True: 2, should predict 2
+                [0.6, 0.3, 0.1],  # True: 0, should predict 0
+                [0.3, 0.6, 0.1],  # True: 1, should predict 1
+                [0.2, 0.2, 0.6],  # True: 2, should predict 2
+            ]
+        )
         thresholds = np.array([0.5, 0.5, 0.5])
 
         cms = get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds)
@@ -222,9 +224,9 @@ class TestMulticlassMetrics:
     def test_multiclass_micro_vs_macro_properties(self):
         """Test properties of micro vs macro averaging."""
         cms = [
-            (10, 80, 5, 5),   # Class 0
-            (8, 85, 3, 4),    # Class 1
-            (12, 82, 2, 4),   # Class 2
+            (10, 80, 5, 5),  # Class 0
+            (8, 85, 3, 4),  # Class 1
+            (12, 82, 2, 4),  # Class 2
         ]
 
         micro_f1 = multiclass_metric(cms, "f1", "micro")
@@ -397,12 +399,14 @@ class TestMulticlassWithWeights:
         """Test that weighted multiclass matches sample expansion."""
         # Small example for exact comparison
         y_true = np.array([0, 1, 2, 0])
-        pred_prob = np.array([
-            [0.8, 0.1, 0.1],
-            [0.2, 0.7, 0.1],
-            [0.1, 0.2, 0.7],
-            [0.6, 0.3, 0.1],
-        ])
+        pred_prob = np.array(
+            [
+                [0.8, 0.1, 0.1],
+                [0.2, 0.7, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.6, 0.3, 0.1],
+            ]
+        )
         weights = np.array([2, 1, 3, 1])  # Integer weights
 
         # Weighted approach
@@ -446,7 +450,9 @@ class TestMulticlassPerformance:
             times.append(elapsed)
 
             # Should complete in reasonable time
-            assert elapsed < 10.0, f"Optimization took {elapsed:.2f}s for {n_classes} classes"
+            assert elapsed < 10.0, (
+                f"Optimization took {elapsed:.2f}s for {n_classes} classes"
+            )
 
     def test_multiclass_scaling_with_samples(self):
         """Test that multiclass optimization scales with number of samples."""
@@ -456,7 +462,9 @@ class TestMulticlassPerformance:
         times = []
 
         for size in sizes:
-            y_true, y_prob = generate_multiclass_data(size, n_classes=3, random_state=42)
+            y_true, y_prob = generate_multiclass_data(
+                size, n_classes=3, random_state=42
+            )
 
             start_time = time.time()
             get_optimal_threshold(y_true, y_prob, metric="f1")
@@ -488,14 +496,16 @@ class TestMulticlassEdgeCases:
     def test_multiclass_perfect_probabilities(self):
         """Test multiclass with perfect probability predictions."""
         y_true = np.array([0, 1, 2, 0, 1, 2])
-        pred_prob = np.array([
-            [1.0, 0.0, 0.0],  # Perfect for class 0
-            [0.0, 1.0, 0.0],  # Perfect for class 1
-            [0.0, 0.0, 1.0],  # Perfect for class 2
-            [1.0, 0.0, 0.0],  # Perfect for class 0
-            [0.0, 1.0, 0.0],  # Perfect for class 1
-            [0.0, 0.0, 1.0],  # Perfect for class 2
-        ])
+        pred_prob = np.array(
+            [
+                [1.0, 0.0, 0.0],  # Perfect for class 0
+                [0.0, 1.0, 0.0],  # Perfect for class 1
+                [0.0, 0.0, 1.0],  # Perfect for class 2
+                [1.0, 0.0, 0.0],  # Perfect for class 0
+                [0.0, 1.0, 0.0],  # Perfect for class 1
+                [0.0, 0.0, 1.0],  # Perfect for class 2
+            ]
+        )
 
         thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
 
@@ -506,7 +516,7 @@ class TestMulticlassEdgeCases:
     def test_multiclass_uniform_probabilities(self):
         """Test multiclass with uniform probability distributions."""
         y_true = np.array([0, 1, 2, 0, 1, 2])
-        pred_prob = np.full((6, 3), 1/3)  # All probabilities equal
+        pred_prob = np.full((6, 3), 1 / 3)  # All probabilities equal
 
         thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
 

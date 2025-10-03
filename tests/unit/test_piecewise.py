@@ -287,7 +287,9 @@ class TestPiecewisePerformance:
             times[size] = end_time - start_time
 
             # Should be reasonably fast
-            assert times[size] < 2.0, f"Piecewise took {times[size]:.2f}s for {size} samples"
+            assert times[size] < 2.0, (
+                f"Piecewise took {times[size]:.2f}s for {size} samples"
+            )
 
     def test_piecewise_vs_brute_force_performance(self):
         """Test that piecewise is faster than brute force on large data."""
@@ -316,8 +318,11 @@ class TestPiecewisePropertyBased:
             lambda n: st.tuples(
                 st.just(n),
                 st.lists(st.integers(0, 1), min_size=n, max_size=n),
-                st.lists(st.floats(0.0, 1.0, allow_nan=False, allow_infinity=False),
-                        min_size=n, max_size=n),
+                st.lists(
+                    st.floats(0.0, 1.0, allow_nan=False, allow_infinity=False),
+                    min_size=n,
+                    max_size=n,
+                ),
             )
         )
     )
@@ -349,10 +354,16 @@ class TestPiecewisePropertyBased:
             lambda n: st.tuples(
                 st.just(n),
                 st.lists(st.integers(0, 1), min_size=n, max_size=n),
-                st.lists(st.floats(0.1, 0.9, allow_nan=False, allow_infinity=False),
-                        min_size=n, max_size=n),
-                st.lists(st.floats(0.1, 2.0, allow_nan=False, allow_infinity=False),
-                        min_size=n, max_size=n),
+                st.lists(
+                    st.floats(0.1, 0.9, allow_nan=False, allow_infinity=False),
+                    min_size=n,
+                    max_size=n,
+                ),
+                st.lists(
+                    st.floats(0.1, 2.0, allow_nan=False, allow_infinity=False),
+                    min_size=n,
+                    max_size=n,
+                ),
             )
         )
     )

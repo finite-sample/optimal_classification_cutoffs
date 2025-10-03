@@ -416,7 +416,9 @@ class TestMulticlassValidation:
         assert np.array_equal(validated_labels, labels)
 
         # Should fail with consecutive requirement
-        with pytest.raises(ValueError, match="Labels must be consecutive integers from 0"):
+        with pytest.raises(
+            ValueError, match="Labels must be consecutive integers from 0"
+        ):
             validate_multiclass_input(labels, probs, require_consecutive=True)
 
     def test_validate_multiclass_input_1d_probabilities(self):
@@ -450,8 +452,8 @@ class TestMulticlassValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)
 
         # Should work with consecutive labels
-        validated_probs, validated_labels = validate_multiclass_probabilities_and_labels(
-            probs, labels
+        validated_probs, validated_labels = (
+            validate_multiclass_probabilities_and_labels(probs, labels)
         )
         assert validated_probs.shape == (5, 3)
         assert np.array_equal(validated_labels, labels)
@@ -463,12 +465,16 @@ class TestMulticlassValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)
 
         # Should fail with consecutive requirement (default)
-        with pytest.raises(ValueError, match="Labels must be consecutive integers from 0"):
+        with pytest.raises(
+            ValueError, match="Labels must be consecutive integers from 0"
+        ):
             validate_multiclass_probabilities_and_labels(probs, labels)
 
         # Should work when consecutive requirement is disabled
-        validated_probs, validated_labels = validate_multiclass_probabilities_and_labels(
-            probs, labels, require_consecutive=False
+        validated_probs, validated_labels = (
+            validate_multiclass_probabilities_and_labels(
+                probs, labels, require_consecutive=False
+            )
         )
         assert validated_probs.shape == (4, 3)
 
@@ -570,8 +576,8 @@ class TestBinaryValidation:
         labels = np.array([0, 1, 0, 1])
         probs = np.array([0.2, 0.8, 0.3, 0.7])
 
-        validated_labels, validated_probs, validated_weights = validate_binary_classification(
-            labels, probs
+        validated_labels, validated_probs, validated_weights = (
+            validate_binary_classification(labels, probs)
         )
         assert np.array_equal(validated_labels, labels)
         assert np.array_equal(validated_probs, probs)
@@ -583,8 +589,8 @@ class TestBinaryValidation:
         probs = np.array([0.2, 0.8, 0.3, 0.7])
         weights = np.array([1.0, 2.0, 1.5, 0.5])
 
-        validated_labels, validated_probs, validated_weights = validate_binary_classification(
-            labels, probs, sample_weight=weights
+        validated_labels, validated_probs, validated_weights = (
+            validate_binary_classification(labels, probs, sample_weight=weights)
         )
         assert validated_weights is not None
         assert np.array_equal(validated_weights, weights)
@@ -594,8 +600,8 @@ class TestBinaryValidation:
         labels = np.array([0, 1, 0, 1])
         probs = np.array([0.2, 0.8, 0.3, 0.7])
 
-        validated_labels, validated_probs, validated_weights = validate_binary_classification(
-            labels, probs, return_default_weights=True
+        validated_labels, validated_probs, validated_weights = (
+            validate_binary_classification(labels, probs, return_default_weights=True)
         )
         assert validated_weights is not None
         assert np.array_equal(validated_weights, np.ones(4, dtype=np.float64))

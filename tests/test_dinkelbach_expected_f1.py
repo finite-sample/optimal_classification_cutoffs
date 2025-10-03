@@ -477,7 +477,9 @@ class TestDinkelbachEdgeCases:
         # Test that other metrics work or handle gracefully
         for metric in ["accuracy", "recall"]:
             try:
-                result = get_optimal_threshold(labels, probs, metric=metric, mode="expected")
+                result = get_optimal_threshold(
+                    labels, probs, metric=metric, mode="expected"
+                )
                 threshold, score = result
                 assert 0 <= threshold <= 1
             except (ValueError, NotImplementedError):

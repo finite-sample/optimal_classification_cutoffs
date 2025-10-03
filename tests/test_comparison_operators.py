@@ -133,7 +133,9 @@ class TestComparisonOperators:
         assert np.all((thresh_gt >= 0) & (thresh_gt <= 1))
         assert np.all((thresh_gte >= 0) & (thresh_gte <= 1))
 
-    @pytest.mark.skip(reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly")
+    @pytest.mark.skip(
+        reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly"
+    )
     def test_threshold_optimizer_comparison_operators(self):
         """Test ThresholdOptimizer class with comparison operators."""
         # This test was for the removed ThresholdOptimizer wrapper

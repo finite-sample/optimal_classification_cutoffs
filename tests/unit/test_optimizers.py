@@ -104,7 +104,9 @@ class TestOptimizationEdgeCases:
         y_true, y_prob = generate_extreme_probabilities(20, random_state=42)
 
         for method in ["unique_scan", "minimize"]:
-            threshold = get_optimal_threshold(y_true, y_prob, method=method, metric="f1")
+            threshold = get_optimal_threshold(
+                y_true, y_prob, method=method, metric="f1"
+            )
             assert_valid_threshold(threshold)
 
     def test_tied_probabilities(self):
@@ -157,7 +159,9 @@ class TestPiecewiseOptimization:
         y_prob = np.array([0.3, 0.4, 0.6, 0.7])
 
         # For F1, optimal threshold should be around 0.5 (between 0.4 and 0.6)
-        threshold, score = find_optimal_threshold(y_true, y_prob, "f1", strategy="sort_scan")
+        threshold, score = find_optimal_threshold(
+            y_true, y_prob, "f1", strategy="sort_scan"
+        )
 
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
@@ -171,7 +175,9 @@ class TestPiecewiseOptimization:
         y_true, y_prob = generate_binary_data(1000, random_state=42)
 
         start_time = time.time()
-        threshold, score = find_optimal_threshold(y_true, y_prob, "f1", strategy="sort_scan")
+        threshold, score = find_optimal_threshold(
+            y_true, y_prob, "f1", strategy="sort_scan"
+        )
         end_time = time.time()
 
         assert_valid_threshold(threshold)
@@ -220,8 +226,11 @@ class TestMethodConsistency:
                 )
 
                 assert_method_consistency(
-                    threshold_vector, threshold_scalar,
-                    "sort_scan", "unique_scan", tolerance=1e-8
+                    threshold_vector,
+                    threshold_scalar,
+                    "sort_scan",
+                    "unique_scan",
+                    tolerance=1e-8,
                 )
 
 
@@ -320,7 +329,9 @@ class TestOptimizationPerformance:
             times[size] = end_time - start_time
 
             # Should complete in reasonable time
-            assert times[size] < 5.0, f"Optimization took {times[size]:.2f}s for {size} samples"
+            assert times[size] < 5.0, (
+                f"Optimization took {times[size]:.2f}s for {size} samples"
+            )
 
     def test_method_performance_comparison(self):
         """Test relative performance of different methods."""

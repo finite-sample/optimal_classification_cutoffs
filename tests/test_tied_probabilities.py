@@ -161,7 +161,9 @@ class TestTiedProbabilities:
         pred_prob = [0.4, 0.6, 0.4, 0.6, 0.6, 0.4]
 
         # Use direct API instead of removed wrapper
-        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1", method="unique_scan")
+        threshold = get_optimal_threshold(
+            y_true, pred_prob, metric="f1", method="unique_scan"
+        )
 
         assert isinstance(threshold, float)
         assert 0 <= threshold <= 1

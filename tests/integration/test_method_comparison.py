@@ -89,8 +89,11 @@ class TestMethodConsistency:
 
             # Should be very close or identical
             assert_method_consistency(
-                threshold_piecewise, threshold_fallback,
-                piecewise_method, fallback_method, tolerance=1e-8
+                threshold_piecewise,
+                threshold_fallback,
+                piecewise_method,
+                fallback_method,
+                tolerance=1e-8,
             )
 
     def test_auto_method_selection(self):
@@ -111,8 +114,12 @@ class TestMethodConsistency:
         assert_valid_threshold(threshold_manual)
 
         # Should achieve similar performance
-        score_auto = compute_metric_at_threshold(y_true, pred_prob, threshold_auto, "f1")
-        score_manual = compute_metric_at_threshold(y_true, pred_prob, threshold_manual, "f1")
+        score_auto = compute_metric_at_threshold(
+            y_true, pred_prob, threshold_auto, "f1"
+        )
+        score_manual = compute_metric_at_threshold(
+            y_true, pred_prob, threshold_manual, "f1"
+        )
 
         assert abs(score_auto - score_manual) < 0.1  # Should be reasonably close
 
@@ -163,7 +170,9 @@ class TestMethodPerformanceComparison:
                 thresholds.append(threshold)
 
             # Should be identical
-            assert np.std(thresholds) < 1e-12, f"Method {method} not stable: {thresholds}"
+            assert np.std(thresholds) < 1e-12, (
+                f"Method {method} not stable: {thresholds}"
+            )
 
     def test_method_comparison_with_ties(self):
         """Test method behavior with tied probability values."""
@@ -207,7 +216,9 @@ class TestModeComparison:
         assert_valid_metric_score(expected_f1, "expected_f1")
 
         # Both should achieve reasonable performance
-        empirical_f1 = compute_metric_at_threshold(y_true, pred_prob, threshold_empirical, "f1")
+        empirical_f1 = compute_metric_at_threshold(
+            y_true, pred_prob, threshold_empirical, "f1"
+        )
         assert_valid_metric_score(empirical_f1, "f1")
 
     def test_mode_consistency_on_calibrated_data(self):
@@ -223,8 +234,12 @@ class TestModeComparison:
         threshold_expected, expected_f1 = result_expected
 
         # Compute empirical F1 for both thresholds
-        empirical_f1_emp = compute_metric_at_threshold(y_true, pred_prob, threshold_empirical, "f1")
-        empirical_f1_exp = compute_metric_at_threshold(y_true, pred_prob, threshold_expected, "f1")
+        empirical_f1_emp = compute_metric_at_threshold(
+            y_true, pred_prob, threshold_empirical, "f1"
+        )
+        empirical_f1_exp = compute_metric_at_threshold(
+            y_true, pred_prob, threshold_expected, "f1"
+        )
 
         # Both should achieve reasonable performance on calibrated data
         assert empirical_f1_emp > 0.2
@@ -249,10 +264,12 @@ class TestModeComparison:
         # All results should be identical (label-independent)
         threshold_1, expected_1 = results[0]
         for i, (threshold_i, expected_i) in enumerate(results[1:], 1):
-            assert threshold_1 == pytest.approx(threshold_i, abs=1e-10), \
+            assert threshold_1 == pytest.approx(threshold_i, abs=1e-10), (
                 f"Expected mode threshold differs between label sets: {threshold_1} vs {threshold_i}"
-            assert expected_1 == pytest.approx(expected_i, abs=1e-10), \
+            )
+            assert expected_1 == pytest.approx(expected_i, abs=1e-10), (
                 f"Expected mode score differs between label sets: {expected_1} vs {expected_i}"
+            )
 
 
 class TestMulticlassMethodComparison:
@@ -357,7 +374,10 @@ class TestComparisonOperatorMethods:
             )
 
             # Results should be valid
-            for tp, tn, fp, fn in [(tp_gt, tn_gt, fp_gt, fn_gt), (tp_gte, tn_gte, fp_gte, fn_gte)]:
+            for tp, tn, fp, fn in [
+                (tp_gt, tn_gt, fp_gt, fn_gt),
+                (tp_gte, tn_gte, fp_gte, fn_gte),
+            ]:
                 assert tp + tn + fp + fn == len(y_true)
 
 
