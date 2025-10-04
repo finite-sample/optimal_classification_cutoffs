@@ -12,7 +12,7 @@ from optimal_cutoffs.metrics import get_vectorized_metric
 from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
-    _validate_inputs,
+    _validate_piecewise_inputs,
     _validate_sample_weights,
     _vectorized_counts,
     optimal_threshold_sortscan,
@@ -22,56 +22,56 @@ from optimal_cutoffs.piecewise import (
 class TestInputValidation:
     """Test input validation functions."""
 
-    def test_validate_inputs_valid(self):
+    def test_validate_piecewise_inputs_valid(self):
         """Test validation with valid inputs."""
         y_true = [0, 1, 0, 1]
         pred_prob = [0.1, 0.7, 0.3, 0.9]
 
-        y, p = _validate_inputs(y_true, pred_prob)
+        y, p = _validate_piecewise_inputs(y_true, pred_prob)
         assert y.dtype == np.int8
         assert p.dtype == np.float64
         assert len(y) == len(p) == 4
         np.testing.assert_array_equal(y, [0, 1, 0, 1])
         np.testing.assert_array_almost_equal(p, [0.1, 0.7, 0.3, 0.9])
 
-    def test_validate_inputs_wrong_dimensions(self):
+    def test_validate_piecewise_inputs_wrong_dimensions(self):
         """Test validation with wrong dimensions."""
-        with pytest.raises(ValueError, match="true_labs must be 1D"):
-            _validate_inputs([[0, 1]], [0.5])
+        with pytest.raises(ValueError, match="Labels must be 1D, got shape"):
+            _validate_piecewise_inputs([[0, 1]], [0.5])
 
-        with pytest.raises(ValueError, match="2D pred_prob not allowed"):
-            _validate_inputs([0], [[0.5]])
+        with pytest.raises(ValueError, match="Binary probabilities must be 1D"):
+            _validate_piecewise_inputs([0], [[0.5]])
 
-    def test_validate_inputs_length_mismatch(self):
+    def test_validate_piecewise_inputs_length_mismatch(self):
         """Test validation with mismatched lengths."""
         with pytest.raises(ValueError, match="Length mismatch"):
-            _validate_inputs([0, 1], [0.5])
+            _validate_piecewise_inputs([0, 1], [0.5])
 
-    def test_validate_inputs_empty(self):
+    def test_validate_piecewise_inputs_empty(self):
         """Test validation with empty arrays."""
         with pytest.raises(ValueError, match="cannot be empty"):
-            _validate_inputs([], [])
+            _validate_piecewise_inputs([], [])
 
-    def test_validate_inputs_non_binary(self):
+    def test_validate_piecewise_inputs_non_binary(self):
         """Test validation with non-binary labels."""
-        with pytest.raises(ValueError, match="Binary labels must be from"):
-            _validate_inputs([0, 1, 2], [0.1, 0.5, 0.9])
+        with pytest.raises(ValueError, match="Labels must be binary \\(0 or 1\\)"):
+            _validate_piecewise_inputs([0, 1, 2], [0.1, 0.5, 0.9])
 
-    def test_validate_inputs_invalid_probabilities(self):
+    def test_validate_piecewise_inputs_invalid_probabilities(self):
         """Test validation with invalid probabilities."""
         # Out of range
         with pytest.raises(ValueError, match=r"must be in \[0, 1\]"):
-            _validate_inputs([0, 1], [-0.1, 0.5])
+            _validate_piecewise_inputs([0, 1], [-0.1, 0.5])
 
         with pytest.raises(ValueError, match=r"must be in \[0, 1\]"):
-            _validate_inputs([0, 1], [0.5, 1.1])
+            _validate_piecewise_inputs([0, 1], [0.5, 1.1])
 
         # Non-finite
-        with pytest.raises(ValueError, match="contains NaN or infinite"):
-            _validate_inputs([0, 1], [0.5, np.nan])
+        with pytest.raises(ValueError, match="Probabilities contains NaN values"):
+            _validate_piecewise_inputs([0, 1], [0.5, np.nan])
 
-        with pytest.raises(ValueError, match="contains NaN or infinite"):
-            _validate_inputs([0, 1], [0.5, np.inf])
+        with pytest.raises(ValueError, match="Probabilities contains infinite values"):
+            _validate_piecewise_inputs([0, 1], [0.5, np.inf])
 
     def test_validate_sample_weights_valid(self):
         """Test sample weight validation with valid inputs."""
@@ -85,16 +85,16 @@ class TestInputValidation:
 
     def test_validate_sample_weights_invalid(self):
         """Test sample weight validation with invalid inputs."""
-        with pytest.raises(ValueError, match="sample_weight must be 1D"):
+        with pytest.raises(ValueError, match="Weights must be 1D, got shape"):
             _validate_sample_weights([[1.0]], 1)
 
         with pytest.raises(ValueError, match="Length mismatch"):
             _validate_sample_weights([1.0, 2.0], 3)
 
-        with pytest.raises(ValueError, match="sample_weight must be non-negative"):
+        with pytest.raises(ValueError, match="Sample weights must be non-negative"):
             _validate_sample_weights([-1.0, 1.0], 2)
 
-        with pytest.raises(ValueError, match="contains NaN or infinite"):
+        with pytest.raises(ValueError, match="Sample weights contains NaN values"):
             _validate_sample_weights([np.nan, 1.0], 2)
 
 

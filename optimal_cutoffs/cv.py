@@ -17,10 +17,11 @@ from .metrics import (
     multiclass_metric_ovr,
     multiclass_metric_single_label,
 )
-from .types_minimal import (
-    ComparisonOperatorLiteral,
-    OptimizationMethodLiteral,
-    SampleWeightLike,
+from .validation import (
+    _validate_averaging_method,
+    _validate_comparison_operator,
+    _validate_metric_name,
+    _validate_optimization_method,
 )
 
 
@@ -28,12 +29,12 @@ def cv_threshold_optimization(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethodLiteral = "auto",
+    method: str = "auto",
     cv: int | Any = 5,
     random_state: int | None = None,
-    sample_weight: SampleWeightLike = None,
+    sample_weight: ArrayLike | None = None,
     *,
-    comparison: ComparisonOperatorLiteral = ">",
+    comparison: str = ">",
     average: str = "macro",
     **opt_kwargs: Any,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
@@ -71,6 +72,11 @@ def cv_threshold_optimization(
     tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]
         Arrays of per-fold thresholds and scores.
     """
+    # Validate parameters early for better user experience
+    _validate_metric_name(metric)
+    _validate_comparison_operator(comparison)
+    _validate_averaging_method(average)
+    _validate_optimization_method(method)
 
     true_labs = np.asarray(true_labs)
     pred_prob = np.asarray(pred_prob)
@@ -126,20 +132,22 @@ def nested_cv_threshold_optimization(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethodLiteral = "auto",
+    method: str = "auto",
     inner_cv: int = 5,
     outer_cv: int = 5,
     random_state: int | None = None,
-    sample_weight: SampleWeightLike = None,
+    sample_weight: ArrayLike | None = None,
     *,
-    comparison: ComparisonOperatorLiteral = ">",
+    comparison: str = ">",
     average: str = "macro",
     **opt_kwargs: Any,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Nested cross-validation for unbiased threshold optimization.
 
-    Inner CV selects best threshold, outer CV evaluates performance.
-    Uses StratifiedKFold by default for better class balance.
+    Inner CV estimates robust thresholds by averaging across folds, outer CV evaluates
+    performance. Uses StratifiedKFold by default for better class balance. The threshold
+    selection uses statistically sound averaging rather than cherry-picking the
+    best-performing fold.
 
     Parameters
     ----------
@@ -171,6 +179,11 @@ def nested_cv_threshold_optimization(
     tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]
         Arrays of outer-fold thresholds and scores.
     """
+    # Validate parameters early for better user experience
+    _validate_metric_name(metric)
+    _validate_comparison_operator(comparison)
+    _validate_averaging_method(average)
+    _validate_optimization_method(method)
 
     true_labs = np.asarray(true_labs)
     pred_prob = np.asarray(pred_prob)
@@ -203,9 +216,26 @@ def nested_cv_threshold_optimization(
             average=average,
             **opt_kwargs,
         )
-        # Select best threshold from inner CV instead of averaging
-        best_idx = int(np.argmax(inner_scores))
-        thr = inner_thresholds[best_idx]
+        # Average thresholds across inner folds for robust estimate
+        # This is statistically sound - considers all folds rather than cherry-picking
+        if isinstance(inner_thresholds[0], (float, np.floating)):
+            # Binary case: simple averaging
+            thr = float(np.mean(inner_thresholds))
+        elif isinstance(inner_thresholds[0], np.ndarray):
+            # Multiclass: average each class threshold
+            thr = np.mean(np.vstack(inner_thresholds), axis=0)
+        elif isinstance(inner_thresholds[0], dict):
+            # Dict format (e.g., from expected mode)
+            thr = _average_threshold_dicts(inner_thresholds)
+        else:
+            # Fallback: try converting to array and averaging
+            try:
+                thr = np.mean(np.array(inner_thresholds))
+            except (ValueError, TypeError):
+                # If averaging fails, use mean score to select representative threshold
+                mean_score = np.mean(inner_scores)
+                closest_idx = np.argmin(np.abs(inner_scores - mean_score))
+                thr = inner_thresholds[closest_idx]
         outer_thresholds.append(thr)
         score = _evaluate_threshold_on_fold(
             true_labs[test_idx],
@@ -224,10 +254,18 @@ def nested_cv_threshold_optimization(
 
 
 def _extract_thresholds(thr_result: Any) -> Any:
-    """Normalize outputs from get_optimal_threshold into usable thresholds.
+    """Extract thresholds from OptimizationResult objects.
 
-    Handles float, ndarray, (thr, score), and dict shapes from 'expected' mode.
+    Now primarily handles OptimizationResult objects since get_optimal_threshold
+    returns unified OptimizationResult. Maintains backward compatibility for legacy formats.
     """
+    from .types_minimal import OptimizationResult
+
+    # OptimizationResult (new unified format)
+    if isinstance(thr_result, OptimizationResult):
+        return thr_result.thresholds
+
+    # Legacy formats for backward compatibility
     # (thr, score)
     if isinstance(thr_result, tuple) and len(thr_result) == 2:
         return thr_result[0]
@@ -243,6 +281,64 @@ def _extract_thresholds(thr_result: Any) -> Any:
     return thr_result
 
 
+def _average_threshold_dicts(threshold_dicts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Average dictionary-based thresholds from multiple CV folds.
+
+    Parameters
+    ----------
+    threshold_dicts : list[dict[str, Any]]
+        List of threshold dictionaries from inner CV folds
+
+    Returns
+    -------
+    dict[str, Any]
+        Averaged threshold dictionary with same structure as input
+    """
+    if not threshold_dicts:
+        raise ValueError("Cannot average empty list of threshold dictionaries")
+
+    # Check for consistent structure
+    first_dict = threshold_dicts[0]
+    for i, d in enumerate(threshold_dicts[1:], 1):
+        if set(d.keys()) != set(first_dict.keys()):
+            raise ValueError(f"Inconsistent dict keys between folds 0 and {i}")
+
+    result = {}
+
+    # Average numerical values
+    for key in first_dict:
+        values = [d[key] for d in threshold_dicts]
+
+        if key in ("threshold", "thresholds"):
+            # These are the actual threshold values to average
+            if isinstance(values[0], (float, np.floating)):
+                result[key] = float(np.mean(values))
+            elif isinstance(values[0], np.ndarray):
+                result[key] = np.mean(np.vstack(values), axis=0)
+            else:
+                # Try to convert to array and average
+                result[key] = np.mean(np.array(values))
+        elif key == "score" or key.endswith("_score"):
+            # Don't average scores - they're fold-specific performance
+            # Use mean as representative value
+            result[key] = float(np.mean(values))
+        else:
+            # For other keys (like per_class arrays), average if numeric
+            try:
+                if isinstance(values[0], np.ndarray):
+                    result[key] = np.mean(np.vstack(values), axis=0)
+                elif isinstance(values[0], (int, float, np.number)):
+                    result[key] = float(np.mean(values))
+                else:
+                    # Non-numeric data - keep first fold's value
+                    result[key] = values[0]
+            except (TypeError, ValueError):
+                # If averaging fails, keep first fold's value
+                result[key] = values[0]
+
+    return result
+
+
 def _evaluate_threshold_on_fold(
     y_true: ArrayLike,
     pred_prob: ArrayLike,
@@ -251,7 +347,7 @@ def _evaluate_threshold_on_fold(
     metric: str,
     average: str,
     sample_weight: ArrayLike | None,
-    comparison: ComparisonOperatorLiteral,
+    comparison: str,
 ) -> float:
     """Compute the chosen metric on the test fold for a given threshold object."""
     y_true = np.asarray(y_true)
@@ -268,10 +364,8 @@ def _evaluate_threshold_on_fold(
         tp, tn, fp, fn = get_confusion_matrix(
             y_true, pred_prob, t, sample_weight=sw, comparison=comparison
         )
-        try:
-            metric_fn = METRIC_REGISTRY[metric]
-        except KeyError as e:
-            raise ValueError(f"Unknown metric '{metric}'.") from e
+        # Metric validation happens early in CV functions - no need to validate again
+        metric_fn = METRIC_REGISTRY[metric]
         return float(metric_fn(tp, tn, fp, fn))
 
     # Multiclass / multilabel (n, K)

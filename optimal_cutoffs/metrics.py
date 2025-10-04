@@ -1,31 +1,41 @@
 """Metric registry, confusion matrix utilities, and built-in metrics."""
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .types_minimal import ComparisonOperatorLiteral, MetricFunc
 from .validation import (
     _validate_comparison_operator,
-    validate_inputs,
     _validate_threshold,
+    validate_inputs,
 )
 
-METRIC_REGISTRY: dict[str, MetricFunc] = {}
-VECTORIZED_REGISTRY: dict[str, Callable[..., Any]] = {}  # Vectorized metrics
-METRIC_PROPERTIES: dict[str, dict[str, bool | float]] = {}
+
+@dataclass
+class MetricInfo:
+    """Complete information about a metric."""
+    scalar_fn: Callable[[float, float, float, float], float]
+    vectorized_fn: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None
+    is_piecewise: bool = True
+    maximize: bool = True
+    needs_proba: bool = False
+
+
+# Unified metrics registry
+METRICS: dict[str, MetricInfo] = {}
 
 
 def register_metric(
     name: str | None = None,
-    func: MetricFunc | None = None,
-    vectorized_func: Callable[..., Any] | None = None,
+    func: Callable[[float, float, float, float], float] | None = None,
+    vectorized_func: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
-) -> MetricFunc | Callable[[MetricFunc], MetricFunc]:
+) -> Callable[[float, float, float, float], float] | Callable[[Callable[[float, float, float, float], float]], Callable[[float, float, float, float], float]]:
     """Register a metric function with optional vectorized version.
 
     Parameters
@@ -51,39 +61,37 @@ def register_metric(
 
     Returns
     -------
-    MetricFunc | Callable[[MetricFunc], MetricFunc]
+    Callable[[float, float, float, float], float] | Callable[[Callable[[float, float, float, float], float]], Callable[[float, float, float, float], float]]
         The registered function or decorator.
     """
     if func is not None:
         metric_name = name or func.__name__
-        METRIC_REGISTRY[metric_name] = func
-        if vectorized_func is not None:
-            VECTORIZED_REGISTRY[metric_name] = vectorized_func
-        METRIC_PROPERTIES[metric_name] = {
-            "is_piecewise": is_piecewise,
-            "maximize": maximize,
-            "needs_proba": needs_proba,
-        }
+        METRICS[metric_name] = MetricInfo(
+            scalar_fn=func,
+            vectorized_fn=vectorized_func,
+            is_piecewise=is_piecewise,
+            maximize=maximize,
+            needs_proba=needs_proba,
+        )
         return func
 
-    def decorator(f: MetricFunc) -> MetricFunc:
+    def decorator(f: Callable[[float, float, float, float], float]) -> Callable[[float, float, float, float], float]:
         metric_name = name or f.__name__
-        METRIC_REGISTRY[metric_name] = f
-        if vectorized_func is not None:
-            VECTORIZED_REGISTRY[metric_name] = vectorized_func
-        METRIC_PROPERTIES[metric_name] = {
-            "is_piecewise": is_piecewise,
-            "maximize": maximize,
-            "needs_proba": needs_proba,
-        }
+        METRICS[metric_name] = MetricInfo(
+            scalar_fn=f,
+            vectorized_fn=vectorized_func,
+            is_piecewise=is_piecewise,
+            maximize=maximize,
+            needs_proba=needs_proba,
+        )
         return f
 
     return decorator
 
 
 def register_metrics(
-    metrics: dict[str, MetricFunc],
-    vectorized_metrics: dict[str, Callable[..., Any]] | None = None,
+    metrics: dict[str, Callable[[float, float, float, float], float]],
+    vectorized_metrics: dict[str, Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]] | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
@@ -106,17 +114,17 @@ def register_metrics(
     Returns
     -------
     None
-        This function mutates the global registries in-place.
+        This function mutates the global registry in-place.
     """
-    METRIC_REGISTRY.update(metrics)
-    if vectorized_metrics is not None:
-        VECTORIZED_REGISTRY.update(vectorized_metrics)
-    for name in metrics:
-        METRIC_PROPERTIES[name] = {
-            "is_piecewise": is_piecewise,
-            "maximize": maximize,
-            "needs_proba": needs_proba,
-        }
+    for name, scalar_fn in metrics.items():
+        vectorized_fn = vectorized_metrics.get(name) if vectorized_metrics else None
+        METRICS[name] = MetricInfo(
+            scalar_fn=scalar_fn,
+            vectorized_fn=vectorized_fn,
+            is_piecewise=is_piecewise,
+            maximize=maximize,
+            needs_proba=needs_proba,
+        )
 
 
 def is_piecewise_metric(metric_name: str) -> bool:
@@ -692,7 +700,7 @@ def get_confusion_matrix(
     pred_prob: ArrayLike,
     prob: float,
     sample_weight: ArrayLike | None = None,
-    comparison: ComparisonOperatorLiteral = ">",
+    comparison: str = ">",
     *,
     require_proba: bool = True,
 ) -> tuple[int | float, int | float, int | float, int | float]:
@@ -823,7 +831,6 @@ def compute_metric_at_threshold(
         )
     metric_func = METRIC_REGISTRY[metric]
     return float(metric_func(tp, tn, fp, fn))
-
 
 
 def compute_multiclass_metrics_from_labels(
@@ -968,7 +975,7 @@ def get_multiclass_confusion_matrix(
     pred_prob: ArrayLike,
     thresholds: ArrayLike,
     sample_weight: ArrayLike | None = None,
-    comparison: ComparisonOperatorLiteral = ">",
+    comparison: str = ">",
     *,
     require_proba: bool = False,
 ) -> list[tuple[int | float, int | float, int | float, int | float]]:

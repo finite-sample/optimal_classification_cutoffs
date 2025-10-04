@@ -25,8 +25,8 @@ class TestTiedProbabilityHandling:
         y_true = np.array([0, 1, 0, 1, 0, 1])
         y_prob = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         score = get_optimal_threshold(y_true, y_prob, metric="f1")
         assert_valid_threshold(score)
@@ -37,8 +37,8 @@ class TestTiedProbabilityHandling:
             30, tie_fraction=0.4, random_state=42
         )
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
     def test_comparison_operators_with_ties(self):
         """Test that comparison operators handle ties appropriately."""
@@ -47,10 +47,10 @@ class TestTiedProbabilityHandling:
 
         # Test both comparison operators
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
             # Verify predictions are different for tied values
             tp_gt, tn_gt, fp_gt, fn_gt = get_confusion_matrix(
@@ -81,7 +81,7 @@ class TestTiedProbabilityHandling:
                 y_true, y_prob, f1_vectorized, inclusive=inclusive
             )
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(score, "f1")
             assert isinstance(k_star, int)
             assert 0 <= k_star <= len(y_true)
@@ -91,13 +91,13 @@ class TestTiedProbabilityHandling:
         y_true = np.array([0, 0, 1, 1])
         y_prob = np.array([0.0, 0.0, 1.0, 1.0])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         # Should achieve perfect separation
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_numerical_precision_ties(self):
@@ -107,8 +107,8 @@ class TestTiedProbabilityHandling:
         # Create values that are effectively tied due to floating point precision
         y_prob = np.array([0.5, 0.5 + eps / 2, 0.5 - eps / 2, 0.5 + eps])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
     def test_method_consistency_with_ties(self):
         """Test that different methods handle ties consistently."""
@@ -121,11 +121,11 @@ class TestTiedProbabilityHandling:
 
         for method in methods:
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, y_prob, metric="f1", method=method
                 )
                 results[method] = threshold
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
             except (ValueError, NotImplementedError):
                 # Some methods might not support all cases
                 continue
@@ -136,7 +136,7 @@ class TestTiedProbabilityHandling:
 
             scores = []
             for method, threshold in results.items():
-                score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+                score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
                 scores.append(score)
 
             # All methods should achieve reasonable scores
@@ -155,7 +155,7 @@ class TestTieBreakingConsistency:
         # Run multiple times to ensure determinism
         thresholds = []
         for _ in range(3):
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", method="unique_scan"
             )
             thresholds.append(threshold)
@@ -169,10 +169,10 @@ class TestTieBreakingConsistency:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])  # All tied
         weights = np.array([1.0, 2.0, 1.0, 2.0])  # Different weights
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
 
         # Weighted optimization should still work with ties
         from optimal_cutoffs.metrics import compute_metric_at_threshold
@@ -191,11 +191,11 @@ class TestExtremeTieCases:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([0.0, 0.0, 0.0, 0.0])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
         # Should predict all negative for best accuracy
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         # Best accuracy is achieved by predicting majority class
         expected_accuracy = max(np.sum(y_true == 0), np.sum(y_true == 1)) / len(y_true)
@@ -206,11 +206,11 @@ class TestExtremeTieCases:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([1.0, 1.0, 1.0, 1.0])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
         # Should predict all positive for best accuracy when threshold <= 1.0
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         expected_accuracy = max(np.sum(y_true == 0), np.sum(y_true == 1)) / len(y_true)
         assert accuracy == pytest.approx(expected_accuracy, abs=1e-10)
@@ -220,12 +220,12 @@ class TestExtremeTieCases:
         y_true = np.array([0, 1, 0, 1, 0, 1, 0, 1])
         y_prob = np.array([0.3, 0.3, 0.7, 0.7, 0.3, 0.3, 0.7, 0.7])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_massive_ties(self):
@@ -238,10 +238,10 @@ class TestExtremeTieCases:
         y_true[0] = 0
         y_true[1] = 1
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")

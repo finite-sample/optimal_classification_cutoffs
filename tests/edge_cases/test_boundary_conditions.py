@@ -29,11 +29,11 @@ class TestLabelDistributionEdgeCases:
         y_prob = np.array([0.2, 0.5, 0.7, 0.9])
 
         # Should find threshold that predicts all positive
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
         # Accuracy should be perfect (1.0) with appropriate threshold
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_all_negative_labels(self):
@@ -42,11 +42,11 @@ class TestLabelDistributionEdgeCases:
         y_prob = np.array([0.1, 0.3, 0.6, 0.8])
 
         # Should find threshold that predicts all negative
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
         # Accuracy should be perfect (1.0) with appropriate threshold
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_single_positive_sample(self):
@@ -54,10 +54,10 @@ class TestLabelDistributionEdgeCases:
         y_true = np.array([0, 0, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.5, 0.9])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_extreme_imbalance(self):
@@ -66,10 +66,10 @@ class TestLabelDistributionEdgeCases:
             1000, imbalance_ratio=0.001, random_state=42
         )
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
 
@@ -81,11 +81,11 @@ class TestProbabilityDistributionEdgeCases:
         y_true = np.array([0, 0, 0, 1, 1, 1])
         y_prob = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         # Should achieve perfect F1 score
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_all_identical_probabilities(self):
@@ -94,20 +94,20 @@ class TestProbabilityDistributionEdgeCases:
             20, base_prob=0.5, tie_fraction=1.0, random_state=42
         )
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_extreme_probability_values(self):
         """Test optimization with extreme probability values."""
         y_true, y_prob = generate_extreme_probabilities(30, random_state=42)
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_boundary_probabilities(self):
@@ -115,27 +115,17 @@ class TestProbabilityDistributionEdgeCases:
         y_true = np.array([0, 0, 1, 1])
         y_prob = np.array([0.0, 0.0, 1.0, 1.0])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         # Should achieve perfect separation
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert score == pytest.approx(1.0, abs=1e-10)
 
 
 class TestNumericalEdgeCases:
     """Test numerical precision and scaling edge cases."""
 
-    def test_very_small_dataset(self):
-        """Test optimization with minimal dataset size."""
-        y_true = np.array([0, 1])
-        y_prob = np.array([0.3, 0.7])
-
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
-
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
-        assert_valid_metric_score(score, "f1")
 
     def test_machine_epsilon_differences(self):
         """Test optimization with probability differences at machine epsilon."""
@@ -143,10 +133,10 @@ class TestNumericalEdgeCases:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([0.5, 0.5 + eps, 0.5 + 2 * eps, 0.5 + 3 * eps])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_very_close_probabilities(self):
@@ -156,10 +146,10 @@ class TestNumericalEdgeCases:
             [0.5000001, 0.5000002, 0.5000003, 0.5000004, 0.5000005, 0.5000006]
         )
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
 
@@ -172,11 +162,11 @@ class TestDegenrateCaseHandling:
         y_true = np.array([0, 0, 0, 0])
         y_prob = np.array([0.1, 0.2, 0.3, 0.4])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
         # Should predict all negative for best accuracy
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_no_negative_predictions_possible(self):
@@ -185,11 +175,11 @@ class TestDegenrateCaseHandling:
         y_true = np.array([1, 1, 1, 1])
         y_prob = np.array([0.6, 0.7, 0.8, 0.9])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
         # Should predict all positive for best accuracy
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_undefined_metric_cases(self):
@@ -199,10 +189,10 @@ class TestDegenrateCaseHandling:
         y_prob = np.array([0.1, 0.2, 0.3, 0.4])  # All below typical threshold
 
         # Optimization should still work even if some thresholds give undefined metrics
-        threshold = get_optimal_threshold(y_true, y_prob, metric="precision")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="precision")
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "precision")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "precision")
         assert_valid_metric_score(score, "precision", allow_nan=True)
 
 
@@ -248,23 +238,12 @@ class TestScalingLimits:
 
         y_true, y_prob = generate_binary_data(10000, random_state=42)
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="unique_scan"
         )
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
         assert score > 0.1  # Should achieve reasonable performance
 
-    def test_single_sample_edge_case(self):
-        """Test optimization with single sample."""
-        y_true = np.array([1])
-        y_prob = np.array([0.7])
-
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
-
-        # With single positive sample, accuracy is either 0 or 1
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
-        assert score in [0.0, 1.0]

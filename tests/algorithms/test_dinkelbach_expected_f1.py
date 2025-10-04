@@ -17,7 +17,7 @@ from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.metrics import f1_score, get_confusion_matrix
-from tests.strategies import beta_bernoulli_calibrated
+from tests.fixtures.hypothesis_strategies import beta_bernoulli_calibrated
 
 
 class TestDinkelbachLabelIndependence:
@@ -91,7 +91,7 @@ class TestDinkelbachLabelIndependence:
 
         thresholds = []
         for labels in label_patterns:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, mode="expected", metric="f1", comparison=">"
             )
             thresholds.append(threshold)

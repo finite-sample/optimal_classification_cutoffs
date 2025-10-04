@@ -127,7 +127,7 @@ class TestUtilityOptimization:
         y = (np.random.uniform(0, 1, size=n) < p).astype(int)  # Calibrated
 
         # Simple cost case: FP=1, FN=5
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y, p, utility={"fp": -1.0, "fn": -5.0}, comparison=">="
         )
 
@@ -194,7 +194,7 @@ class TestUtilityOptimization:
         weights = np.random.uniform(0.5, 2.0, size=n)  # Varying weights
 
         # Should not raise an error
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y, p, utility={"tp": 1.0, "fp": -1.0}, sample_weight=weights
         )
         assert 0 <= threshold <= 1
@@ -268,7 +268,7 @@ class TestUtilityMetricIntegration:
         y = np.array([0, 0, 1, 0, 1, 1])
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y, p, utility={"tp": 1.0, "fn": -1.0}, comparison=comparison
             )
 
@@ -291,7 +291,7 @@ class TestEdgeCases:
         p = np.array([0.1, 0.5, 0.9])
 
         # This should work (no true_labs needed)
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             None, p, utility={"fp": -1, "fn": -5}, mode="bayes"
         )
         assert 0 <= threshold <= 1
@@ -315,11 +315,11 @@ class TestEdgeCases:
         y = np.random.randint(0, 2, size=n)
 
         # Empty dict should work (all utilities = 0)
-        threshold = get_optimal_threshold(y, p, utility={})
+        result = get_optimal_threshold(y, p, utility={})
         assert 0 <= threshold <= 1
 
         # Single utility should work
-        threshold = get_optimal_threshold(y, p, utility={"tp": 1.0})
+        result = get_optimal_threshold(y, p, utility={"tp": 1.0})
         assert 0 <= threshold <= 1
 
 

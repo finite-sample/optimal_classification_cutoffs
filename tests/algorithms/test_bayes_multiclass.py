@@ -230,7 +230,7 @@ class TestIntegrationWithRouter:
         y_prob = np.array([0.1, 0.3, 0.7, 0.9])
         utility = {"fp": -1, "fn": -5}
 
-        threshold = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
+        result = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
 
         expected = 1.0 / 6.0  # Classic result
         assert abs(threshold - expected) < 1e-10

@@ -13,7 +13,7 @@ from hypothesis import given, settings
 
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.metrics import f1_score, get_confusion_matrix
-from tests.strategies import tied_probabilities
+from tests.fixtures.hypothesis_strategies import tied_probabilities
 
 
 class TestComparisonOperatorSemantics:
@@ -252,7 +252,7 @@ class TestComparisonThreading:
 
         # Test both comparison operators
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels,
                 probs,
                 metric="accuracy",
@@ -275,7 +275,7 @@ class TestComparisonThreading:
 
         for comparison in [">", ">="]:
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="f1", method="minimize", comparison=comparison
                 )
 
@@ -303,7 +303,7 @@ class TestEdgeCasesWithComparison:
         labels = np.array([0, 1, 1])
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels,
                 probs,
                 metric="accuracy",
@@ -342,7 +342,7 @@ class TestEdgeCasesWithComparison:
         labels_zero = np.array([0, 1, 0, 1])
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels_zero,
                 probs_zero,
                 metric="accuracy",
@@ -375,7 +375,7 @@ class TestEdgeCasesWithComparison:
         labels_one = np.array([1, 0, 1, 0])
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels_one,
                 probs_one,
                 metric="accuracy",

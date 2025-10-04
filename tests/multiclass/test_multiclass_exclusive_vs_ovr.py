@@ -15,7 +15,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold, multiclass_metric_exclusive
+from optimal_cutoffs import get_optimal_threshold, multiclass_metric_single_label
 
 
 def _generate_multiclass_data(n_samples, n_classes, random_state=42):
@@ -168,7 +168,7 @@ class TestExclusiveVsOvRDistinction:
 
         try:
             # Compute exclusive accuracy
-            accuracy = multiclass_metric_exclusive(
+            accuracy = multiclass_metric_single_label(
                 labels, probs, thresholds, metric_name="accuracy", comparison=">"
             )
 
@@ -316,7 +316,7 @@ class TestMulticlassAccuracySemantics:
 
             # Should match exclusive accuracy computation if available
             try:
-                computed_accuracy = multiclass_metric_exclusive(
+                computed_accuracy = multiclass_metric_single_label(
                     labels, probs, thresholds, metric_name="accuracy", comparison=">"
                 )
 

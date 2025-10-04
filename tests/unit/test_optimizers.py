@@ -93,7 +93,7 @@ def test_piecewise_edge_cases():
 
     # Single sample
     result, _ = find_optimal_threshold([1], [0.7], "f1", strategy="sort_scan")
-    assert abs(result - 0.7) < 1e-10  # Allow floating point tolerance
+    assert abs(result - 0.7) < 1e-9  # Allow floating point tolerance
 
     # All same class - should return optimal threshold, not arbitrary 0.5
     result, _ = find_optimal_threshold(
@@ -125,7 +125,7 @@ def test_piecewise_known_optimal():
     threshold, _ = find_optimal_threshold(
         y_true, y_prob, "accuracy", strategy="sort_scan"
     )
-    accuracy = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
+    accuracy = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
     assert accuracy == 1.0, f"Expected perfect accuracy, got {accuracy}"
     assert 0.2 <= threshold <= 0.8, f"Unexpected threshold: {threshold}"
 

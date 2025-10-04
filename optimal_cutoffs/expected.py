@@ -12,10 +12,12 @@ Key simplifications:
 
 from __future__ import annotations
 
-from typing import Any, Literal
 import warnings
+from typing import Any, Literal
 
 import numpy as np
+
+from .types_minimal import OptimizationResult
 
 # ============================================================================
 # Core Algorithm - Single Dinkelbach implementation
@@ -85,7 +87,7 @@ def dinkelbach_optimize(
             warnings.warn(
                 "Dinkelbach algorithm terminated early due to zero denominator "
                 f"(numerical instability) at iteration {iteration + 1}",
-                RuntimeWarning
+                RuntimeWarning,
             )
             break
 
@@ -98,11 +100,11 @@ def dinkelbach_optimize(
         lam = new_lam
 
     if not converged and den != 0:
-        final_tolerance = abs(new_lam - lam) if 'new_lam' in locals() else float('inf')
+        final_tolerance = abs(new_lam - lam) if "new_lam" in locals() else float("inf")
         warnings.warn(
             f"Dinkelbach algorithm did not converge within {max_iter} iterations. "
             f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
-            RuntimeWarning
+            RuntimeWarning,
         )
 
     return float(best_t), float(lam)
@@ -118,7 +120,7 @@ def dinkelbach_expected_fbeta_binary(
     beta: float = 1.0,
     sample_weight: np.ndarray[Any, Any] | None = None,
     comparison: str = ">",
-) -> tuple[float, float]:
+) -> OptimizationResult:
     """Expected F-beta optimization under calibration using efficient O(n log n) algorithm.
 
     Parameters
@@ -134,84 +136,82 @@ def dinkelbach_expected_fbeta_binary(
 
     Returns
     -------
-    threshold : float
-        Optimal threshold
-    score : float
-        Expected F-beta score
+    OptimizationResult
+        Optimization result with threshold, score, and predict function
     """
     # Step 1: Setup and validation
     p = np.asarray(y_prob, dtype=np.float64)
     n = len(p)
-    
+
     if sample_weight is None:
         w = np.ones(n, dtype=np.float64)
     else:
         w = np.asarray(sample_weight, dtype=np.float64)
-    
+
     # Validate inputs
     if not np.all((0 <= p) & (p <= 1)):
         raise ValueError("Probabilities must be in [0, 1]")
     if np.any(w < 0):
         raise ValueError("Weights must be non-negative")
-    
+
     # Step 2: Sort probabilities and weights together
     sort_idx = np.argsort(p)
     p_sorted = p[sort_idx]
     w_sorted = w[sort_idx]
-    
+
     # Step 3: Pre-compute cumulative sums for O(1) metric evaluation
     wp_sorted = w_sorted * p_sorted
     w1mp_sorted = w_sorted * (1 - p_sorted)
-    
+
     # Cumulative sums from right (for p > threshold)
     cumsum_wp_right = np.zeros(n + 1)
     cumsum_w1mp_right = np.zeros(n + 1)
-    
+
     cumsum_wp_right[:-1] = np.cumsum(wp_sorted[::-1])[::-1]
     cumsum_w1mp_right[:-1] = np.cumsum(w1mp_sorted[::-1])[::-1]
-    
+
     # Cumulative sums from left (for p <= threshold)
     cumsum_wp_left = np.zeros(n + 1)
     cumsum_wp_left[1:] = np.cumsum(wp_sorted)
-    
+
     # Step 4: Define efficient metric functions using cumulative sums
     def compute_fbeta_at_index(idx: int) -> tuple[float, float]:
         """Compute F-beta numerator and denominator at threshold index."""
         # For threshold at p_sorted[idx], we predict positive for p > p_sorted[idx]
-        
+
         # Expected TP: sum of p*w for p > threshold
         expected_tp = cumsum_wp_right[idx + 1]
-        
-        # Expected FP: sum of (1-p)*w for p > threshold  
+
+        # Expected FP: sum of (1-p)*w for p > threshold
         expected_fp = cumsum_w1mp_right[idx + 1]
-        
+
         # Expected FN: sum of p*w for p <= threshold
         expected_fn = cumsum_wp_left[idx + 1]
-        
-        beta2 = beta ** 2
+
+        beta2 = beta**2
         numerator = (1 + beta2) * expected_tp
         denominator = (1 + beta2) * expected_tp + expected_fp + beta2 * expected_fn
-        
+
         return numerator, denominator
-    
+
     # Step 5: Dinkelbach iterations with efficient evaluation
     lambda_val = 0.5
     max_iter = 100
     tol = 1e-12
     converged = False
-    
+
     # Get unique threshold candidates (including edge cases)
     unique_p, unique_idx = np.unique(p_sorted, return_index=True)
     # Add threshold at endpoints for completeness
     threshold_indices = list(unique_idx) + [n]
     if len(unique_p) == 0 or unique_p[0] > 0:
         threshold_indices = [-1] + threshold_indices
-    
+
     for iteration in range(max_iter):
         best_threshold = 0.5
         best_value = -np.inf
         best_score = 0.0
-        
+
         # Evaluate objective at each unique threshold
         for idx in threshold_indices:
             if idx == -1:
@@ -228,10 +228,10 @@ def dinkelbach_expected_fbeta_binary(
             else:
                 threshold = p_sorted[idx]
                 num, den = compute_fbeta_at_index(idx)
-            
+
             # Objective: maximize num - lambda * den
             obj_value = num - lambda_val * den
-            
+
             if obj_value > best_value:
                 best_value = obj_value
                 best_threshold = threshold
@@ -239,15 +239,15 @@ def dinkelbach_expected_fbeta_binary(
                     best_score = num / den
                 else:
                     best_score = 0.0
-        
+
         # Update lambda
         if best_threshold == 0.0:
             idx = -1
         elif best_threshold == 1.0:
             idx = n
         else:
-            idx = np.searchsorted(p_sorted, best_threshold, side='right') - 1
-        
+            idx = np.searchsorted(p_sorted, best_threshold, side="right") - 1
+
         if idx == -1:
             num = cumsum_wp_right[0]
             den = cumsum_wp_right[0] + cumsum_w1mp_right[0]
@@ -257,32 +257,55 @@ def dinkelbach_expected_fbeta_binary(
                 den = 1.0
         else:
             num, den = compute_fbeta_at_index(idx)
-        
+
         if den == 0:
             warnings.warn(
                 "Dinkelbach expected F-beta optimization terminated early due to zero denominator "
                 f"(numerical instability) at iteration {iteration + 1}",
-                RuntimeWarning
+                RuntimeWarning,
             )
             break
-            
+
         new_lambda = num / den if den > 0 else 0.0
-        
+
         if abs(new_lambda - lambda_val) < tol:
             converged = True
-            return float(best_threshold), float(best_score)
-        
+            break
+
         lambda_val = new_lambda
-    
+
     if not converged and den != 0:
-        final_tolerance = abs(new_lambda - lambda_val) if 'new_lambda' in locals() else float('inf')
+        final_tolerance = (
+            abs(new_lambda - lambda_val) if "new_lambda" in locals() else float("inf")
+        )
         warnings.warn(
             f"Dinkelbach expected F-beta optimization did not converge within {max_iter} iterations. "
             f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
-            RuntimeWarning
+            RuntimeWarning,
         )
-    
-    return float(best_threshold), float(best_score)
+
+    best_threshold_float = float(best_threshold)
+    best_score_float = float(best_score)
+
+    # Create prediction function (closure captures threshold and comparison)
+    def predict_binary(probs):
+        p = np.asarray(probs)
+        if p.ndim == 2 and p.shape[1] == 2:
+            p = p[:, 1]  # Use positive class probabilities
+        elif p.ndim == 2 and p.shape[1] == 1:
+            p = p.ravel()
+        if comparison == ">=":
+            return (p >= best_threshold_float).astype(int)
+        else:
+            return (p > best_threshold_float).astype(int)
+
+    return OptimizationResult(
+        thresholds=np.array([best_threshold_float]),
+        scores=np.array([best_score_float]),
+        predict=predict_binary,
+        metric=f"expected_f{beta}",
+        n_classes=2,
+    )
 
 
 def expected_precision(
@@ -352,7 +375,7 @@ def dinkelbach_expected_fbeta_multilabel(
     average: Literal["macro", "micro", "weighted"] = "macro",
     true_labels: np.ndarray[Any, Any] | None = None,
     comparison: str = ">",
-) -> dict[str, Any]:
+) -> OptimizationResult:
     """Expected F-beta optimization for multilabel/multiclass.
 
     Parameters
@@ -397,9 +420,38 @@ def dinkelbach_expected_fbeta_multilabel(
         else:
             w_flat = None
 
-        threshold, score = dinkelbach_expected_fbeta_binary(p_flat, beta, w_flat)
+        result = dinkelbach_expected_fbeta_binary(p_flat, beta, w_flat)
+        threshold = result.threshold
+        score = result.score
 
-        return {"threshold": threshold, "score": score}
+        # Create prediction function for micro averaging (single threshold for all classes)
+        def predict_multiclass_micro(probs):
+            p = np.asarray(probs)
+            if p.ndim != 2:
+                raise ValueError("Multiclass requires 2D probabilities")
+            # Apply same threshold to all classes and predict highest valid probability
+            thresholds = np.full(n_classes, threshold)
+            if comparison == ">=":
+                valid = p >= thresholds[None, :]
+            else:
+                valid = p > thresholds[None, :]
+            masked = np.where(valid, p, -np.inf)
+            predictions = np.argmax(masked, axis=1)
+
+            # For samples where no class is above threshold, predict highest probability
+            no_valid = np.all(~valid, axis=1)
+            if np.any(no_valid):
+                predictions[no_valid] = np.argmax(p[no_valid], axis=1)
+
+            return predictions.astype(int)
+
+        return OptimizationResult(
+            thresholds=np.full(n_classes, threshold),
+            scores=np.full(n_classes, score),
+            predict=predict_multiclass_micro,
+            metric=f"expected_f{beta}",
+            n_classes=n_classes,
+        )
 
     else:  # macro or weighted
         # Optimize per-class thresholds
@@ -407,9 +459,9 @@ def dinkelbach_expected_fbeta_multilabel(
         scores = np.zeros(n_classes)
 
         for k in range(n_classes):
-            thresholds[k], scores[k] = dinkelbach_expected_fbeta_binary(
-                P[:, k], beta, sample_weight
-            )
+            result = dinkelbach_expected_fbeta_binary(P[:, k], beta, sample_weight)
+            thresholds[k] = result.threshold
+            scores[k] = result.score
 
         # Compute average score
         if average == "macro":
@@ -436,11 +488,33 @@ def dinkelbach_expected_fbeta_multilabel(
             else:
                 avg_score = np.average(scores, weights=class_counts)
 
-        return {
-            "thresholds": thresholds,
-            "per_class": scores,
-            "score": float(avg_score),
-        }
+        # Create prediction function for macro/weighted averaging (per-class thresholds)
+        def predict_multiclass_macro(probs):
+            p = np.asarray(probs)
+            if p.ndim != 2:
+                raise ValueError("Multiclass requires 2D probabilities")
+            # Apply per-class thresholds and predict highest valid probability
+            if comparison == ">=":
+                valid = p >= thresholds[None, :]
+            else:
+                valid = p > thresholds[None, :]
+            masked = np.where(valid, p, -np.inf)
+            predictions = np.argmax(masked, axis=1)
+
+            # For samples where no class is above threshold, predict highest probability
+            no_valid = np.all(~valid, axis=1)
+            if np.any(no_valid):
+                predictions[no_valid] = np.argmax(p[no_valid], axis=1)
+
+            return predictions.astype(int)
+
+        return OptimizationResult(
+            thresholds=thresholds,
+            scores=scores,
+            predict=predict_multiclass_macro,
+            metric=f"expected_f{beta}",
+            n_classes=n_classes,
+        )
 
 
 def expected_optimize_multiclass(

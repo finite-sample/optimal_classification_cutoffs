@@ -37,18 +37,18 @@ class TestLargeScaleScenarios:
             pytest.skip("Insufficient memory for massive dataset test")
 
         start_time = time.time()
-        threshold = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
+        result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
         end_time = time.time()
 
         execution_time = end_time - start_time
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert execution_time < 120.0, (
             f"Massive dataset optimization took {execution_time:.2f}s"
         )
 
         # Verify optimization quality
-        score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
         assert score > 0.1  # Should achieve reasonable performance
 
@@ -66,18 +66,18 @@ class TestLargeScaleScenarios:
             pytest.skip("Insufficient memory for large imbalanced dataset test")
 
         start_time = time.time()
-        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
         end_time = time.time()
 
         execution_time = end_time - start_time
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert execution_time < 60.0, (
             f"Large imbalanced optimization took {execution_time:.2f}s"
         )
 
         # Even with extreme imbalance, should find reasonable threshold
-        score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     @pytest.mark.slow
@@ -91,17 +91,17 @@ class TestLargeScaleScenarios:
         )
 
         start_time = time.time()
-        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
         end_time = time.time()
 
         execution_time = end_time - start_time
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert execution_time < 30.0, (
             f"Massive tie optimization took {execution_time:.2f}s"
         )
 
-        score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
 
@@ -123,11 +123,11 @@ class TestStressTesting:
 
             start_time = time.time()
             try:
-                threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+                result = get_optimal_threshold(y_true, pred_prob, metric="f1")
                 end_time = time.time()
 
                 execution_times.append(end_time - start_time)
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
                 success_count += 1
 
             except Exception as e:
@@ -164,9 +164,9 @@ class TestStressTesting:
 
             # Optimize all datasets
             for i, (y_true, pred_prob) in enumerate(datasets):
-                threshold = get_optimal_threshold(y_true, pred_prob)
+                result = get_optimal_threshold(y_true, pred_prob)
                 thresholds.append(threshold)
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
         except MemoryError:
             pytest.skip("Insufficient memory for memory stress test")
@@ -205,8 +205,8 @@ class TestStressTesting:
             pred_prob = np.clip(pred_prob, 0, 1)
 
             try:
-                threshold = get_optimal_threshold(y_true, pred_prob)
-                assert_valid_threshold(threshold)
+                result = get_optimal_threshold(y_true, pred_prob)
+                assert_valid_threshold(result.threshold)
                 success_count += 1
 
             except (ValueError, RuntimeError) as e:
@@ -241,14 +241,14 @@ class TestLongRunningScenarios:
                 for metric in metrics:
                     try:
                         start_time = time.time()
-                        threshold = get_optimal_threshold(
+                        result = get_optimal_threshold(
                             y_true, pred_prob, method=method, metric=metric
                         )
                         end_time = time.time()
 
                         execution_time = end_time - start_time
 
-                        assert_valid_threshold(threshold)
+                        assert_valid_threshold(result.threshold)
                         score = compute_metric_at_threshold(
                             y_true, pred_prob, threshold, metric
                         )
@@ -314,7 +314,7 @@ class TestLongRunningScenarios:
                         if isinstance(thresholds, (list, np.ndarray)):
                             assert len(thresholds) == n_classes
                             for threshold in thresholds:
-                                assert_valid_threshold(threshold)
+                                assert_valid_threshold(result.threshold)
                         else:
                             assert_valid_threshold(thresholds)
 
@@ -352,12 +352,12 @@ class TestLongRunningScenarios:
                 # Use training set to optimize threshold
                 y_train, p_train = y_true[train_idx], pred_prob[train_idx]
 
-                threshold = get_optimal_threshold(y_train, p_train, metric="f1")
-                assert_valid_threshold(threshold)
+                result = get_optimal_threshold(y_train, p_train, metric="f1")
+                assert_valid_threshold(result.threshold)
 
                 # Evaluate on validation set
                 y_val, p_val = y_true[val_idx], pred_prob[val_idx]
-                score = compute_metric_at_threshold(y_val, p_val, threshold, "f1")
+                score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
 
                 fold_thresholds.append(threshold)
                 fold_scores.append(score)
@@ -367,7 +367,7 @@ class TestLongRunningScenarios:
             assert len(fold_scores) == n_folds
 
             for threshold, score in zip(fold_thresholds, fold_scores, strict=False):
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
                 assert_valid_metric_score(score, "f1")
 
             # Cross-validation should show reasonable performance
@@ -422,10 +422,10 @@ class TestExtremeCaseComprehensive:
                 elif np.sum(y_true) == len(y_true):
                     y_true[0] = 0
 
-                threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
-                assert_valid_threshold(threshold)
+                result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+                assert_valid_threshold(result.threshold)
 
-                score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
+                score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
                 assert_valid_metric_score(score, "f1")
 
                 success_count += 1

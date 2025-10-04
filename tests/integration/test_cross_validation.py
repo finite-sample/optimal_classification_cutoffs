@@ -36,7 +36,7 @@ class TestBasicCrossValidation:
 
         # All thresholds and scores should be valid
         for threshold in thresholds:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
         for score in scores:
             assert_valid_metric_score(score, "f1")
 
@@ -265,7 +265,7 @@ class TestCrossValidationMulticlass:
         for threshold_set in thresholds:
             assert len(threshold_set) == 3
             for threshold in threshold_set:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
     def test_cv_multiclass_different_averaging(self):
         """Test multiclass CV with different averaging methods."""

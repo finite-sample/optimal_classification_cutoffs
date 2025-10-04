@@ -47,7 +47,7 @@ class TestMinimizeFallbackRegression:
         best_candidate_score = candidate_scores[best_candidate_idx]
 
         # The fallback mechanism should choose the better of the two
-        fallback_threshold = get_optimal_threshold(
+        fallback_result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
         fallback_score = compute_metric_at_threshold(
@@ -170,7 +170,7 @@ class TestMinimizeFallbackRegression:
         expected_best_threshold = candidates[np.argmax(scores)]
 
         # 4. Compare with actual implementation
-        actual_threshold = get_optimal_threshold(
+        actual_result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
 
@@ -203,7 +203,7 @@ class TestMinimizeFallbackRegression:
             method="bounded",
         )
 
-        fallback_threshold = get_optimal_threshold(
+        fallback_result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
 
@@ -223,13 +223,13 @@ class TestMinimizeFallbackRegression:
         true_labels = np.array([0, 1])
         pred_probs = np.array([0.3, 0.7])
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
         assert 0 <= threshold <= 1
 
         # Should achieve perfect or near-perfect score
-        score = compute_metric_at_threshold(true_labels, pred_probs, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert score >= 0.9  # Should get high score with perfect separation
 
     def test_multiple_metrics_fallback_consistency(self):
@@ -301,13 +301,13 @@ class TestFallbackEdgeCases:
         true_labels = np.array([0, 1, 0, 1, 0, 1])
         pred_probs = np.array([0.3, 0.3, 0.7, 0.7, 0.3, 0.7])  # Only two unique values
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
         assert 0 <= threshold <= 1
 
         # Should achieve reasonable performance with only two values
-        score = compute_metric_at_threshold(true_labels, pred_probs, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
         assert score >= 0.5  # Should achieve reasonable score
 
     def test_fallback_with_extreme_probabilities(self):
@@ -315,7 +315,7 @@ class TestFallbackEdgeCases:
         true_labels = np.array([0, 0, 1, 1])
         pred_probs = np.array([0.0, 0.1, 0.9, 1.0])
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             true_labels, pred_probs, "accuracy", method="minimize"
         )
 
@@ -334,7 +334,7 @@ class TestFallbackEdgeCases:
         pred_probs = np.array([0.5 - eps, 0.5 + eps, 0.5 - 2 * eps, 0.5 + 2 * eps])
 
         # Should handle without numerical issues
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
         assert 0 <= threshold <= 1
@@ -359,7 +359,7 @@ class TestFallbackEdgeCases:
 
         # Time the minimize method (with fallback)
         start_time = time.time()
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
         minimize_time = time.time() - start_time

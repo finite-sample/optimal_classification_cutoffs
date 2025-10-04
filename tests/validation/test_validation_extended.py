@@ -13,25 +13,24 @@ from optimal_cutoffs import (
 from optimal_cutoffs.validation import (
     _validate_averaging_method,
     _validate_comparison_operator,
-    _validate_inputs,
+    validate_inputs,
     _validate_metric_name,
     _validate_optimization_method,
     _validate_threshold,
     validate_binary_classification,
-    validate_multiclass_input,
-    validate_multiclass_probabilities_and_labels,
+    validate_multiclass_classification,
 )
 
 
 class TestInputValidation:
     """Test comprehensive input validation functionality."""
 
-    def test_validate_inputs_basic(self):
+    def testvalidate_inputs_basic(self):
         """Test basic input validation with valid inputs."""
         true_labels = np.array([0, 1, 0, 1])
         pred_probs = np.array([0.2, 0.8, 0.3, 0.7])
 
-        validated_labels, validated_probs, validated_weights = _validate_inputs(
+        validated_labels, validated_probs, validated_weights = validate_inputs(
             true_labels, pred_probs
         )
 
@@ -39,91 +38,91 @@ class TestInputValidation:
         assert np.array_equal(validated_probs, pred_probs)
         assert validated_weights is None
 
-    def test_validate_inputs_empty_arrays(self):
+    def testvalidate_inputs_empty_arrays(self):
         """Test validation with empty arrays."""
-        with pytest.raises(ValueError, match="true_labs cannot be empty"):
-            _validate_inputs([], [0.5])
+        with pytest.raises(ValueError, match="Labels cannot be empty"):
+            validate_inputs([], [0.5])
 
-        with pytest.raises(ValueError, match="pred_prob cannot be empty"):
-            _validate_inputs([0], [])
+        with pytest.raises(ValueError, match="Probabilities cannot be empty"):
+            validate_inputs([0], [])
 
-    def test_validate_inputs_dimension_mismatch(self):
+    def testvalidate_inputs_dimension_mismatch(self):
         """Test validation with mismatched dimensions."""
         with pytest.raises(ValueError, match="Length mismatch"):
-            _validate_inputs([0, 1], [0.5])
+            validate_inputs([0, 1], [0.5])
 
-        with pytest.raises(ValueError, match="Length mismatch"):
-            _validate_inputs([0, 1, 0], np.random.rand(2, 3))  # multiclass mismatch
+        with pytest.raises(ValueError, match="Shape mismatch"):
+            validate_inputs([0, 1, 2], np.random.rand(2, 3))  # multiclass mismatch: 3 labels vs 2 rows
 
-    def test_validate_inputs_wrong_dimensions(self):
+    def testvalidate_inputs_wrong_dimensions(self):
         """Test validation with wrong array dimensions."""
-        with pytest.raises(ValueError, match="true_labs must be 1D"):
-            _validate_inputs(np.array([[0, 1], [1, 0]]), [0.5, 0.8, 0.3, 0.7])
+        with pytest.raises(ValueError, match="Labels must be 1D"):
+            validate_inputs(np.array([[0, 1], [1, 0]]), [0.5, 0.8, 0.3, 0.7])
 
-        with pytest.raises(ValueError, match="pred_prob must be 1D or 2D"):
-            _validate_inputs([0, 1], np.random.rand(2, 2, 2))
+        with pytest.raises(ValueError, match="Invalid prediction array shape"):
+            validate_inputs([0, 1], np.random.rand(2, 2, 2))
 
-    def test_validate_inputs_non_finite_values(self):
+    def testvalidate_inputs_non_finite_values(self):
         """Test validation with NaN and infinite values."""
         # NaN in true labels
-        with pytest.raises(ValueError, match="true_labs contains NaN or infinite"):
-            _validate_inputs([0, np.nan, 1], [0.5, 0.6, 0.7])
+        with pytest.raises(ValueError, match="cannot convert float NaN to integer"):
+            validate_inputs([0, np.nan, 1], [0.5, 0.6, 0.7])
 
         # Infinite in pred_prob
-        with pytest.raises(ValueError, match="pred_prob contains NaN or infinite"):
-            _validate_inputs([0, 1, 0], [0.5, np.inf, 0.7])
+        with pytest.raises(ValueError, match="Probabilities contains infinite values"):
+            validate_inputs([0, 1, 0], [0.5, np.inf, 0.7])
 
-    def test_validate_inputs_binary_labels_requirement(self):
+    def testvalidate_inputs_binary_labels_requirement(self):
         """Test binary label validation."""
         # Valid binary labels
-        _validate_inputs([0, 1, 0, 1], [0.1, 0.2, 0.3, 0.4], require_binary=True)
+        validate_inputs([0, 1, 0, 1], [0.1, 0.2, 0.3, 0.4], require_binary=True)
 
         # Invalid binary labels - not in {0, 1}
-        with pytest.raises(ValueError, match="Binary labels must be from"):
-            _validate_inputs([0, 1, 2], [0.1, 0.2, 0.3], require_binary=True)
+        with pytest.raises(ValueError, match="Labels must be binary \\(0 or 1\\)"):
+            validate_inputs([0, 1, 2], [0.1, 0.2, 0.3], require_binary=True)
 
         # Edge case: only zeros
-        _validate_inputs([0, 0, 0], [0.1, 0.2, 0.3], require_binary=True)
+        validate_inputs([0, 0, 0], [0.1, 0.2, 0.3], require_binary=True)
 
         # Edge case: only ones
-        _validate_inputs([1, 1, 1], [0.1, 0.2, 0.3], require_binary=True)
+        validate_inputs([1, 1, 1], [0.1, 0.2, 0.3], require_binary=True)
 
-    def test_validate_inputs_multiclass_labels(self):
+    def testvalidate_inputs_multiclass_labels(self):
         """Test multiclass label validation."""
         # Valid consecutive labels starting from 0
         true_labels = [0, 1, 2, 0, 1, 2]
         pred_probs = np.random.rand(6, 3)
-        _validate_inputs(true_labels, pred_probs)
+        validate_inputs(true_labels, pred_probs)
 
         # Invalid: labels outside valid range (has label 3 for 3-class problem)
-        with pytest.raises(ValueError, match="must be within \\[0, 2\\]"):
-            _validate_inputs(
+        with pytest.raises(ValueError, match="Found label 3 but n_classes=3"):
+            validate_inputs(
                 [0, 2, 3], np.random.rand(3, 3)
             )  # Label 3 invalid for 3 classes
 
         # Invalid: negative labels
         with pytest.raises(ValueError, match="Labels must be non-negative"):
-            _validate_inputs([-1, 0, 1], np.random.rand(3, 2))
+            validate_inputs([-1, 0, 1], np.random.rand(3, 2))
 
         # Invalid: non-integer labels
         with pytest.raises(ValueError, match="Labels must be integers"):
-            _validate_inputs([0.5, 1.0, 1.5], np.random.rand(3, 2))
+            validate_inputs([0.5, 1.0, 1.5], np.random.rand(3, 2))
 
-    def test_validate_inputs_probability_range(self):
+    def testvalidate_inputs_probability_range(self):
         """Test probability range validation."""
         # Valid probabilities
-        _validate_inputs([0, 1], [0.0, 1.0], require_proba=True)
-        _validate_inputs([0, 1], [0.5, 0.7], require_proba=True)
+        validate_inputs([0, 1], [0.0, 1.0], require_proba=True)
+        validate_inputs([0, 1], [0.5, 0.7], require_proba=True)
 
         # Invalid: below 0
         with pytest.raises(ValueError, match="Probabilities must be in \\[0, 1\\]"):
-            _validate_inputs([0, 1], [-0.1, 0.5], require_proba=True)
+            validate_inputs([0, 1], [-0.1, 0.5], require_proba=True)
 
         # Invalid: above 1
         with pytest.raises(ValueError, match="Probabilities must be in \\[0, 1\\]"):
-            _validate_inputs([0, 1], [0.5, 1.1], require_proba=True)
+            validate_inputs([0, 1], [0.5, 1.1], require_proba=True)
 
-    def test_validate_inputs_multiclass_probability_sum_warning(self):
+    def testvalidate_inputs_multiclass_probability_sum_warning(self):
         """Test warning for multiclass probabilities that don't sum to 1."""
         true_labels = [0, 1, 2]
         # Probabilities that don't sum to 1
@@ -131,50 +130,50 @@ class TestInputValidation:
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            _validate_inputs(true_labels, pred_probs)
+            validate_inputs(true_labels, pred_probs)
 
             # Should issue a warning about probabilities not summing to 1
             assert len(w) == 1
             assert "don't sum to 1.0" in str(w[0].message)
             assert issubclass(w[0].category, UserWarning)
 
-    def test_validate_inputs_sample_weights(self):
+    def testvalidate_inputs_sample_weights(self):
         """Test sample weight validation."""
         true_labels = [0, 1, 0, 1]
         pred_probs = [0.2, 0.8, 0.3, 0.7]
 
         # Valid sample weights
         sample_weights = [1.0, 2.0, 1.5, 0.5]
-        validated_labels, validated_probs, validated_weights = _validate_inputs(
-            true_labels, pred_probs, sample_weight=sample_weights
+        validated_labels, validated_probs, validated_weights = validate_inputs(
+            true_labels, pred_probs, weights=sample_weights
         )
         assert validated_weights is not None
         assert np.array_equal(validated_weights, sample_weights)
 
         # Wrong dimension
-        with pytest.raises(ValueError, match="sample_weight must be 1D"):
-            _validate_inputs(true_labels, pred_probs, sample_weight=[[1, 2], [3, 4]])
+        with pytest.raises(ValueError, match="Weights must be 1D"):
+            validate_inputs(true_labels, pred_probs, weights=[[1, 2], [3, 4]])
 
         # Wrong length
-        with pytest.raises(ValueError, match="Length mismatch: sample_weight"):
-            _validate_inputs(true_labels, pred_probs, sample_weight=[1.0, 2.0])
+        with pytest.raises(ValueError, match="Length mismatch"):
+            validate_inputs(true_labels, pred_probs, weights=[1.0, 2.0])
 
         # NaN values
-        with pytest.raises(ValueError, match="sample_weight contains NaN"):
-            _validate_inputs(
-                true_labels, pred_probs, sample_weight=[1.0, np.nan, 1.5, 0.5]
+        with pytest.raises(ValueError, match="Sample weights contains NaN values"):
+            validate_inputs(
+                true_labels, pred_probs, weights=[1.0, np.nan, 1.5, 0.5]
             )
 
         # Negative values
-        with pytest.raises(ValueError, match="sample_weight must be non-negative"):
-            _validate_inputs(
-                true_labels, pred_probs, sample_weight=[1.0, -1.0, 1.5, 0.5]
+        with pytest.raises(ValueError, match="Sample weights must be non-negative"):
+            validate_inputs(
+                true_labels, pred_probs, weights=[1.0, -1.0, 1.5, 0.5]
             )
 
         # All zeros
-        with pytest.raises(ValueError, match="sample_weight cannot sum to zero"):
-            _validate_inputs(
-                true_labels, pred_probs, sample_weight=[0.0, 0.0, 0.0, 0.0]
+        with pytest.raises(ValueError, match="Sample weights sum to zero"):
+            validate_inputs(
+                true_labels, pred_probs, weights=[0.0, 0.0, 0.0, 0.0]
             )
 
     def test_validate_threshold(self):
@@ -193,10 +192,10 @@ class TestInputValidation:
             _validate_threshold(np.nan)
 
         # Invalid: out of range
-        with pytest.raises(ValueError, match="threshold must be in \\[0, 1\\]"):
+        with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\], got range"):
             _validate_threshold(-0.1)
 
-        with pytest.raises(ValueError, match="threshold must be in \\[0, 1\\]"):
+        with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\], got range"):
             _validate_threshold(1.1)
 
         # Invalid: wrong length for multiclass
@@ -266,7 +265,7 @@ class TestPublicFunctionValidation:
         valid_probs = [0.2, 0.8, 0.3, 0.7]
 
         # Should work with valid inputs
-        threshold = get_optimal_threshold(valid_labels, valid_probs)
+        result = get_optimal_threshold(valid_labels, valid_probs)
         assert 0 <= threshold <= 1
 
         # Should fail with invalid metric
@@ -283,7 +282,7 @@ class TestPublicFunctionValidation:
 
         # Should fail with invalid labels (testing binary case explicitly)
         # Need to match the length first
-        with pytest.raises(ValueError, match="Labels must be non-negative"):
+        with pytest.raises(ValueError, match="Labels must be binary \\(0 or 1\\)"):
             get_optimal_threshold([-1, 0, 1, 0], valid_probs)
 
     def test_get_confusion_matrix_validation(self):
@@ -299,7 +298,7 @@ class TestPublicFunctionValidation:
         assert all(isinstance(x, int) for x in [tp, tn, fp, fn])
 
         # Should fail with invalid threshold
-        with pytest.raises(ValueError, match="threshold must be in \\[0, 1\\]"):
+        with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\], got range"):
             get_confusion_matrix(valid_labels, valid_probs, -0.1)
 
         # Should fail with invalid comparison
@@ -324,22 +323,23 @@ class TestRobustnessAndEdgeCases:
         true_labels = [0, 1, 0, 1]  # list
         pred_probs = [0.2, 0.8, 0.3, 0.7]  # list
 
-        validated_labels, validated_probs, _ = _validate_inputs(true_labels, pred_probs)
+        validated_labels, validated_probs, _ = validate_inputs(true_labels, pred_probs)
         assert isinstance(validated_labels, np.ndarray)
         assert isinstance(validated_probs, np.ndarray)
 
-        # Nested list for multiclass
+        # Nested list for multiclass - use multiclass labels with 2D probabilities
         pred_probs_2d = [[0.8, 0.2], [0.3, 0.7], [0.6, 0.4], [0.1, 0.9]]
-        validated_labels, validated_probs, _ = _validate_inputs(
-            true_labels, pred_probs_2d
+        multiclass_labels = [0, 1, 0, 1]  # These are valid for 2-class multiclass
+        validated_labels, validated_probs, _ = validate_inputs(
+            multiclass_labels, pred_probs_2d
         )
         assert validated_probs.ndim == 2
 
     def test_edge_case_single_sample(self):
         """Test validation with single sample."""
-        _validate_inputs([1], [0.7])
+        validate_inputs([1], [0.7])
         # For multiclass single sample, need probability columns to match number of unique classes
-        _validate_inputs([0], [[0.7]])  # multiclass with 1 sample, 1 class
+        validate_inputs([0], [[0.7]])  # multiclass with 1 sample, 1 class
 
     def test_edge_case_single_class_multiclass(self):
         """Test multiclass with only one class (degenerate case)."""
@@ -347,7 +347,7 @@ class TestRobustnessAndEdgeCases:
         # But if all labels are 0, it might be valid as a single class
         true_labels = [0, 0, 0]
         pred_probs = np.random.rand(3, 1)
-        _validate_inputs(true_labels, pred_probs)
+        validate_inputs(true_labels, pred_probs)
 
     def test_large_arrays_performance(self):
         """Test validation doesn't break with large arrays."""
@@ -357,13 +357,13 @@ class TestRobustnessAndEdgeCases:
         pred_probs = np.random.rand(n_samples)
 
         # Should complete without error
-        _validate_inputs(true_labels, pred_probs)
+        validate_inputs(true_labels, pred_probs)
 
         # Multiclass case
         n_classes = 10
         true_labels = np.random.randint(0, n_classes, n_samples)
         pred_probs = np.random.rand(n_samples, n_classes)
-        _validate_inputs(true_labels, pred_probs)
+        validate_inputs(true_labels, pred_probs)
 
     def test_dtype_preservation(self):
         """Test that appropriate dtypes are preserved/converted."""
@@ -371,7 +371,7 @@ class TestRobustnessAndEdgeCases:
         true_labels = np.array([0, 1, 0, 1], dtype=np.int32)
         pred_probs = np.array([0.2, 0.8, 0.3, 0.7], dtype=np.float32)
 
-        validated_labels, validated_probs, _ = _validate_inputs(true_labels, pred_probs)
+        validated_labels, validated_probs, _ = validate_inputs(true_labels, pred_probs)
 
         # Labels should still be integers (though possibly different precision)
         assert np.issubdtype(validated_labels.dtype, np.integer)
@@ -382,7 +382,7 @@ class TestRobustnessAndEdgeCases:
 class TestMulticlassValidation:
     """Test multiclass-specific validation functions."""
 
-    def test_validate_multiclass_input_basic(self):
+    def test_validate_multiclass_classification_basic(self):
         """Test basic multiclass input validation."""
         # Valid consecutive labels
         labels = np.array([0, 1, 2, 0, 1, 2])
@@ -390,19 +390,19 @@ class TestMulticlassValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)  # Normalize to probabilities
 
         # Should work without consecutive requirement
-        validated_labels, validated_probs = validate_multiclass_input(
+        validated_labels, validated_probs = validate_multiclass_classification(
             labels, probs, require_consecutive=False
         )
         assert np.array_equal(validated_labels, labels)
         assert validated_probs.shape == (6, 3)
 
         # Should also work with consecutive requirement
-        validated_labels, validated_probs = validate_multiclass_input(
+        validated_labels, validated_probs = validate_multiclass_classification(
             labels, probs, require_consecutive=True
         )
         assert np.array_equal(validated_labels, labels)
 
-    def test_validate_multiclass_input_non_consecutive_labels(self):
+    def test_validate_multiclass_classification_non_consecutive_labels(self):
         """Test validation with non-consecutive labels."""
         # Non-consecutive labels (missing 0)
         labels = np.array([1, 2, 1, 2, 1])
@@ -410,7 +410,7 @@ class TestMulticlassValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)
 
         # Should work without consecutive requirement
-        validated_labels, validated_probs = validate_multiclass_input(
+        validated_labels, validated_probs = validate_multiclass_classification(
             labels, probs, require_consecutive=False
         )
         assert np.array_equal(validated_labels, labels)
@@ -419,17 +419,17 @@ class TestMulticlassValidation:
         with pytest.raises(
             ValueError, match="Labels must be consecutive integers from 0"
         ):
-            validate_multiclass_input(labels, probs, require_consecutive=True)
+            validate_multiclass_classification(labels, probs, require_consecutive=True)
 
-    def test_validate_multiclass_input_1d_probabilities(self):
+    def test_validate_multiclass_classification_1d_probabilities(self):
         """Test validation rejects 1D probabilities."""
         labels = np.array([0, 1, 0, 1])
         probs = np.array([0.2, 0.8, 0.3, 0.7])  # 1D
 
         with pytest.raises(ValueError, match="pred_prob must be 2D for multiclass"):
-            validate_multiclass_input(labels, probs)
+            validate_multiclass_classification(labels, probs)
 
-    def test_validate_multiclass_input_invalid_probabilities(self):
+    def test_validate_multiclass_classification_invalid_probabilities(self):
         """Test validation with invalid probability values."""
         labels = np.array([0, 1, 2])
 
@@ -437,15 +437,15 @@ class TestMulticlassValidation:
         probs = np.array([[-0.1, 0.5, 0.6], [0.3, 1.2, -0.1], [0.4, 0.3, 0.3]])
 
         with pytest.raises(ValueError, match="Probabilities must be in"):
-            validate_multiclass_input(labels, probs, require_proba=True)
+            validate_multiclass_classification(labels, probs, require_proba=True)
 
         # Should work when proba requirement is disabled
-        validated_labels, validated_probs = validate_multiclass_input(
+        validated_labels, validated_probs = validate_multiclass_classification(
             labels, probs, require_proba=False
         )
         assert np.array_equal(validated_labels, labels)
 
-    def test_validate_multiclass_probabilities_and_labels_basic(self):
+    def test_validate_multiclass_classification_basic(self):
         """Test coordinate ascent specific validation."""
         labels = np.array([0, 1, 2, 0, 1])
         probs = np.random.rand(5, 3)
@@ -453,12 +453,12 @@ class TestMulticlassValidation:
 
         # Should work with consecutive labels
         validated_probs, validated_labels = (
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
         )
         assert validated_probs.shape == (5, 3)
         assert np.array_equal(validated_labels, labels)
 
-    def test_validate_multiclass_probabilities_and_labels_non_consecutive(self):
+    def test_validate_multiclass_classification_non_consecutive(self):
         """Test coordinate ascent validation with non-consecutive labels."""
         labels = np.array([1, 2, 1, 2])  # Missing 0
         probs = np.random.rand(4, 3)
@@ -468,46 +468,46 @@ class TestMulticlassValidation:
         with pytest.raises(
             ValueError, match="Labels must be consecutive integers from 0"
         ):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
         # Should work when consecutive requirement is disabled
         validated_probs, validated_labels = (
-            validate_multiclass_probabilities_and_labels(
+            validate_multiclass_classification(
                 probs, labels, require_consecutive=False
             )
         )
         assert validated_probs.shape == (4, 3)
 
-    def test_validate_multiclass_probabilities_and_labels_insufficient_classes(self):
+    def test_validate_multiclass_classification_insufficient_classes(self):
         """Test validation with insufficient number of classes."""
         labels = np.array([0, 0, 0])  # Only one class
         probs = np.random.rand(3, 1)  # Only one class
 
         with pytest.raises(ValueError, match="Need at least 2 classes"):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
-    def test_validate_multiclass_probabilities_and_labels_dimension_mismatch(self):
+    def test_validate_multiclass_classification_dimension_mismatch(self):
         """Test validation with dimension mismatches."""
         # Wrong label dimensions
         labels = np.array([[0, 1], [1, 2]])  # 2D instead of 1D
         probs = np.random.rand(2, 3)
 
         with pytest.raises(ValueError, match="true_labs must be 1D"):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
         # Wrong probability dimensions
         labels = np.array([0, 1, 2])
         probs = np.array([0.5, 0.3, 0.2])  # 1D instead of 2D
 
         with pytest.raises(ValueError, match="pred_prob must be 2D for multiclass"):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
         # Length mismatch
         labels = np.array([0, 1, 2])
         probs = np.random.rand(5, 3)  # 5 samples vs 3 labels
 
         with pytest.raises(ValueError, match="Length mismatch"):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
     def test_multiclass_validation_consistency_across_modules(self):
         """Test that validation is consistent across different modules."""
@@ -549,7 +549,7 @@ class TestMulticlassValidation:
         probs = np.array([[1.0], [1.0]])  # Only 1 class
 
         with pytest.raises(ValueError, match="Need at least 2 classes"):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
         # Labels with gaps
         labels = np.array([0, 2, 0, 2])  # Missing class 1
@@ -557,14 +557,14 @@ class TestMulticlassValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)
 
         with pytest.raises(ValueError, match="Labels must be consecutive"):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
         # Labels exceed number of classes
         labels = np.array([0, 1, 3])  # Class 3 doesn't exist in 3-class problem
         probs = np.random.rand(3, 3)
 
         with pytest.raises(ValueError, match="Labels.*must be within"):
-            validate_multiclass_probabilities_and_labels(probs, labels)
+            validate_multiclass_classification(probs, labels)
 
 
 class TestBinaryValidation:
@@ -590,7 +590,7 @@ class TestBinaryValidation:
         weights = np.array([1.0, 2.0, 1.5, 0.5])
 
         validated_labels, validated_probs, validated_weights = (
-            validate_binary_classification(labels, probs, sample_weight=weights)
+            validate_binary_classification(labels, probs, weights=weights)
         )
         assert validated_weights is not None
         assert np.array_equal(validated_weights, weights)
@@ -601,10 +601,9 @@ class TestBinaryValidation:
         probs = np.array([0.2, 0.8, 0.3, 0.7])
 
         validated_labels, validated_probs, validated_weights = (
-            validate_binary_classification(labels, probs, return_default_weights=True)
+            validate_binary_classification(labels, probs)
         )
-        assert validated_weights is not None
-        assert np.array_equal(validated_weights, np.ones(4, dtype=np.float64))
+        assert validated_weights is None  # No weights provided, should be None
 
     def test_validate_binary_classification_force_dtypes(self):
         """Test binary validation with forced dtypes."""
@@ -651,7 +650,7 @@ class TestBinaryValidation:
 
     def test_binary_validation_consistency_with_piecewise(self):
         """Test that binary validation is consistent with piecewise usage."""
-        from optimal_cutoffs.piecewise import _validate_inputs as piecewise_validate
+        from optimal_cutoffs.piecewise import validate_inputs as piecewise_validate
 
         # Test data
         labels = np.array([0, 1, 0, 1])
@@ -673,7 +672,7 @@ class TestBinaryValidation:
 
     def test_binary_validation_consistency_with_scores(self):
         """Test consistency with score-based inputs."""
-        from optimal_cutoffs.piecewise import _validate_inputs as piecewise_validate
+        from optimal_cutoffs.piecewise import validate_inputs as piecewise_validate
 
         # Test with scores outside [0,1]
         labels = np.array([0, 1, 0, 1])
@@ -711,8 +710,7 @@ class TestBinaryValidation:
         _, _, central_weights = validate_binary_classification(
             np.zeros(n_samples),  # Dummy labels
             np.zeros(n_samples),  # Dummy probs
-            sample_weight=weights,
-            return_default_weights=True,
+            weights=weights,
             require_proba=False,
         )
 
@@ -735,12 +733,11 @@ class TestBinaryValidation:
         _, _, central_weights = validate_binary_classification(
             np.zeros(n_samples),  # Dummy labels
             np.zeros(n_samples),  # Dummy probs
-            sample_weight=None,
-            return_default_weights=True,
+            weights=None,
             require_proba=False,
         )
 
-        # Should be identical
-        assert np.array_equal(piecewise_weights, central_weights)
+        # Piecewise returns default weights, central returns None
+        assert central_weights is None
         assert np.array_equal(piecewise_weights, np.ones(n_samples, dtype=np.float64))
-        assert piecewise_weights.dtype == central_weights.dtype
+        assert piecewise_weights.dtype == np.float64

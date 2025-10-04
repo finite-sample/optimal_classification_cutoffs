@@ -94,7 +94,7 @@ class TestMethodConsistency:
         for y_true, pred_prob in edge_cases:
             for method in methods:
                 try:
-                    threshold = get_optimal_threshold(
+                    result = get_optimal_threshold(
                         y_true, pred_prob, metric="f1", method=method
                     )
                     # Should produce valid threshold
@@ -149,7 +149,7 @@ class TestPerformanceCharacteristics:
         for method in methods_to_test:
             try:
                 start_time = time.time()
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, pred_prob, metric="f1", method=method
                 )
                 end_time = time.time()
@@ -179,7 +179,7 @@ class TestPerformanceCharacteristics:
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         # Should complete without memory issues
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
         assert 0.0 <= threshold <= 1.0
@@ -196,7 +196,7 @@ class TestPerformanceCharacteristics:
         pred_prob = np.linspace(0.001, 0.999, n_samples)  # All unique values
 
         start_time = time.time()
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
         end_time = time.time()
@@ -305,7 +305,7 @@ class TestRegressionTests:
         y_true = [0, 0, 1, 1, 1, 0, 1, 0]
         pred_prob = [0.1, 0.2, 0.6, 0.7, 0.8, 0.3, 0.9, 0.4]
 
-        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
         tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
 
         f1_score = self._compute_f1_score(tp, tn, fp, fn)

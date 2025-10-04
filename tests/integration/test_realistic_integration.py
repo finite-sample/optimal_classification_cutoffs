@@ -12,17 +12,25 @@ from sklearn.metrics import f1_score as sklearn_f1
 
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.metrics import accuracy_score, f1_score, get_confusion_matrix
-from tests.fixtures import (
-    CALIBRATED_BINARY,
-    IMBALANCED_BINARY,
-    IMBALANCED_MULTICLASS,
-    LARGE_BINARY,
-    OVERLAPPING_BINARY,
-    STANDARD_BINARY,
-    STANDARD_MULTICLASS,
-    WELL_SEPARATED_BINARY,
-    make_realistic_multiclass_dataset,
-)
+# Import fixtures.py (not the fixtures/ directory)
+import importlib.util
+from pathlib import Path
+
+fixtures_path = Path(__file__).parent.parent / "fixtures.py"
+spec = importlib.util.spec_from_file_location("fixtures_module", fixtures_path)
+fixtures_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(fixtures_module)
+
+# Import constants from fixtures.py
+CALIBRATED_BINARY = fixtures_module.CALIBRATED_BINARY
+IMBALANCED_BINARY = fixtures_module.IMBALANCED_BINARY
+IMBALANCED_MULTICLASS = fixtures_module.IMBALANCED_MULTICLASS
+LARGE_BINARY = fixtures_module.LARGE_BINARY
+OVERLAPPING_BINARY = fixtures_module.OVERLAPPING_BINARY
+STANDARD_BINARY = fixtures_module.STANDARD_BINARY
+STANDARD_MULTICLASS = fixtures_module.STANDARD_MULTICLASS
+WELL_SEPARATED_BINARY = fixtures_module.WELL_SEPARATED_BINARY
+make_realistic_multiclass_dataset = fixtures_module.make_realistic_multiclass_dataset
 
 
 class TestRealisticBinaryOptimization:
@@ -37,7 +45,7 @@ class TestRealisticBinaryOptimization:
         thresholds = {}
 
         for method in methods:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", method=method
             )
             thresholds[method] = threshold
@@ -200,7 +208,7 @@ class TestRealisticBinaryOptimization:
         y_true, y_prob = LARGE_BINARY.y_true, LARGE_BINARY.y_prob
 
         # Should handle large dataset efficiently
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="sort_scan"
         )
 
@@ -398,7 +406,7 @@ def test_all_methods_on_realistic_data(dataset):
     methods = ["auto", "sort_scan", "unique_scan", "minimize"]
 
     for method in methods:
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
 
         assert 0.0 <= threshold <= 1.0, (
             f"Method {method} produced invalid threshold {threshold} on {description}"
@@ -417,14 +425,14 @@ def test_all_metrics_on_realistic_data(metric):
     """Test that all metrics work properly on realistic data."""
     y_true, y_prob = STANDARD_BINARY.y_true, STANDARD_BINARY.y_prob
 
-    threshold = get_optimal_threshold(y_true, y_prob, metric=metric)
+    result = get_optimal_threshold(y_true, y_prob, metric=metric)
 
     assert 0.0 <= threshold <= 1.0, (
         f"Metric {metric} produced invalid threshold {threshold}"
     )
 
     # Apply threshold and verify metric calculation
-    tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+    tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
 
     if metric == "f1":
         score = f1_score(tp, tn, fp, fn)

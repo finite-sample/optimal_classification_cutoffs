@@ -11,7 +11,7 @@ from optimal_cutoffs import (
     get_multiclass_confusion_matrix,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
-    multiclass_metric,
+    multiclass_metric_ovr,
 )
 from tests.fixtures.assertions import (
     assert_valid_confusion_matrix,
@@ -36,7 +36,7 @@ class TestMulticlassWorkflows:
 
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
         # Test confusion matrix computation
         cms = get_multiclass_confusion_matrix(y_true, y_prob, thresholds)
@@ -58,7 +58,7 @@ class TestMulticlassWorkflows:
 
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
     def test_multiclass_different_metrics(self):
         """Test multiclass optimization with different metrics."""
@@ -71,7 +71,7 @@ class TestMulticlassWorkflows:
 
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
     def test_multiclass_different_class_counts(self):
         """Test multiclass optimization with different numbers of classes."""
@@ -84,7 +84,7 @@ class TestMulticlassWorkflows:
 
             assert len(thresholds) == n_classes
             for threshold in thresholds:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
 
 class TestMulticlassConfusionMatrix:
@@ -257,7 +257,7 @@ class TestCoordinateAscent:
 
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
     def test_coordinate_ascent_vs_ovr(self):
         """Test coordinate ascent vs One-vs-Rest approaches."""
@@ -278,7 +278,7 @@ class TestCoordinateAscent:
         assert len(thresholds_coord) == 3
 
         for threshold in list(thresholds_ovr) + list(thresholds_coord):
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
     def test_coordinate_ascent_comparison_operators(self):
         """Test coordinate ascent with different comparison operators."""
@@ -291,7 +291,7 @@ class TestCoordinateAscent:
 
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
     def test_coordinate_ascent_single_label_consistency(self):
         """Test that coordinate ascent produces single-label predictions."""
@@ -376,7 +376,7 @@ class TestMulticlassWithWeights:
 
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
     def test_multiclass_weights_different_methods(self):
         """Test multiclass weights with different optimization methods."""
@@ -393,7 +393,7 @@ class TestMulticlassWithWeights:
 
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
     def test_multiclass_weights_vs_expansion(self):
         """Test that weighted multiclass matches sample expansion."""
@@ -491,7 +491,7 @@ class TestMulticlassEdgeCases:
 
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
     def test_multiclass_perfect_probabilities(self):
         """Test multiclass with perfect probability predictions."""
@@ -511,7 +511,7 @@ class TestMulticlassEdgeCases:
 
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
     def test_multiclass_uniform_probabilities(self):
         """Test multiclass with uniform probability distributions."""
@@ -522,7 +522,7 @@ class TestMulticlassEdgeCases:
 
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
 
 class TestMulticlassAPIConsistency:

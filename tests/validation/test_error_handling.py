@@ -46,7 +46,7 @@ class TestParameterErrors:
         y_true = [0, 1, 0, 1]
         y_prob = [0.2, 0.8, 0.4, 0.6]
 
-        with pytest.raises(ValueError, match="Invalid mode"):
+        with pytest.raises(ValueError, match="Unknown mode: invalid_mode"):
             get_optimal_threshold(y_true, y_prob, mode="invalid_mode")
 
     def test_invalid_average_error(self):
@@ -56,7 +56,7 @@ class TestParameterErrors:
 
         # Create mock multiclass scenario
         try:
-            with pytest.raises(ValueError, match="Invalid averaging"):
+            with pytest.raises(ValueError, match="Labels must be 1D, got shape"):
                 # This would test multiclass averaging if function exists
                 get_optimal_threshold(y_true, y_prob, average="invalid_average")
         except (TypeError, AttributeError):
@@ -258,7 +258,7 @@ class TestGracefulFailure:
 
         # Should either succeed or fail with informative error
         try:
-            threshold = get_optimal_threshold(y_true, y_prob, method="minimize")
+            result = get_optimal_threshold(y_true, y_prob, method="minimize")
             # If it succeeds, threshold should be valid
             assert 0.0 <= threshold <= 1.0
         except (ValueError, RuntimeError) as e:
@@ -273,7 +273,7 @@ class TestGracefulFailure:
 
         # Should either work or fail gracefully
         try:
-            threshold = get_optimal_threshold(y_true, y_prob)
+            result = get_optimal_threshold(y_true, y_prob)
             assert 0.0 <= threshold <= 1.0
         except (ValueError, RuntimeError) as e:
             # Should have informative error message
@@ -289,7 +289,7 @@ class TestGracefulFailure:
 
         # Should work for reasonable large datasets
         try:
-            threshold = get_optimal_threshold(y_true, y_prob, method="unique_scan")
+            result = get_optimal_threshold(y_true, y_prob, method="unique_scan")
             assert 0.0 <= threshold <= 1.0
         except MemoryError:
             # If memory error occurs, it should be caught and handled
@@ -306,7 +306,7 @@ class TestErrorRecovery:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])  # All tied
 
         # Auto method should try fallbacks if primary method fails
-        threshold = get_optimal_threshold(y_true, y_prob, method="auto")
+        result = get_optimal_threshold(y_true, y_prob, method="auto")
         assert 0.0 <= threshold <= 1.0
 
     def test_parameter_correction_warnings(self):

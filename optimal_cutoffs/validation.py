@@ -1,7 +1,5 @@
 """validation.py - Simple, direct validation with fail-fast semantics."""
 
-from typing import Any
-
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
@@ -80,26 +78,22 @@ def validate_multiclass_labels(
     if np.any(arr < 0):
         raise ValueError(f"Labels must be non-negative, got min {arr.min()}")
 
-    # Check consecutive from 0
-    unique = np.unique(arr)
-    if unique[0] != 0:
-        raise ValueError(f"Labels must start from 0, got min {unique[0]}")
+    # Check against n_classes if provided (labels must be valid indices)
+    if n_classes is not None:
+        max_label = np.max(arr)
+        if max_label >= n_classes:
+            raise ValueError(f"Found label {max_label} but n_classes={n_classes}")
 
-    max_label = unique[-1]
-    expected = np.arange(max_label + 1)
-    if not np.array_equal(unique, expected):
-        missing = set(expected) - set(unique)
-        raise ValueError(f"Labels must be consecutive from 0, missing: {missing}")
-
-    # Check against n_classes if provided
-    if n_classes is not None and max_label >= n_classes:
-        raise ValueError(f"Found label {max_label} but n_classes={n_classes}")
+    # Note: Labels don't need to be consecutive from 0 for One-vs-Rest optimization
+    # Each class gets its own threshold regardless of which classes appear in data
 
     return arr
 
 
-def validate_probabilities(probs: ArrayLike, binary: bool = False) -> NDArray[np.float64]:
-    """Validate and return probabilities as float64 array.
+def validate_probabilities(
+    probs: ArrayLike, binary: bool = False, require_proba: bool = True
+) -> NDArray[np.float64]:
+    """Validate and return probabilities or scores as float64 array.
 
     Parameters
     ----------
@@ -107,16 +101,18 @@ def validate_probabilities(probs: ArrayLike, binary: bool = False) -> NDArray[np
         Probabilities or scores
     binary : bool
         If True, expect 1D array. If False, infer from shape.
+    require_proba : bool, default=True
+        If True, enforce [0,1] range for probabilities. If False, allow arbitrary scores.
 
     Returns
     -------
     np.ndarray of float64
-        Validated probabilities
+        Validated probabilities or scores
 
     Raises
     ------
     ValueError
-        If probabilities are invalid
+        If probabilities/scores are invalid
     """
     arr = np.asarray(probs, dtype=np.float64)
 
@@ -124,6 +120,10 @@ def validate_probabilities(probs: ArrayLike, binary: bool = False) -> NDArray[np
         raise ValueError("Probabilities cannot be empty")
 
     if not np.all(np.isfinite(arr)):
+        if np.any(np.isnan(arr)):
+            raise ValueError("Probabilities contains NaN values")
+        if np.any(np.isinf(arr)):
+            raise ValueError("Probabilities contains infinite values")
         raise ValueError("Probabilities must be finite (no NaN/inf)")
 
     # Check shape
@@ -134,12 +134,13 @@ def validate_probabilities(probs: ArrayLike, binary: bool = False) -> NDArray[np
         if arr.ndim not in {1, 2}:
             raise ValueError(f"Probabilities must be 1D or 2D, got {arr.ndim}D")
 
-    # Check range [0, 1]
-    if np.any(arr < 0) or np.any(arr > 1):
-        raise ValueError(
-            f"Probabilities must be in [0, 1], got range "
-            f"[{arr.min():.3f}, {arr.max():.3f}]"
-        )
+    # Check range [0, 1] only if probabilities are required
+    if require_proba:
+        if np.any(arr < 0) or np.any(arr > 1):
+            raise ValueError(
+                f"Probabilities must be in [0, 1], got range "
+                f"[{arr.min():.3f}, {arr.max():.3f}]"
+            )
 
     # For multiclass, warn if rows don't sum to 1 (but don't fail)
     if arr.ndim == 2 and arr.shape[1] > 1:
@@ -183,16 +184,20 @@ def validate_weights(weights: ArrayLike, n_samples: int) -> NDArray[np.float64]:
         raise ValueError(f"Weights must be 1D, got shape {arr.shape}")
 
     if len(arr) != n_samples:
-        raise ValueError(f"Expected {n_samples} weights, got {len(arr)}")
+        raise ValueError(f"Length mismatch: {n_samples} samples vs {len(arr)} weights")
 
     if not np.all(np.isfinite(arr)):
-        raise ValueError("Weights must be finite")
+        if np.any(np.isnan(arr)):
+            raise ValueError("Sample weights contains NaN values")
+        if np.any(np.isinf(arr)):
+            raise ValueError("Sample weights contains infinite values")
+        raise ValueError("Sample weights must be finite")
 
     if np.any(arr < 0):
-        raise ValueError("Weights must be non-negative")
+        raise ValueError("Sample weights must be non-negative")
 
     if np.sum(arr) == 0:
-        raise ValueError("Weights cannot sum to zero")
+        raise ValueError("Sample weights sum to zero")
 
     return arr
 
@@ -341,7 +346,11 @@ def validate_choice(value: str, choices: set[str], name: str) -> str:
 
 
 def validate_binary_classification(
-    labels: ArrayLike, scores: ArrayLike, weights: ArrayLike | None = None
+    labels: ArrayLike,
+    scores: ArrayLike,
+    weights: ArrayLike | None = None,
+    require_proba: bool = True,
+    force_dtypes: bool = False,
 ) -> tuple[NDArray[np.int8], NDArray[np.float64], NDArray[np.float64] | None]:
     """Validate binary classification inputs.
 
@@ -349,10 +358,14 @@ def validate_binary_classification(
     ----------
     labels : array-like
         Binary labels (0 or 1)
-    scores : array-like  
+    scores : array-like
         Predicted scores/probabilities
     weights : array-like, optional
         Sample weights
+    require_proba : bool, default=True
+        If True, enforce [0,1] range for probabilities. If False, allow arbitrary scores.
+    force_dtypes : bool, default=False
+        If True, ensure specific dtypes (int8 for labels, float64 for scores).
 
     Returns
     -------
@@ -361,7 +374,7 @@ def validate_binary_classification(
     """
     # Validate each component
     labels = validate_binary_labels(labels)
-    scores = validate_probabilities(scores, binary=True)
+    scores = validate_probabilities(scores, binary=True, require_proba=require_proba)
 
     # Check shapes match
     if len(labels) != len(scores):
@@ -408,7 +421,7 @@ def validate_inputs(
     else:
         # Try to infer problem type
         pred_arr = np.asarray(predictions)
-        if pred_arr.ndim == 1 or (pred_arr.ndim == 2 and pred_arr.shape[1] <= 2):
+        if pred_arr.ndim == 1:
             return validate_binary_classification(labels, predictions, weights)
         elif pred_arr.ndim == 2 and allow_multiclass:
             return validate_multiclass_classification(labels, predictions, weights)
@@ -419,24 +432,23 @@ def validate_inputs(
 # Choice validators for backward compatibility
 def _validate_metric_name(metric_name: str) -> None:
     """Validate that metric exists in the metric registry.
-    
+
     Parameters
     ----------
     metric_name : str
         Name of the metric to validate
-        
+
     Raises
     ------
     ValueError
         If metric is not registered
     """
     from .metrics import METRIC_REGISTRY
-    
+
     if metric_name not in METRIC_REGISTRY:
         available = sorted(METRIC_REGISTRY.keys())
         raise ValueError(
-            f"Unknown metric '{metric_name}'. "
-            f"Available metrics: {', '.join(available)}"
+            f"Unknown metric '{metric_name}'. Available metrics: {', '.join(available)}"
         )
 
 
@@ -459,9 +471,18 @@ def _validate_comparison_operator(comparison: str) -> None:
     validate_choice(comparison, {">", ">="}, "comparison operator")
 
 
-def _validate_threshold(threshold: float) -> None:
-    """Validate threshold value."""
-    if not np.isfinite(threshold):
+def _validate_threshold(threshold: float | ArrayLike) -> None:
+    """Validate threshold value(s)."""
+    arr = np.atleast_1d(threshold)
+
+    if not np.all(np.isfinite(arr)):
+        if np.any(np.isnan(arr)):
+            raise ValueError("Threshold contains NaN values")
+        if np.any(np.isinf(arr)):
+            raise ValueError("Threshold contains infinite values")
         raise ValueError("Threshold must be finite")
-    if not (0.0 <= threshold <= 1.0):
-        raise ValueError(f"Threshold must be in [0, 1], got {threshold}")
+
+    if not np.all((arr >= 0.0) & (arr <= 1.0)):
+        raise ValueError(
+            f"Threshold must be in [0, 1], got range [{arr.min():.3f}, {arr.max():.3f}]"
+        )

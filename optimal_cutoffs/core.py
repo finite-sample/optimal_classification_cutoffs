@@ -11,22 +11,12 @@ from numpy.typing import ArrayLike
 
 from .metrics import is_piecewise_metric
 
-# Removed ThresholdResult - now using simple return types
-from .types_minimal import (
-    AveragingMethodLiteral,
-    ComparisonOperatorLiteral,
-    EstimationModeLiteral,
-    ExpectedResult,
-    OptimizationMethodLiteral,
-    SampleWeightLike,
-    UtilityDict,
-    UtilityMatrix,
-)
+from .types_minimal import OptimizationResult
 from .validation import (
     _validate_comparison_operator,
-    validate_inputs,
     _validate_metric_name,
     _validate_optimization_method,
+    validate_inputs,
 )
 
 
@@ -34,18 +24,18 @@ def get_optimal_threshold(
     true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    method: OptimizationMethodLiteral = "auto",
+    method: str = "auto",
     sample_weight: ArrayLike | None = None,
-    comparison: ComparisonOperatorLiteral = ">",
+    comparison: str = ">",
     *,
-    mode: EstimationModeLiteral = "empirical",
-    utility: UtilityDict | None = None,
-    utility_matrix: UtilityMatrix | None = None,
+    mode: str = "empirical",
+    utility: dict[str, float] | None = None,
+    utility_matrix: np.ndarray[Any, Any] | None = None,
     minimize_cost: bool | None = None,
     beta: float = 1.0,
     class_weight: ArrayLike | None = None,
-    average: AveragingMethodLiteral = "macro",
-) -> float | np.ndarray[Any, Any] | ExpectedResult | tuple[float, float]:
+    average: str = "macro",
+) -> OptimizationResult:
     """Find the optimal classification threshold(s) for a given metric.
 
     This is the main entry point for threshold optimization, supporting both
@@ -101,24 +91,29 @@ def get_optimal_threshold(
 
     Returns
     -------
-    threshold : float or np.ndarray or ExpectedResult or tuple[float, float]
-        Optimal threshold(s) in simple, direct format:
-        - Binary empirical: float (single threshold)
-        - Multiclass empirical: np.ndarray (per-class thresholds)
-        - Expected mode: ExpectedResult dict or tuple[float, float]
-        - Bayes mode: threshold(s) or decisions based on utility specification
+    OptimizationResult
+        Unified optimization result with:
+        - thresholds: array of optimal thresholds
+        - scores: array of metric scores at thresholds
+        - predict: function for making predictions
+        - diagnostics: optional computation details
+        - Works consistently across all modes and methods
 
     Examples
     --------
     >>> # Binary classification
     >>> y_true = [0, 1, 0, 1, 1]
     >>> y_prob = [0.1, 0.8, 0.3, 0.9, 0.7]
-    >>> threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
+    >>> result = get_optimal_threshold(y_true, y_prob, metric="f1")
+    >>> result.threshold  # Access single threshold
+    >>> result.predict(y_prob)  # Make predictions
 
     >>> # Multiclass classification
     >>> y_true = [0, 1, 2, 1, 0]
     >>> y_prob = [[0.8, 0.1, 0.1], [0.2, 0.7, 0.1], ...]
-    >>> thresholds = get_optimal_threshold(y_true, y_prob, metric="f1")
+    >>> result = get_optimal_threshold(y_true, y_prob, metric="f1")
+    >>> result.thresholds  # Access per-class thresholds
+    >>> result.predict(y_prob)  # Make predictions
     """
     # Validate comparison operator early
     _validate_comparison_operator(comparison)
@@ -177,14 +172,14 @@ def _optimal_threshold_unique_scan(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     metric: str = "f1",
-    sample_weight: SampleWeightLike = None,
-    comparison: ComparisonOperatorLiteral = ">",
+    sample_weight: ArrayLike | None = None,
+    comparison: str = ">",
 ) -> float:
     """Find optimal threshold using brute force over unique probabilities."""
     from .optimize import find_optimal_threshold
 
     operator = ">=" if comparison == ">=" else ">"
-    threshold, _ = find_optimal_threshold(
+    result = find_optimal_threshold(
         true_labs,
         pred_prob,
         metric,
@@ -193,20 +188,20 @@ def _optimal_threshold_unique_scan(
         operator,
         require_probability=True,
     )
-    return threshold
+    return result.threshold
 
 
 def _optimize_empirical(
     true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
     metric: str,
-    method: OptimizationMethodLiteral,
+    method: str,
     sample_weight: ArrayLike | None,
-    comparison: ComparisonOperatorLiteral,
-    utility: UtilityDict | None,
+    comparison: str,
+    utility: dict[str, float] | None,
     minimize_cost: bool | None,
-    average: AveragingMethodLiteral,
-) -> float | np.ndarray[Any, Any]:
+    average: str,
+) -> OptimizationResult:
     """Empirical threshold optimization."""
     from .optimize import find_optimal_threshold, find_optimal_threshold_multiclass
 
@@ -236,8 +231,27 @@ def _optimize_empirical(
 
         # Handle specific method cases
         if method == "unique_scan":
-            return _optimal_threshold_unique_scan(
+            threshold = _optimal_threshold_unique_scan(
                 true_labs, pred_prob, metric, sample_weight, comparison
+            )
+            # Create a simple OptimizationResult for unique_scan
+            def predict_binary(probs):
+                p = np.asarray(probs)
+                if p.ndim == 2 and p.shape[1] == 2:
+                    p = p[:, 1]
+                elif p.ndim == 2 and p.shape[1] == 1:
+                    p = p.ravel()
+                if comparison == ">=":
+                    return (p >= threshold).astype(np.int32)
+                else:
+                    return (p > threshold).astype(np.int32)
+
+            return OptimizationResult(
+                thresholds=np.array([threshold]),
+                scores=np.array([0.0]),  # Score not computed in unique_scan
+                predict=predict_binary,
+                metric=metric,
+                n_classes=2,
             )
 
         # Select optimization method
@@ -259,7 +273,7 @@ def _optimize_empirical(
         operator = ">=" if comparison == ">=" else ">"
 
         # Use new API
-        threshold, _ = find_optimal_threshold(
+        return find_optimal_threshold(
             true_labs,
             pred_prob,
             metric,
@@ -268,20 +282,19 @@ def _optimize_empirical(
             operator,
             require_probability=True,  # Default to requiring probabilities
         )
-        return threshold
 
 
 def _optimize_expected(
     true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
     metric: str,
-    method: OptimizationMethodLiteral,
+    method: str,
     sample_weight: ArrayLike | None,
-    comparison: ComparisonOperatorLiteral,
+    comparison: str,
     beta: float,
     class_weight: ArrayLike | None,
-    average: AveragingMethodLiteral,
-) -> ExpectedResult | tuple[float, float]:
+    average: str,
+) -> OptimizationResult:
     """Expected metric optimization using Dinkelbach method."""
     from .expected import (
         dinkelbach_expected_fbeta_binary,
@@ -303,8 +316,8 @@ def _optimize_expected(
             beta,
             sw,  # sample_weight
             avg_method,  # average
-            true_labs,  # true_labels
-            comparison,
+            true_labels=true_labs,  # true_labels
+            comparison=comparison,
         )
     else:
         if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
@@ -316,11 +329,11 @@ def _optimize_expected(
 def _optimize_bayes(
     true_labs: ArrayLike | None,
     pred_prob: ArrayLike,
-    utility: UtilityDict | None,
-    utility_matrix: UtilityMatrix | None,
+    utility: dict[str, float] | None,
+    utility_matrix: np.ndarray[Any, Any] | None,
     minimize_cost: bool | None,
-    comparison: ComparisonOperatorLiteral,
-) -> float | np.ndarray[Any, Any]:
+    comparison: str,
+) -> OptimizationResult:
     """Bayes-optimal threshold optimization."""
     from .bayes import (
         bayes_optimal_decisions,
@@ -335,7 +348,7 @@ def _optimize_bayes(
         # Use utility matrix for Bayes decisions
         if not is_multiclass:
             raise ValueError("utility_matrix requires multiclass probabilities")
-        return bayes_optimal_decisions(pred_prob, utility_matrix)  # type: ignore[return-value]
+        return bayes_optimal_decisions(pred_prob, utility_matrix)
 
     elif utility is not None:
         # Use utility dict for threshold computation
@@ -362,7 +375,7 @@ def _optimize_bayes(
             fp_costs = np.asarray(fp_cost) if not np.isscalar(fp_cost) else [fp_cost]
             fn_costs = np.asarray(fn_cost) if not np.isscalar(fn_cost) else [fn_cost]
 
-            return bayes_thresholds_from_costs(fp_costs, fn_costs)  # type: ignore[return-value]
+            return bayes_thresholds_from_costs(fp_costs, fn_costs)
         else:
             # Single threshold
             return bayes_optimal_threshold(

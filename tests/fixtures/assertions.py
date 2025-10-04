@@ -284,7 +284,7 @@ def assert_optimization_successful(
     min_score : float
         Minimum acceptable score
     """
-    assert_valid_threshold(threshold)
+    assert_valid_threshold(result.threshold)
     assert_valid_metric_score(metric_score, metric_name)
     assert metric_score >= min_score, (
         f"{metric_name} score {metric_score} below minimum {min_score}"

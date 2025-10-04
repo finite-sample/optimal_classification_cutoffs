@@ -6,7 +6,7 @@ import pytest
 from optimal_cutoffs import (
     METRIC_REGISTRY,
     get_multiclass_confusion_matrix,
-    multiclass_metric,
+    multiclass_metric_ovr,
 )
 
 

@@ -13,6 +13,7 @@ from typing import Any
 
 import numpy as np
 
+from .types_minimal import OptimizationResult
 from .validation import validate_binary_classification
 
 Array = np.ndarray[Any, Any]
@@ -267,7 +268,7 @@ def optimal_threshold_sortscan(
     sample_weight: Array | None = None,
     inclusive: bool = False,  # True for ">=" (inclusive), False for ">" (exclusive)
     require_proba: bool = True,  # True for probabilities [0,1], False for scores
-) -> tuple[float, float, int]:
+) -> OptimizationResult:
     """Exact optimizer for piecewise-constant metrics using O(n log n) sort-and-scan.
 
     This algorithm sorts predictions by descending score once, then uses
@@ -295,9 +296,8 @@ def optimal_threshold_sortscan(
 
     Returns
     -------
-    Tuple[float, float, int]
-        - threshold: Optimal decision threshold
-        - best_score: Best metric score achieved
+    OptimizationResult
+        Optimization result with threshold, score, and predict function
         - k_star: Optimal cut position in sorted array
 
     Raises
@@ -346,7 +346,27 @@ def optimal_threshold_sortscan(
                 np.array([0.0]),
             )[0]
         )
-        return threshold, score, 0
+
+        # Create prediction function for all-negative case
+        def predict_all_negative(probs):
+            p = np.asarray(probs)
+            if p.ndim == 2 and p.shape[1] == 2:
+                p = p[:, 1]
+            elif p.ndim == 2 and p.shape[1] == 1:
+                p = p.ravel()
+            if inclusive:
+                return (p >= threshold).astype(int)
+            else:
+                return (p > threshold).astype(int)
+
+        return OptimizationResult(
+            thresholds=np.array([threshold]),
+            scores=np.array([score]),
+            predict=predict_all_negative,
+            metric="piecewise_metric",
+            n_classes=2,
+            diagnostics={"k_star": 0},
+        )
     elif np.all(y == 1):  # All positives - optimal threshold predicts all positive
         min_score = float(np.min(p))
         if not inclusive:  # exclusive ">"
@@ -367,7 +387,27 @@ def optimal_threshold_sortscan(
                 np.array([0.0]),
             )[0]
         )
-        return threshold, score, n
+
+        # Create prediction function for all-positive case
+        def predict_all_positive(probs):
+            p = np.asarray(probs)
+            if p.ndim == 2 and p.shape[1] == 2:
+                p = p[:, 1]
+            elif p.ndim == 2 and p.shape[1] == 1:
+                p = p.ravel()
+            if inclusive:
+                return (p >= threshold).astype(int)
+            else:
+                return (p > threshold).astype(int)
+
+        return OptimizationResult(
+            thresholds=np.array([threshold]),
+            scores=np.array([score]),
+            predict=predict_all_positive,
+            metric="piecewise_metric",
+            n_classes=2,
+            diagnostics={"k_star": n},
+        )
 
     # Sort by descending probability (stable sort for reproducibility)
     sort_idx = np.argsort(-p, kind="mergesort")
@@ -502,7 +542,27 @@ def optimal_threshold_sortscan(
                 )
 
         k_real = _realized_k(p_sorted, best_alt_threshold, inclusive)
-        return best_alt_threshold, best_alt_score, k_real
+
+        # Create prediction function for alternative threshold case
+        def predict_alt_threshold(probs):
+            p = np.asarray(probs)
+            if p.ndim == 2 and p.shape[1] == 2:
+                p = p[:, 1]
+            elif p.ndim == 2 and p.shape[1] == 1:
+                p = p.ravel()
+            if inclusive:
+                return (p >= best_alt_threshold).astype(int)
+            else:
+                return (p > best_alt_threshold).astype(int)
+
+        return OptimizationResult(
+            thresholds=np.array([best_alt_threshold]),
+            scores=np.array([best_alt_score]),
+            predict=predict_alt_threshold,
+            metric="piecewise_metric",
+            n_classes=2,
+            diagnostics={"k_star": k_real},
+        )
 
     # Apply final clamping for probability constraints and recalculate score if needed
     if require_proba:
@@ -539,4 +599,24 @@ def optimal_threshold_sortscan(
             )
 
     k_real = _realized_k(p_sorted, threshold, inclusive)
-    return threshold, actual_score, k_real
+
+    # Create prediction function (closure captures threshold and inclusive)
+    def predict_binary(probs):
+        p = np.asarray(probs)
+        if p.ndim == 2 and p.shape[1] == 2:
+            p = p[:, 1]  # Use positive class probabilities
+        elif p.ndim == 2 and p.shape[1] == 1:
+            p = p.ravel()
+        if inclusive:
+            return (p >= threshold).astype(int)
+        else:
+            return (p > threshold).astype(int)
+
+    return OptimizationResult(
+        thresholds=np.array([threshold]),
+        scores=np.array([actual_score]),
+        predict=predict_binary,
+        metric="piecewise_metric",
+        n_classes=2,
+        diagnostics={"k_star": k_real},
+    )

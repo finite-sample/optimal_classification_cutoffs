@@ -34,12 +34,12 @@ class TestBinaryClassificationWorkflows:
 
         # Test full workflow with different metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold = get_optimal_threshold(y_true, y_prob, metric=metric)
+            result = get_optimal_threshold(y_true, y_prob, metric=metric)
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
             # Compute confusion matrix and verify
-            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
             assert_valid_confusion_matrix(tp, tn, fp, fn, total_samples=len(y_true))
 
             # Compute achieved metric score
@@ -68,13 +68,13 @@ class TestBinaryClassificationWorkflows:
         results = {}
 
         for method in methods:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", method=method
             )
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
             # Compute achieved F1 score
-            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
             precision = tp / (tp + fp) if tp + fp > 0 else 0.0
             recall = tp / (tp + fn) if tp + fn > 0 else 0.0
             f1 = (
@@ -83,7 +83,7 @@ class TestBinaryClassificationWorkflows:
                 else 0.0
             )
 
-            results[method] = (threshold, f1)
+            results[method] = (result.threshold, f1)
 
         # All methods should achieve reasonable performance
         for method, (threshold, f1) in results.items():
@@ -94,15 +94,13 @@ class TestBinaryClassificationWorkflows:
         y_true, y_prob = generate_binary_data(50, random_state=42)
 
         # Empirical mode
-        threshold_empirical = get_optimal_threshold(y_true, y_prob, mode="empirical")
-        assert_valid_threshold(threshold_empirical)
+        result_empirical = get_optimal_threshold(y_true, y_prob, mode="empirical")
+        assert_valid_threshold(result_empirical.threshold)
 
-        # Expected mode (returns tuple)
+        # Expected mode (now returns OptimizationResult)
         result_expected = get_optimal_threshold(y_true, y_prob, mode="expected")
-        assert isinstance(result_expected, tuple)
-        threshold_expected, expected_score = result_expected
-        assert_valid_threshold(threshold_expected)
-        assert_valid_metric_score(expected_score, "expected_f1")
+        assert_valid_threshold(result_expected.threshold)
+        assert_valid_metric_score(result_expected.score, "expected_f1")
 
 
 class TestSampleWeights:
@@ -113,13 +111,13 @@ class TestSampleWeights:
         y_true, y_prob = generate_binary_data(30, random_state=42)
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
 
         # Compute weighted confusion matrix
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold, weights)
+        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold, weights)
         assert_valid_confusion_matrix(tp, tn, fp, fn, total_weight=np.sum(weights))
 
     def test_sample_weights_vs_expansion(self):
@@ -158,10 +156,10 @@ class TestSampleWeights:
         for weight_type in weight_types:
             weights = generate_sample_weights(len(y_true), weight_type, random_state=42)
 
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", sample_weight=weights
             )
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
     def test_sample_weights_with_different_methods(self):
         """Test sample weights work with different optimization methods."""
@@ -172,10 +170,10 @@ class TestSampleWeights:
         methods = ["unique_scan", "minimize"]
 
         for method in methods:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", method=method, sample_weight=weights
             )
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
 
 class TestComparisonOperators:
@@ -186,10 +184,10 @@ class TestComparisonOperators:
         y_true, y_prob = generate_tied_probabilities(30, random_state=42)
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
     def test_comparison_operators_with_ties(self):
         """Test comparison operators specifically on tied data."""
@@ -255,11 +253,11 @@ class TestImbalancedData:
         )
 
         # Should handle extreme imbalance
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         # Verify confusion matrix validity
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
         assert_valid_confusion_matrix(tp, tn, fp, fn, total_samples=len(y_true))
 
     def test_imbalanced_different_metrics(self):
@@ -272,10 +270,10 @@ class TestImbalancedData:
         metrics = ["f1", "accuracy", "precision", "recall"]
 
         for metric in metrics:
-            threshold = get_optimal_threshold(y_true, y_prob, metric=metric)
-            assert_valid_threshold(threshold)
+            result = get_optimal_threshold(y_true, y_prob, metric=metric)
+            assert_valid_threshold(result.threshold)
 
-            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
             assert_valid_confusion_matrix(tp, tn, fp, fn, total_samples=len(y_true))
 
     def test_imbalanced_with_weights(self):
@@ -288,10 +286,10 @@ class TestImbalancedData:
         weights = np.ones(len(y_true))
         weights[y_true == 1] *= 5.0  # Upweight positive class
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
 
 
 class TestCrossValidation:
@@ -324,7 +322,7 @@ class TestCrossValidation:
             assert len(thresholds) == 3
             assert len(scores) == 3
             for threshold in thresholds:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
             for score in scores:
                 assert_valid_metric_score(score, "f1")
 
@@ -353,10 +351,10 @@ class TestMethodInteractions:
 
         for method in methods:
             for metric in metrics:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, y_prob, method=method, metric=metric
                 )
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
     def test_method_comparison_combinations(self):
         """Test methods with different comparison operators."""
@@ -367,10 +365,10 @@ class TestMethodInteractions:
 
         for method in methods:
             for comparison in comparisons:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, y_prob, method=method, comparison=comparison
                 )
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
 
     def test_weights_comparison_combinations(self):
         """Test sample weights with comparison operators."""
@@ -378,10 +376,10 @@ class TestMethodInteractions:
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, comparison=comparison, sample_weight=weights
             )
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
 
 class TestBinaryPerformance:
@@ -437,9 +435,9 @@ class TestBinaryEdgeCaseIntegration:
 
         # Should achieve perfect or near-perfect performance
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold = get_optimal_threshold(y_true, y_prob, metric=metric)
+            result = get_optimal_threshold(y_true, y_prob, metric=metric)
 
-            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+            tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
 
             if metric == "accuracy":
                 score = (tp + tn) / (tp + tn + fp + fn)
@@ -457,11 +455,11 @@ class TestBinaryEdgeCaseIntegration:
         y_true = np.array([0, 1])
         y_prob = np.array([0.3, 0.7])
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
         # Should achieve perfect classification
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
         assert tp + tn == 2  # Perfect accuracy possible
 
     def test_all_same_predictions_integration(self):
@@ -470,10 +468,10 @@ class TestBinaryEdgeCaseIntegration:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])
 
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
             tp, tn, fp, fn = get_confusion_matrix(
                 y_true, y_prob, threshold, comparison=comparison

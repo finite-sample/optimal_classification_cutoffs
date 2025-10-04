@@ -19,7 +19,6 @@ except Exception:
 
 from .bayes import (
     BayesOptimal,
-    BayesThresholdResult,
     bayes_optimal_decisions,
     bayes_optimal_threshold,
     bayes_thresholds_from_costs,
@@ -54,13 +53,7 @@ from .metrics import (
 from .optimize import (
     find_optimal_threshold_multiclass as get_optimal_multiclass_thresholds,
 )
-from .types_minimal import (
-    AveragingMethod,
-    ComparisonOperator,
-    EstimationMode,
-    MulticlassMetricReturn,
-    OptimizationMethod,
-)
+from .types_minimal import OptimizationResult
 
 # Removed ThresholdOptimizer - use get_optimal_threshold() directly
 
@@ -68,7 +61,6 @@ __all__ = [
     "__version__",
     # Enhanced Bayes functions
     "BayesOptimal",
-    "BayesThresholdResult",
     "bayes_optimal_decisions",
     "bayes_optimal_threshold",
     "bayes_thresholds_from_costs",
@@ -102,10 +94,6 @@ __all__ = [
     "cv_threshold_optimization",
     "nested_cv_threshold_optimization",
     # High-level wrapper removed - use get_optimal_threshold() directly
-    # Types and Enums
-    "MulticlassMetricReturn",
-    "OptimizationMethod",
-    "AveragingMethod",
-    "ComparisonOperator",
-    "EstimationMode",
+    # Types
+    "OptimizationResult",
 ]

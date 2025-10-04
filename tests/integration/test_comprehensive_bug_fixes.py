@@ -19,8 +19,8 @@ from optimal_cutoffs.metrics import (
     f1_score,
     get_confusion_matrix,
     get_multiclass_confusion_matrix,
-    multiclass_metric,
-    multiclass_metric_exclusive,
+    multiclass_metric_ovr,
+    multiclass_metric_single_label,
 )
 from optimal_cutoffs.optimize import find_optimal_threshold_multiclass
 
@@ -33,7 +33,7 @@ class TestDegenerateCasesFix:
         y_true = [0, 0, 0, 0]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">"
         )
 
@@ -48,7 +48,7 @@ class TestDegenerateCasesFix:
         y_true = [0, 0, 0, 0]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">="
         )
 
@@ -63,7 +63,7 @@ class TestDegenerateCasesFix:
         y_true = [1, 1, 1, 1]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">"
         )
 
@@ -78,7 +78,7 @@ class TestDegenerateCasesFix:
         y_true = [1, 1, 1, 1]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">="
         )
 
@@ -243,7 +243,7 @@ class TestLabelValidationFix:
         pred_prob = np.random.rand(4, 3)  # Only 3 classes
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
-        with pytest.raises(ValueError, match="must be within \\[0, 2\\]"):
+        with pytest.raises(ValueError, match="Found label 3 but n_classes=3"):
             get_optimal_threshold(y_true, pred_prob, metric="f1")
 
     def test_sparse_labels_work(self):
@@ -269,7 +269,7 @@ class TestBinarySearchEfficiency:
 
         # Test both comparison operators
         for comparison in [">", ">="]:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true,
                 pred_prob,
                 metric="f1",
@@ -294,7 +294,7 @@ class TestBinarySearchEfficiency:
         pred_prob = np.random.rand(100)
         sample_weight = np.random.rand(100) * 2  # Random weights
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true,
             pred_prob,
             metric="f1",
@@ -680,7 +680,7 @@ class TestRegressionPrevention:
             for method in ["unique_scan", "minimize"]:
                 for comparison in [">", ">="]:
                     try:
-                        threshold = get_optimal_threshold(
+                        result = get_optimal_threshold(
                             y_true,
                             pred_prob,
                             metric="f1",

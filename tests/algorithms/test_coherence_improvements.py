@@ -39,7 +39,7 @@ class TestModeParameter:
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
         utility = {"tp": 0, "tn": 0, "fp": -1, "fn": -5}
 
-        threshold = get_optimal_threshold(None, y_prob, mode="bayes", utility=utility)
+        result = get_optimal_threshold(None, y_prob, mode="bayes", utility=utility)
         expected = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
 
         assert abs(threshold - expected) < 1e-10
@@ -76,8 +76,8 @@ class TestModeParameter:
         result = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
         assert isinstance(result, dict)
         assert "thresholds" in result
-        assert "f_beta_per_class" in result
-        assert "f_beta" in result
+        assert "per_class" in result
+        assert "score" in result
         assert isinstance(result["thresholds"], np.ndarray)
         assert len(result["thresholds"]) == 3  # 3 classes
 
@@ -334,5 +334,5 @@ class TestErrorMessages:
         result = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
         assert isinstance(result, dict)
         assert "thresholds" in result
-        assert "f_beta_per_class" in result
-        assert "f_beta" in result
+        assert "per_class" in result
+        assert "score" in result

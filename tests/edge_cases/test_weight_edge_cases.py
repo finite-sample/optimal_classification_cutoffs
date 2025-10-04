@@ -141,7 +141,7 @@ def test_direct_api_with_sample_weights():
     sample_weight = np.array([1.0, 1.0, 2.0, 2.0, 2.0])  # Weight positive class more
 
     # Use direct API instead of removed wrapper
-    threshold = get_optimal_threshold(
+    result = get_optimal_threshold(
         true_labs, pred_prob, metric="f1", sample_weight=sample_weight
     )
 
@@ -237,7 +237,7 @@ def test_sample_weights_piecewise_optimization():
     sample_weight = np.array([1.0, 1.0, 2.0, 2.0, 2.0])
 
     # F1 is piecewise, so should use the fast algorithm
-    threshold = get_optimal_threshold(
+    result = get_optimal_threshold(
         true_labs, pred_prob, "f1", method="unique_scan", sample_weight=sample_weight
     )
 
@@ -272,7 +272,7 @@ def test_backward_compatibility():
     pred_prob = np.array([0.2, 0.8, 0.7, 0.3])
 
     # All these should work exactly as before
-    threshold = get_optimal_threshold(true_labs, pred_prob, "f1")
+    result = get_optimal_threshold(true_labs, pred_prob, "f1")
     assert 0 <= threshold <= 1
 
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, 0.5)

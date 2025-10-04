@@ -185,7 +185,7 @@ class TestWeightedEqualsExpanded:
         w = np.array([0.1, 1.7, 2.3, 0.9, 1.4])  # Fractional weights
 
         # This should work without error and preserve fractional precision
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y, p, metric="f1", method="sort_scan", sample_weight=w
         )
 
@@ -303,7 +303,7 @@ class TestWeightEdgeCases:
         w = np.array([0.0, 1.0, 2.0, 0.0])  # Some zero weights
 
         # Should not crash
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y, p, metric="f1", method="sort_scan", sample_weight=w
         )
 
@@ -354,7 +354,7 @@ class TestWeightEdgeCases:
         p = np.array([0.2, 0.7, 0.8, 0.3])
         w = np.array([0.0, 1.0, 0.0, 0.0])  # Only second sample weighted
 
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y, p, metric="accuracy", method="sort_scan", sample_weight=w
         )
 

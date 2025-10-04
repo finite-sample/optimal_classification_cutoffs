@@ -61,7 +61,7 @@ class TestBasicDeterminism:
 
             for run in range(5):
                 try:
-                    threshold = get_optimal_threshold(
+                    result = get_optimal_threshold(
                         labels, probs, metric="f1", method=method, comparison=">"
                     )
                     thresholds.append(threshold)
@@ -91,7 +91,7 @@ class TestBasicDeterminism:
 
             for run in range(3):
                 try:
-                    threshold = get_optimal_threshold(
+                    result = get_optimal_threshold(
                         labels,
                         probs,
                         metric=metric,
@@ -121,7 +121,7 @@ class TestBasicDeterminism:
         results = []
         for run in range(4):
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels,
                     probs,
                     metric="f1",
@@ -159,7 +159,7 @@ class TestBasicDeterminism:
         try:
             results = []
             for _ in range(3):
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
                 results.append(threshold)
@@ -190,7 +190,7 @@ class TestStableSorting:
         results = []
         for _ in range(10):
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
                 results.append(threshold)
@@ -214,7 +214,7 @@ class TestStableSorting:
         for comparison in [">", ">="]:
             for _ in range(5):
                 try:
-                    threshold = get_optimal_threshold(
+                    result = get_optimal_threshold(
                         labels,
                         probs,
                         metric="accuracy",
@@ -250,7 +250,7 @@ class TestStableSorting:
         probs = np.array([0.2, 0.5, 0.5, 0.8, 0.5])  # Multiple 0.5 values
 
         try:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
 
@@ -283,7 +283,7 @@ class TestStableSorting:
         thresholds = []
         for _ in range(8):
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
                 thresholds.append(threshold)
@@ -307,7 +307,7 @@ class TestNumericalStability:
         labels, probs = _create_numerical_precision_scenario()
 
         try:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
 
@@ -340,7 +340,7 @@ class TestNumericalStability:
 
             for _ in range(3):
                 try:
-                    threshold = get_optimal_threshold(
+                    result = get_optimal_threshold(
                         labels, probs, metric="accuracy", method=method, comparison=">"
                     )
                     results.append(threshold)
@@ -367,7 +367,7 @@ class TestNumericalStability:
         base_probs = np.array([0.2, 0.7, 0.6, 0.3, 0.8])
 
         try:
-            base_threshold = get_optimal_threshold(
+            base_result = get_optimal_threshold(
                 base_labels, base_probs, metric="f1", method="sort_scan", comparison=">"
             )
 
@@ -378,7 +378,7 @@ class TestNumericalStability:
                 perturbed_probs = base_probs + perturbation
                 perturbed_probs = np.clip(perturbed_probs, 0, 1)  # Keep in valid range
 
-                perturbed_threshold = get_optimal_threshold(
+                perturbed_result = get_optimal_threshold(
                     base_labels,
                     perturbed_probs,
                     metric="f1",
@@ -412,7 +412,7 @@ class TestNumericalStability:
         for labels, probs in edge_cases:
             for comparison in [">", ">="]:
                 try:
-                    threshold = get_optimal_threshold(
+                    result = get_optimal_threshold(
                         labels,
                         probs,
                         metric="accuracy",
@@ -473,7 +473,7 @@ class TestReproducibilityAcrossPlatforms:
         results = []
         for labels, probs in array_types:
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
                 results.append(threshold)
@@ -530,7 +530,7 @@ class TestReproducibilityAcrossPlatforms:
         results = []
         for i in range(20):
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="f1", method="sort_scan", comparison=">="
                 )
                 results.append((i, threshold))

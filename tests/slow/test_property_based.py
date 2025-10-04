@@ -14,7 +14,7 @@ from optimal_cutoffs import (
 from optimal_cutoffs.metrics import (
     compute_metric_at_threshold,
     get_multiclass_confusion_matrix,
-    multiclass_metric,
+    multiclass_metric_ovr,
 )
 from optimal_cutoffs.optimize import find_optimal_threshold
 
@@ -104,7 +104,7 @@ class TestCoreInvariants:
                 threshold = max(0.0, min(1.0, threshold))
 
                 try:
-                    score = compute_metric_at_threshold(y_true, p, threshold, metric)
+                    score = compute_metric_at_threshold(y_true, y_prob, result.threshold, metric)
                     if score > best_score:
                         best_score = score
                         best_threshold = threshold
@@ -260,7 +260,7 @@ class TestCoreInvariants:
         """Confusion matrix elements should sum to total samples."""
         labels, probabilities = data
 
-        threshold = get_optimal_threshold(labels, probabilities, "f1")
+        result = get_optimal_threshold(labels, probabilities, "f1")
         tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
 
         total = tp + tn + fp + fn
@@ -324,7 +324,7 @@ class TestStatisticalProperties:
             return
 
         # Check if original separation is already very good
-        original_threshold = get_optimal_threshold(labels, probabilities, "f1")
+        original_result = get_optimal_threshold(labels, probabilities, "f1")
         original_f1 = compute_metric_at_threshold(
             labels, probabilities, original_threshold, "f1"
         )
@@ -362,7 +362,7 @@ class TestStatisticalProperties:
 
         # Compare metrics
         for metric in ["accuracy", "f1"]:
-            perfect_threshold = get_optimal_threshold(labels, perfect_probs, metric)
+            perfect_result = get_optimal_threshold(labels, perfect_probs, metric)
 
             original_score = compute_metric_at_threshold(
                 labels, probabilities, original_threshold, metric
@@ -400,7 +400,7 @@ class TestStatisticalProperties:
         if len(np.unique(labels)) < 2:
             return
 
-        threshold = get_optimal_threshold(labels, probabilities, "f1")
+        result = get_optimal_threshold(labels, probabilities, "f1")
 
         # Test all registered metrics
         for metric_name in ["f1", "accuracy", "precision", "recall"]:
@@ -425,7 +425,7 @@ class TestStatisticalProperties:
             return
 
         try:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probabilities, "f1", method=method
             )
 
@@ -459,7 +459,7 @@ class TestNumericalStability:
         labels = np.array([i % 2 for i in range(size)])
 
         # Should handle gracefully without numerical issues
-        threshold = get_optimal_threshold(labels, probabilities, "f1")
+        result = get_optimal_threshold(labels, probabilities, "f1")
         assert 0 <= threshold <= 1
 
         # Confusion matrix should be valid
@@ -482,7 +482,7 @@ class TestNumericalStability:
             return
 
         # Should handle extreme values gracefully
-        threshold = get_optimal_threshold(labels, probabilities, "accuracy")
+        result = get_optimal_threshold(labels, probabilities, "accuracy")
         assert 0 <= threshold <= 1
 
         # Test confusion matrix
@@ -606,7 +606,7 @@ class TestMulticlassPropertyBased:
 
                 # Skip if this class has no positive examples
                 if np.sum(binary_labels) > 0 and np.sum(1 - binary_labels) > 0:
-                    threshold = get_optimal_threshold(binary_labels, binary_probs, "f1")
+                    result = get_optimal_threshold(binary_labels, binary_probs, "f1")
                     manual_thresholds.append(threshold)
                 else:
                     manual_thresholds.append(0.5)  # Default for degenerate case
@@ -900,7 +900,7 @@ class TestPerformanceProperties:
 
         # The algorithm should not create data structures that scale quadratically
         # This is mainly tested by ensuring it completes without memory errors
-        threshold = get_optimal_threshold(labels, probabilities, "accuracy")
+        result = get_optimal_threshold(labels, probabilities, "accuracy")
         assert 0 <= threshold <= 1
 
         # Test that confusion matrix computation is also linear
@@ -926,7 +926,7 @@ class TestPerformanceProperties:
         for method in methods:
             start_time = time.time()
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probabilities, "f1", method=method
                 )
                 end_time = time.time()
@@ -995,7 +995,7 @@ class TestPerformanceProperties:
         import time
 
         start_time = time.time()
-        threshold = get_optimal_threshold(labels, probabilities, "f1")
+        result = get_optimal_threshold(labels, probabilities, "f1")
         end_time = time.time()
 
         # Time should scale with number of unique values, not total samples
@@ -1031,7 +1031,7 @@ class TestPerformanceProperties:
         for case_name, test_labels, test_probs in edge_cases:
             start_time = time.time()
             try:
-                threshold = get_optimal_threshold(test_labels, test_probs, "accuracy")
+                result = get_optimal_threshold(test_labels, test_probs, "accuracy")
                 end_time = time.time()
 
                 # Should complete in reasonable time

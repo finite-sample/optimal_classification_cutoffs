@@ -113,7 +113,7 @@ class TestAlgorithmicComplexity:
 
         # Time the brute force method
         start_time = time.time()
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
         end_time = time.time()
@@ -146,7 +146,7 @@ class TestMemoryUsageCharacteristics:
         gc.collect()
 
         try:
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, pred_prob, metric="f1", method="sort_scan"
             )
             assert 0.0 <= threshold <= 1.0
@@ -169,7 +169,7 @@ class TestMemoryUsageCharacteristics:
             gc.collect()  # Clean up before each test
 
             try:
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, pred_prob, metric="f1", method=method
                 )
                 assert 0.0 <= threshold <= 1.0
@@ -213,7 +213,7 @@ class TestWorstCasePerformance:
 
         for method in methods:
             start_time = time.time()
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, pred_prob, metric="f1", method=method
             )
             end_time = time.time()
@@ -236,7 +236,7 @@ class TestWorstCasePerformance:
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         start_time = time.time()
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
         end_time = time.time()
@@ -254,7 +254,7 @@ class TestWorstCasePerformance:
         pred_prob = np.random.RandomState(42).choice(unique_probs, n_samples)
 
         start_time = time.time()
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
         end_time = time.time()
@@ -280,7 +280,7 @@ class TestNumericalStabilityPerformance:
         )
 
         start_time = time.time()
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
         end_time = time.time()
@@ -301,7 +301,7 @@ class TestNumericalStabilityPerformance:
         )
 
         start_time = time.time()
-        threshold = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
         end_time = time.time()
@@ -325,7 +325,7 @@ class TestConcurrentPerformance:
             y_true = np.random.randint(0, 2, n_samples)
             pred_prob = np.random.uniform(0, 1, n_samples)
 
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, pred_prob, metric="f1", method="unique_scan"
             )
             assert 0.0 <= threshold <= 1.0
@@ -347,7 +347,7 @@ class TestConcurrentPerformance:
 
         for metric in metrics:
             start_time = time.time()
-            threshold = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, pred_prob, metric=metric, method="unique_scan"
             )
             end_time = time.time()

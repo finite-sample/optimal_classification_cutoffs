@@ -41,13 +41,13 @@ class TestConcurrentStressTesting:
                 y_true, pred_prob = generate_binary_data(n_samples, random_state=i)
 
                 start_time = time.perf_counter()
-                threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+                result = get_optimal_threshold(y_true, pred_prob, metric="f1")
                 end_time = time.perf_counter()
 
                 execution_time = end_time - start_time
                 execution_times.append(execution_time)
 
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
                 success_count += 1
 
                 # Verify quality occasionally
@@ -91,8 +91,8 @@ class TestConcurrentStressTesting:
             success_count = 0
             for i, (y_true, pred_prob) in enumerate(datasets):
                 try:
-                    threshold = get_optimal_threshold(y_true, pred_prob)
-                    assert_valid_threshold(threshold)
+                    result = get_optimal_threshold(y_true, pred_prob)
+                    assert_valid_threshold(result.threshold)
                     success_count += 1
                 except MemoryError:
                     # Expected under high memory pressure
@@ -124,10 +124,10 @@ class TestConcurrentStressTesting:
         for seed in range(n_seeds):
             y_true, pred_prob = generate_binary_data(n_samples, random_state=seed)
 
-            threshold = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
-            score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
+            result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
+            score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(score, "f1")
 
             thresholds.append(threshold)
@@ -184,12 +184,12 @@ class TestResourceExhaustionStress:
                     y_true[0] = 0
 
                 start_time = time.time()
-                threshold = get_optimal_threshold(y_true, pred_prob)
+                result = get_optimal_threshold(y_true, pred_prob)
                 end_time = time.time()
 
                 execution_time = end_time - start_time
 
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
                 assert execution_time < 60.0, (
                     f"Scenario {i} took {execution_time:.2f}s with {max_size} samples"
                 )
@@ -239,8 +239,8 @@ class TestResourceExhaustionStress:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")  # Suppress expected warnings
 
-                    threshold = get_optimal_threshold(y_true, pred_prob)
-                    assert_valid_threshold(threshold)
+                    result = get_optimal_threshold(y_true, pred_prob)
+                    assert_valid_threshold(result.threshold)
 
                     score = compute_metric_at_threshold(
                         y_true, pred_prob, threshold, "f1"
@@ -301,10 +301,10 @@ class TestRobustnessUnderAdversarialConditions:
                 elif np.sum(y_true) == len(y_true):
                     y_true[0] = 0
 
-                threshold = get_optimal_threshold(y_true, pred_prob)
-                assert_valid_threshold(threshold)
+                result = get_optimal_threshold(y_true, pred_prob)
+                assert_valid_threshold(result.threshold)
 
-                score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
+                score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
                 assert_valid_metric_score(score, "f1")
 
             except Exception as e:
@@ -339,10 +339,10 @@ class TestRobustnessUnderAdversarialConditions:
 
         for i, case in enumerate(edge_cases):
             try:
-                threshold = get_optimal_threshold(case["y_true"], case["pred_prob"])
+                result = get_optimal_threshold(case["y_true"], case["pred_prob"])
 
                 if case["should_work"]:
-                    assert_valid_threshold(threshold)
+                    assert_valid_threshold(result.threshold)
                 else:
                     pytest.fail(f"Case {i} should have failed but didn't")
 
@@ -392,8 +392,8 @@ class TestRobustnessUnderAdversarialConditions:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")  # Suppress precision warnings
 
-                    threshold = get_optimal_threshold(y_true, pred_prob)
-                    assert_valid_threshold(threshold)
+                    result = get_optimal_threshold(y_true, pred_prob)
+                    assert_valid_threshold(result.threshold)
 
                 print(f"Floating point case '{case['name']}' succeeded")
 
@@ -423,10 +423,10 @@ class TestLongRunningReliability:
 
             start_time = time.perf_counter()
             try:
-                threshold = get_optimal_threshold(y_true, pred_prob)
+                result = get_optimal_threshold(y_true, pred_prob)
                 end_time = time.perf_counter()
                 initial_times.append(end_time - start_time)
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
             except Exception:
                 failure_count += 1
 
@@ -435,8 +435,8 @@ class TestLongRunningReliability:
             y_true, pred_prob = generate_binary_data(n_samples, random_state=i)
 
             try:
-                threshold = get_optimal_threshold(y_true, pred_prob)
-                assert_valid_threshold(threshold)
+                result = get_optimal_threshold(y_true, pred_prob)
+                assert_valid_threshold(result.threshold)
             except Exception:
                 failure_count += 1
 
@@ -446,10 +446,10 @@ class TestLongRunningReliability:
 
             start_time = time.perf_counter()
             try:
-                threshold = get_optimal_threshold(y_true, pred_prob)
+                result = get_optimal_threshold(y_true, pred_prob)
                 end_time = time.perf_counter()
                 final_times.append(end_time - start_time)
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
             except Exception:
                 failure_count += 1
 
@@ -478,7 +478,7 @@ class TestLongRunningReliability:
         y_true, pred_prob = generate_binary_data(1000, random_state=reference_data_seed)
 
         # Get reference result
-        reference_threshold = get_optimal_threshold(
+        reference_result = get_optimal_threshold(
             y_true, pred_prob, method="unique_scan"
         )
 
@@ -492,7 +492,7 @@ class TestLongRunningReliability:
                 _ = get_optimal_threshold(temp_y, temp_p)
 
             # Test determinism on reference data
-            current_threshold = get_optimal_threshold(
+            current_result = get_optimal_threshold(
                 y_true, pred_prob, method="unique_scan"
             )
 

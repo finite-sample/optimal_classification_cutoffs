@@ -5,99 +5,54 @@ All complex validated classes have been removed in favor of simple, direct valid
 """
 
 # ============================================================================
-# Core Type Aliases
+# Core Type Aliases and Classes
 # ============================================================================
 from collections.abc import Callable
-from typing import TypeAlias
+from dataclasses import dataclass, field
+from typing import Any, TypeAlias
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-MetricFunc: TypeAlias = Callable[
-    [int | float, int | float, int | float, int | float], float
-]
-"""Function signature for metrics: (tp, tn, fp, fn) -> score."""
 
-MulticlassMetricReturn: TypeAlias = float | NDArray[np.float64]
-"""Return type for multiclass metrics: float for averaged, array for average='none'."""
+@dataclass
+class OptimizationResult:
+    """Result from threshold optimization with clear separation of concerns."""
 
-# ============================================================================
-# Legacy Type Aliases for API Compatibility
-# ============================================================================
+    # ============== CORE RESULT (Finding thresholds) ==============
+    thresholds: NDArray[np.float64]  # Shape (1,) for binary, (n_classes,) for multi
+    scores: NDArray[np.float64]  # Metric values at these thresholds
 
-UtilityDict: TypeAlias = dict[str, float]
-"""Utility specification dict with keys 'tp', 'tn', 'fp', 'fn'."""
+    # ============== APPLICATION (Making predictions) ==============
+    predict: Callable[[NDArray], NDArray] = field(repr=False)
+    """Function to apply thresholds: predict(probabilities) -> predictions"""
 
-UtilityMatrix: TypeAlias = NDArray[np.float64]
-"""Utility matrix for multiclass problems."""
+    # ============== DIAGNOSTICS (Tracking computation) ==============
+    diagnostics: dict[str, Any] | None = field(default=None, repr=False)
+    """Optional computation details for debugging (iterations, convergence, etc.)"""
 
-CostVector: TypeAlias = NDArray[np.float64] | list[float]
-"""Per-class costs/benefits."""
+    # ============== METADATA (Always useful) ==============
+    metric: str = "f1"
+    n_classes: int = 2
 
-ExpectedResult: TypeAlias = dict[str, float | NDArray[np.float64]]
-"""Results from expected value optimization."""
+    @property
+    def threshold(self) -> float:
+        """Convenience for binary case."""
+        if len(self.thresholds) == 1:
+            return float(self.thresholds[0])
+        raise ValueError("Use .thresholds for multiclass")
 
-SampleWeightLike: TypeAlias = ArrayLike | None
-"""Optional sample weights."""
+    @property
+    def score(self) -> float:
+        """Convenience for overall score."""
+        return float(np.mean(self.scores))
 
-# String literals for method/mode parameters
-OptimizationMethodLiteral: TypeAlias = str
-AveragingMethodLiteral: TypeAlias = str
-ComparisonOperatorLiteral: TypeAlias = str
-EstimationModeLiteral: TypeAlias = str
-
-# ============================================================================
-# Simple enum-like classes for public API compatibility
-# ============================================================================
-
-
-class OptimizationMethod:
-    """Simple optimization method constants."""
-
-    AUTO = "auto"
-    SORT_SCAN = "sort_scan"
-    UNIQUE_SCAN = "unique_scan"
-    MINIMIZE = "minimize"
-    GRADIENT = "gradient"
-    COORD_ASCENT = "coord_ascent"
+    def __repr__(self) -> str:
+        """Clean representation showing only what matters."""
+        if self.n_classes == 2:
+            return f"OptimizationResult(threshold={self.threshold:.3f}, {self.metric}={self.score:.3f})"
+        else:
+            return f"OptimizationResult(n_classes={self.n_classes}, mean_{self.metric}={self.score:.3f})"
 
 
-class AveragingMethod:
-    """Simple averaging method constants."""
-
-    MACRO = "macro"
-    MICRO = "micro"
-    WEIGHTED = "weighted"
-    NONE = "none"
-
-
-class ComparisonOperator:
-    """Simple comparison operator constants."""
-
-    GT = ">"
-    GTE = ">="
-
-
-class EstimationMode:
-    """Simple estimation mode constants."""
-
-    EMPIRICAL = "empirical"
-    EXPECTED = "expected"
-    BAYES = "bayes"
-
-
-# Validation sets
-OPTIMIZATION_METHODS = {
-    "auto",
-    "sort_scan",
-    "unique_scan",
-    "minimize",
-    "gradient",
-    "coord_ascent",
-}
-
-AVERAGING_METHODS = {"macro", "micro", "weighted", "none"}
-
-COMPARISON_OPERATORS = {">", ">="}
-
-ESTIMATION_MODES = {"empirical", "expected", "bayes"}
+# All legacy type aliases and classes removed - using OptimizationResult everywhere now

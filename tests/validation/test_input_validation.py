@@ -17,13 +17,12 @@ from optimal_cutoffs import (
 from optimal_cutoffs.validation import (
     _validate_averaging_method,
     _validate_comparison_operator,
-    _validate_inputs,
+    validate_inputs,
     _validate_metric_name,
     _validate_optimization_method,
     _validate_threshold,
     validate_binary_classification,
-    validate_multiclass_input,
-    validate_multiclass_probabilities_and_labels,
+    validate_multiclass_classification,
 )
 from tests.fixtures.assertions import assert_valid_threshold
 
@@ -31,79 +30,81 @@ from tests.fixtures.assertions import assert_valid_threshold
 class TestInputValidation:
     """Test comprehensive input validation functionality."""
 
-    def test_validate_inputs_basic(self):
+    def testvalidate_inputs_basic(self):
         """Test basic input validation with valid inputs."""
         y_true = [0, 1, 0, 1]
         y_prob = [0.1, 0.8, 0.3, 0.9]
 
         # Should not raise any errors
-        validated_true, validated_prob = _validate_inputs(y_true, y_prob)
+        validated_true, validated_prob, validated_weights = validate_inputs(y_true, y_prob)
 
         assert len(validated_true) == len(validated_prob) == 4
-        assert validated_true.dtype == np.int32 or validated_true.dtype == np.int64
+        assert validated_true.dtype == np.int8  # Updated to match current implementation
         assert validated_prob.dtype == np.float64
+        assert validated_weights is None
 
-    def test_validate_inputs_array_conversion(self):
+    def testvalidate_inputs_array_conversion(self):
         """Test that inputs are properly converted to numpy arrays."""
         y_true = [0, 1, 0, 1]
         y_prob = [0.2, 0.7, 0.4, 0.8]
 
-        validated_true, validated_prob = _validate_inputs(y_true, y_prob)
+        validated_true, validated_prob, validated_weights = validate_inputs(y_true, y_prob)
 
         assert isinstance(validated_true, np.ndarray)
         assert isinstance(validated_prob, np.ndarray)
+        assert validated_weights is None
 
-    def test_validate_inputs_length_mismatch(self):
+    def testvalidate_inputs_length_mismatch(self):
         """Test validation with mismatched array lengths."""
         y_true = [0, 1, 0]
         y_prob = [0.1, 0.8]
 
         with pytest.raises(ValueError, match="Length mismatch"):
-            _validate_inputs(y_true, y_prob)
+            validate_inputs(y_true, y_prob)
 
-    def test_validate_inputs_empty_arrays(self):
+    def testvalidate_inputs_empty_arrays(self):
         """Test validation with empty arrays."""
         with pytest.raises(ValueError, match="cannot be empty"):
-            _validate_inputs([], [])
+            validate_inputs([], [])
 
-    def test_validate_inputs_invalid_probabilities(self):
+    def testvalidate_inputs_invalid_probabilities(self):
         """Test validation with invalid probability values."""
         y_true = [0, 1, 0, 1]
 
         # Probabilities outside [0, 1] range
         with pytest.raises(ValueError, match="must be in \\[0, 1\\]"):
-            _validate_inputs(y_true, [-0.1, 0.5, 0.8, 1.2])
+            validate_inputs(y_true, [-0.1, 0.5, 0.8, 1.2])
 
         # NaN probabilities
         with pytest.raises(ValueError, match="contains NaN"):
-            _validate_inputs(y_true, [0.1, np.nan, 0.8, 0.9])
+            validate_inputs(y_true, [0.1, np.nan, 0.8, 0.9])
 
         # Infinite probabilities
         with pytest.raises(ValueError, match="contains infinite"):
-            _validate_inputs(y_true, [0.1, 0.5, np.inf, 0.9])
+            validate_inputs(y_true, [0.1, 0.5, np.inf, 0.9])
 
-    def test_validate_inputs_invalid_labels(self):
+    def testvalidate_inputs_invalid_labels(self):
         """Test validation with invalid label values."""
         y_prob = [0.1, 0.5, 0.8, 0.9]
 
         # Non-binary labels
         with pytest.raises(ValueError, match="must be binary"):
-            _validate_inputs([0, 1, 2], y_prob[:3])
+            validate_inputs([0, 1, 2], y_prob[:3])
 
         # Negative labels
         with pytest.raises(ValueError, match="must be binary"):
-            _validate_inputs([-1, 0, 1], y_prob[:3])
+            validate_inputs([-1, 0, 1], y_prob[:3])
 
-    def test_validate_inputs_2d_arrays(self):
+    def testvalidate_inputs_2d_arrays(self):
         """Test validation with 2D arrays."""
         y_true = [[0, 1], [0, 1]]
         y_prob = [0.1, 0.8]
 
         with pytest.raises(ValueError, match="must be 1D"):
-            _validate_inputs(y_true, y_prob)
+            validate_inputs(y_true, y_prob)
 
         with pytest.raises(ValueError, match="must be 1D"):
-            _validate_inputs([0, 1], [[0.1], [0.8]])
+            validate_inputs([0, 1], [[0.1], [0.8]])
 
 
 class TestBinaryClassificationValidation:
@@ -124,7 +125,7 @@ class TestBinaryClassificationValidation:
         weights = np.array([1.0, 2.0, 1.5, 1.0])
 
         # Should not raise any errors
-        validate_binary_classification(y_true, y_prob, sample_weight=weights)
+        validate_binary_classification(y_true, y_prob, weights=weights)
 
     def test_validate_binary_classification_invalid_weights(self):
         """Test validation with invalid sample weights."""
@@ -133,25 +134,25 @@ class TestBinaryClassificationValidation:
 
         # Wrong length
         with pytest.raises(ValueError, match="Length mismatch"):
-            validate_binary_classification(y_true, y_prob, sample_weight=[1.0, 2.0])
+            validate_binary_classification(y_true, y_prob, weights=[1.0, 2.0])
 
         # Negative weights
         with pytest.raises(ValueError, match="must be non-negative"):
             validate_binary_classification(
-                y_true, y_prob, sample_weight=[-1.0, 1.0, 1.0, 1.0]
+                y_true, y_prob, weights=[-1.0, 1.0, 1.0, 1.0]
             )
 
         # NaN weights
         with pytest.raises(ValueError, match="contains NaN"):
             validate_binary_classification(
-                y_true, y_prob, sample_weight=[1.0, np.nan, 1.0, 1.0]
+                y_true, y_prob, weights=[1.0, np.nan, 1.0, 1.0]
             )
 
 
 class TestMulticlassValidation:
     """Test multiclass validation functions."""
 
-    def test_validate_multiclass_input_valid(self):
+    def test_validate_multiclass_classification_valid(self):
         """Test validation with valid multiclass inputs."""
         y_true = np.array([0, 1, 2, 0, 1, 2])
         y_prob = np.array(
@@ -166,15 +167,15 @@ class TestMulticlassValidation:
         )
 
         # Should not raise any errors
-        validate_multiclass_input(y_true, y_prob)
+        validate_multiclass_classification(y_true, y_prob)
 
-    def test_validate_multiclass_probabilities_and_labels(self):
+    def test_validate_multiclass_classification(self):
         """Test multiclass probability and label validation."""
         y_true = np.array([0, 1, 2])
         y_prob = np.array([[0.6, 0.3, 0.1], [0.2, 0.7, 0.1], [0.1, 0.2, 0.7]])
 
         # Should not raise any errors
-        validate_multiclass_probabilities_and_labels(y_true, y_prob)
+        validate_multiclass_classification(y_true, y_prob)
 
     def test_validate_multiclass_invalid_probabilities(self):
         """Test validation with invalid multiclass probabilities."""
@@ -189,14 +190,19 @@ class TestMulticlassValidation:
             ]
         )
 
-        with pytest.raises(ValueError, match="should sum to 1"):
-            validate_multiclass_probabilities_and_labels(y_true, y_prob_invalid)
+        # Probabilities that don't sum to 1 should emit a warning, not raise error
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            validate_multiclass_classification(y_true, y_prob_invalid)
+            assert len(w) == 1
+            assert "don't sum to 1" in str(w[0].message)
 
         # Negative probabilities
         y_prob_negative = np.array([[0.6, 0.5, -0.1], [0.2, 0.7, 0.1], [0.1, 0.2, 0.7]])
 
-        with pytest.raises(ValueError, match="contain negative"):
-            validate_multiclass_probabilities_and_labels(y_true, y_prob_negative)
+        with pytest.raises(ValueError, match="must be in \\[0, 1\\]"):
+            validate_multiclass_classification(y_true, y_prob_negative)
 
     def test_validate_multiclass_label_issues(self):
         """Test validation with multiclass label issues."""
@@ -205,12 +211,12 @@ class TestMulticlassValidation:
         # Labels not starting from 0
         y_true_invalid = np.array([1, 2, 3])
         with pytest.raises(ValueError, match="start from 0"):
-            validate_multiclass_probabilities_and_labels(y_true_invalid, y_prob)
+            validate_multiclass_classification(y_true_invalid, y_prob)
 
         # Missing class
         y_true_missing = np.array([0, 0, 1])  # Missing class 2
-        with pytest.raises(ValueError, match="should be consecutive"):
-            validate_multiclass_probabilities_and_labels(y_true_missing, y_prob)
+        with pytest.raises(ValueError, match="missing: \\[2\\]"):
+            validate_multiclass_classification(y_true_missing, y_prob)
 
 
 class TestParameterValidation:
@@ -283,8 +289,8 @@ class TestEndToEndValidation:
         y_true = [0, 1, 0, 1]
         y_prob = [0.2, 0.8, 0.4, 0.6]
 
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)
 
         # Invalid cases
         with pytest.raises(ValueError):
@@ -303,7 +309,7 @@ class TestEndToEndValidation:
         threshold = 0.5
 
         # Valid case
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
         assert all(
             isinstance(x, (int, float, np.integer, np.floating))
             for x in [tp, tn, fp, fn]
@@ -332,7 +338,7 @@ class TestEndToEndValidation:
             thresholds = get_optimal_multiclass_thresholds(y_true, y_prob, metric="f1")
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
         except (AttributeError, NameError):
             # Function might not exist in current version
             pass
@@ -371,8 +377,8 @@ class TestEdgeCaseValidation:
         y_prob = [0.7]
 
         # Should work
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
     def test_all_same_class_validation(self):
         """Test validation when all samples are same class."""
@@ -380,8 +386,8 @@ class TestEdgeCaseValidation:
         y_prob = [0.2, 0.5, 0.7, 0.9]
 
         # Should work
-        threshold = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        assert_valid_threshold(result.threshold)
 
     def test_extreme_probability_validation(self):
         """Test validation with extreme probability values."""
@@ -389,5 +395,5 @@ class TestEdgeCaseValidation:
         y_prob = [0.0, 1.0, 1e-15, 1 - 1e-15]
 
         # Should work
-        threshold = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(threshold)
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        assert_valid_threshold(result.threshold)

@@ -31,7 +31,7 @@ class TestDinkelbachBasic:
 
         threshold, expected_score = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_score, "expected_f1")
 
     def test_dinkelbach_different_beta_values(self):
@@ -44,7 +44,7 @@ class TestDinkelbachBasic:
                 y_prob, beta=beta
             )
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(expected_score, f"expected_f{beta}")
 
     def test_dinkelbach_comparison_operators(self):
@@ -56,7 +56,7 @@ class TestDinkelbachBasic:
                 y_prob, beta=1.0, comparison=comparison
             )
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(expected_score, "expected_f1")
 
     def test_dinkelbach_single_probability(self):
@@ -65,7 +65,7 @@ class TestDinkelbachBasic:
 
         threshold, expected_score = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_score, "expected_f1")
 
     def test_dinkelbach_extreme_probabilities(self):
@@ -74,7 +74,7 @@ class TestDinkelbachBasic:
 
         threshold, expected_score = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_score, "expected_f1")
 
 
@@ -92,7 +92,7 @@ class TestDinkelbachAPI:
         assert len(result) == 2
         threshold, f1_score = result
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(f1_score, "expected_f1")
 
     def test_dinkelbach_supported_metrics(self):
@@ -108,7 +108,7 @@ class TestDinkelbachAPI:
             assert isinstance(result, tuple)
             assert len(result) == 2
             threshold, score = result
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(score, f"expected_{metric}")
 
     def test_dinkelbach_with_comparison_operators(self):
@@ -122,7 +122,7 @@ class TestDinkelbachAPI:
             )
             threshold, expected_f1 = result
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(expected_f1, "expected_f1")
 
 
@@ -218,7 +218,7 @@ class TestDinkelbachCalibration:
         result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
         threshold, expected_f1 = result
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_f1, "expected_f1")
 
         # On calibrated data, should achieve reasonable performance
@@ -233,7 +233,7 @@ class TestDinkelbachCalibration:
         result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
         threshold, expected_f1 = result
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_f1, "expected_f1")
 
         # Should achieve reasonable performance on calibrated data
@@ -256,7 +256,7 @@ class TestDinkelbachTieHandling:
             )
             threshold, expected_f1 = result
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(expected_f1, "expected_f1")
 
             # Verify that prediction behavior is consistent with comparison operator
@@ -279,7 +279,7 @@ class TestDinkelbachTieHandling:
             )
             threshold, expected_f1 = result
 
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert_valid_metric_score(expected_f1, "expected_f1")
 
 
@@ -294,7 +294,7 @@ class TestDinkelbachEdgeCases:
         result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
         threshold, expected_f1 = result
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_f1, "expected_f1")
 
     def test_dinkelbach_skewed_probabilities(self):
@@ -306,7 +306,7 @@ class TestDinkelbachEdgeCases:
         result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
         threshold, expected_f1 = result
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_f1, "expected_f1")
 
     def test_dinkelbach_binary_probabilities(self):
@@ -317,7 +317,7 @@ class TestDinkelbachEdgeCases:
         result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
         threshold, expected_f1 = result
 
-        assert_valid_threshold(threshold)
+        assert_valid_threshold(result.threshold)
         assert_valid_metric_score(expected_f1, "expected_f1")
 
 
@@ -371,7 +371,7 @@ class TestDinkelbachComparison:
 
         # All should be valid
         for threshold in [threshold_05, threshold_10, threshold_20]:
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
 
         # They should generally be different (unless there's a unique optimum)
         # This is more of a sanity check than a strict requirement
@@ -390,7 +390,7 @@ class TestDinkelbachConvergenceWarnings:
             
             # Should not have any warnings for normal convergent cases
             assert len(w) == 0
-            assert_valid_threshold(threshold)
+            assert_valid_threshold(result.threshold)
             assert 0.0 <= score <= 1.0
 
     def test_dinkelbach_edge_cases_no_warnings(self):
@@ -408,5 +408,5 @@ class TestDinkelbachConvergenceWarnings:
                 threshold, score = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
                 
                 # Edge cases should generally converge without warnings
-                assert_valid_threshold(threshold)
+                assert_valid_threshold(result.threshold)
                 assert 0.0 <= score <= 1.0

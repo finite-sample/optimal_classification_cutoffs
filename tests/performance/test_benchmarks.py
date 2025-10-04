@@ -76,7 +76,7 @@ class TestAlgorithmicComplexity:
                     )
                 else:
                     # High-level interface
-                    threshold = get_optimal_threshold(y_true, pred_prob, method=method)
+                    result = get_optimal_threshold(y_true, pred_prob, method=method)
 
                 end_time = time.perf_counter()
                 times[method] = end_time - start_time
@@ -106,7 +106,7 @@ class TestAlgorithmicComplexity:
 
             try:
                 start_time = time.perf_counter()
-                threshold = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, pred_prob, method=method, metric="f1"
                 )
                 end_time = time.perf_counter()
@@ -151,7 +151,7 @@ class TestMemoryEfficiency:
 
             # Create data and run optimization
             y_true, pred_prob = generate_binary_data(n_samples, random_state=42)
-            threshold = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
+            result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
 
             # Measure peak memory
             peak_memory = process.memory_info().rss / 1024 / 1024  # MB
@@ -182,7 +182,7 @@ class TestMemoryEfficiency:
         # Create and process data
         for _ in range(5):
             y_true, pred_prob = generate_binary_data(2000, random_state=42)
-            threshold = get_optimal_threshold(y_true, pred_prob)
+            result = get_optimal_threshold(y_true, pred_prob)
             del y_true, pred_prob, threshold
 
         # Force garbage collection
@@ -214,7 +214,7 @@ class TestScalabilityLimits:
 
         # Should complete without errors
         start_time = time.perf_counter()
-        threshold = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
+        result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
         end_time = time.perf_counter()
 
         execution_time = end_time - start_time
@@ -241,7 +241,7 @@ class TestScalabilityLimits:
         pred_prob = np.clip(pred_prob, 0, 1)
 
         start_time = time.perf_counter()
-        threshold = get_optimal_threshold(y_true, pred_prob)
+        result = get_optimal_threshold(y_true, pred_prob)
         end_time = time.perf_counter()
 
         # Should complete reasonably quickly even with high precision requirements
@@ -263,7 +263,7 @@ class TestScalabilityLimits:
         )
 
         start_time = time.perf_counter()
-        threshold = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
         end_time = time.perf_counter()
 
         execution_time = end_time - start_time
@@ -286,7 +286,7 @@ class TestPerformanceRegression:
 
         # Time standard optimization
         start_time = time.perf_counter()
-        threshold = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
+        result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
         end_time = time.perf_counter()
 
         execution_time = end_time - start_time
@@ -310,7 +310,7 @@ class TestPerformanceRegression:
         pred_prob = np.random.choice(unique_probs, n_samples)
 
         start_time = time.perf_counter()
-        threshold = get_optimal_threshold(y_true, pred_prob)
+        result = get_optimal_threshold(y_true, pred_prob)
         end_time = time.perf_counter()
 
         execution_time = end_time - start_time
@@ -331,7 +331,7 @@ class TestPerformanceRegression:
         times = []
         for i in range(n_repetitions):
             start_time = time.perf_counter()
-            threshold = get_optimal_threshold(y_true, pred_prob)
+            result = get_optimal_threshold(y_true, pred_prob)
             end_time = time.perf_counter()
 
             times.append(end_time - start_time)

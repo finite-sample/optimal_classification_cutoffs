@@ -258,7 +258,7 @@ class TestNestedCrossValidation:
                     continue
 
                 # Get optimal threshold on training data
-                train_threshold = get_optimal_threshold(
+                train_result = get_optimal_threshold(
                     train_labels,
                     train_probs,
                     metric="f1",

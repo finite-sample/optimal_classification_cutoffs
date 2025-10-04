@@ -7,7 +7,7 @@ from optimal_cutoffs import (
     get_multiclass_confusion_matrix,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
-    multiclass_metric,
+    multiclass_metric_ovr,
 )
 
 
@@ -147,7 +147,7 @@ def test_binary_direct_api_compatibility():
     pred_prob = np.array([0.2, 0.8, 0.7, 0.3, 0.9])
 
     # Use direct API instead of removed wrapper
-    threshold = get_optimal_threshold(true_labs, pred_prob, metric="f1")
+    result = get_optimal_threshold(true_labs, pred_prob, metric="f1")
 
     # Check binary result
     assert isinstance(threshold, float)

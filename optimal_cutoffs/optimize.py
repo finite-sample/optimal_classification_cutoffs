@@ -21,6 +21,7 @@ import numpy as np
 from scipy import optimize
 
 from .numba_utils import NUMBA_AVAILABLE, float64, int32, jit, prange
+from .types_minimal import OptimizationResult
 
 # ============================================================================
 # Data Validation
@@ -52,6 +53,10 @@ def validate_binary_data(
 
     if labels.ndim != 1 or scores.ndim != 1:
         raise ValueError("Labels and scores must be 1D")
+    if len(labels) == 0:
+        raise ValueError("Labels cannot be empty")
+    if len(scores) == 0:
+        raise ValueError("Scores cannot be empty")
     if len(labels) != len(scores):
         raise ValueError(f"Length mismatch: {len(labels)} vs {len(scores)}")
     if not np.all(np.isin(labels, [0, 1])):
@@ -62,12 +67,22 @@ def validate_binary_data(
     # Handle weights
     if weights is not None:
         weights = np.asarray(weights, dtype=np.float64)
-        if weights.ndim != 1 or len(weights) != len(labels):
-            raise ValueError("Invalid weights shape")
+        if weights.ndim != 1:
+            raise ValueError("Weights must be 1D")
+        if len(weights) != len(labels):
+            raise ValueError(
+                f"Length mismatch: {len(labels)} labels vs {len(weights)} weights"
+            )
+        if not np.all(np.isfinite(weights)):
+            if np.any(np.isnan(weights)):
+                raise ValueError("Sample weights contains NaN values")
+            if np.any(np.isinf(weights)):
+                raise ValueError("Sample weights contains infinite values")
+            raise ValueError("Sample weights must be finite")
         if not np.all(weights >= 0):
-            raise ValueError("Weights must be non-negative")
+            raise ValueError("Sample weights must be non-negative")
         if np.sum(weights) == 0:
-            raise ValueError("Weights sum to zero")
+            raise ValueError("Sample weights sum to zero")
 
     return labels, scores, weights
 
@@ -349,6 +364,10 @@ else:
         """Pure Python sort-and-scan implementation."""
         n = len(labels)
 
+        # Handle empty array case
+        if n == 0:
+            return 0.5, 0.0  # Default threshold and score for empty input
+
         # Sort by scores (descending for easier logic)
         order = np.argsort(-scores)
         sorted_labels = labels[order]
@@ -521,7 +540,7 @@ def optimize_sort_scan(
     metric: str,
     weights: np.ndarray | None = None,
     operator: str = ">=",
-) -> tuple[float, float]:
+) -> OptimizationResult:
     """Sort-and-scan optimization for piecewise constant metrics.
 
     Parameters
@@ -539,8 +558,8 @@ def optimize_sort_scan(
 
     Returns
     -------
-    tuple[float, float]
-        (optimal_threshold, metric_score)
+    OptimizationResult
+        Optimization result with threshold, score, and predict function
     """
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
@@ -549,10 +568,29 @@ def optimize_sort_scan(
         threshold, score = sort_scan_kernel(
             labels, scores, weights, inclusive=(operator == ">=")
         )
-        return float(threshold), float(score)
+    else:
+        # Generic implementation for other metrics
+        threshold, score = _generic_sort_scan(labels, scores, metric, weights, operator)
 
-    # Generic implementation for other metrics
-    return _generic_sort_scan(labels, scores, metric, weights, operator)
+    # Create prediction function (closure captures threshold and operator)
+    def predict_binary(probs):
+        p = np.asarray(probs)
+        if p.ndim == 2 and p.shape[1] == 2:
+            p = p[:, 1]  # Use positive class probabilities
+        elif p.ndim == 2 and p.shape[1] == 1:
+            p = p.ravel()
+        if operator == ">=":
+            return (p >= threshold).astype(np.int32)
+        else:
+            return (p > threshold).astype(np.int32)
+
+    return OptimizationResult(
+        thresholds=np.array([threshold]),
+        scores=np.array([score]),
+        predict=predict_binary,
+        metric=metric,
+        n_classes=2,
+    )
 
 
 def _generic_sort_scan(
@@ -563,6 +601,10 @@ def _generic_sort_scan(
     operator: str,
 ) -> tuple[float, float]:
     """Generic sort-and-scan implementation for any metric."""
+    # Handle empty array case
+    if len(labels) == 0:
+        return 0.5, 0.0  # Default threshold and score for empty input
+
     # Import metric function
     from .metrics import METRIC_REGISTRY
 
@@ -576,10 +618,22 @@ def _generic_sort_scan(
     best_threshold = max(0.0, float(sorted_scores[0] - 1e-10))
     best_score = -np.inf
 
-    # Scan through unique thresholds
+    # Scan through unique thresholds + boundary values
     unique_scores = np.unique(sorted_scores)
 
-    for i, score_val in enumerate(unique_scores):
+    # Add boundary thresholds for edge cases
+    # - Threshold just above max score (predicts all negative)
+    # - Threshold just below min score (predicts all positive)
+    boundary_thresholds = [
+        sorted_scores[0] - 1e-10,  # Below min (predict all positive)
+        sorted_scores[-1] + 1e-10,  # Above max (predict all negative)
+    ]
+
+    # Combine and sort all candidate thresholds
+    all_thresholds = np.concatenate([unique_scores, boundary_thresholds])
+    all_thresholds = np.unique(all_thresholds)
+
+    for i, score_val in enumerate(all_thresholds):
         # Find threshold position
         if operator == ">=":
             predictions = sorted_scores >= score_val
@@ -594,10 +648,7 @@ def _generic_sort_scan(
 
         if score > best_score:
             best_score = score
-            if i > 0:
-                best_threshold = 0.5 * (unique_scores[i - 1] + score_val)
-            else:
-                best_threshold = max(0.0, float(score_val - 1e-10))
+            best_threshold = float(score_val)
 
     return best_threshold, best_score
 
@@ -610,7 +661,7 @@ def optimize_scipy(
     operator: str = ">=",
     method: str = "bounded",
     tol: float = 1e-6,
-) -> tuple[float, float]:
+) -> OptimizationResult:
     """Scipy-based optimization for smooth metrics.
 
     Parameters
@@ -632,8 +683,8 @@ def optimize_scipy(
 
     Returns
     -------
-    tuple[float, float]
-        (optimal_threshold, metric_score)
+    OptimizationResult
+        Optimization result with threshold, score, and predict function
     """
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
@@ -666,7 +717,25 @@ def optimize_scipy(
         )
         return optimize_sort_scan(labels, scores, metric, weights, operator)
 
-    return optimal_threshold, optimal_score
+    # Create prediction function (closure captures threshold and operator)
+    def predict_binary(probs):
+        p = np.asarray(probs)
+        if p.ndim == 2 and p.shape[1] == 2:
+            p = p[:, 1]  # Use positive class probabilities
+        elif p.ndim == 2 and p.shape[1] == 1:
+            p = p.ravel()
+        if operator == ">=":
+            return (p >= optimal_threshold).astype(np.int32)
+        else:
+            return (p > optimal_threshold).astype(np.int32)
+
+    return OptimizationResult(
+        thresholds=np.array([optimal_threshold]),
+        scores=np.array([optimal_score]),
+        predict=predict_binary,
+        metric=metric,
+        n_classes=2,
+    )
 
 
 def optimize_gradient(
@@ -678,7 +747,7 @@ def optimize_gradient(
     learning_rate: float = 0.01,
     max_iter: int = 100,
     tol: float = 1e-6,
-) -> tuple[float, float]:
+) -> OptimizationResult:
     """Simple gradient ascent optimization.
 
     Parameters
@@ -702,8 +771,8 @@ def optimize_gradient(
 
     Returns
     -------
-    tuple[float, float]
-        (optimal_threshold, metric_score)
+    OptimizationResult
+        Optimization result with threshold, score, and predict function
     """
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
@@ -748,7 +817,26 @@ def optimize_gradient(
         threshold = np.clip(threshold, min_bound, max_bound)
 
     final_score = evaluate_metric(threshold)
-    return threshold, final_score
+
+    # Create prediction function (closure captures threshold and operator)
+    def predict_binary(probs):
+        p = np.asarray(probs)
+        if p.ndim == 2 and p.shape[1] == 2:
+            p = p[:, 1]  # Use positive class probabilities
+        elif p.ndim == 2 and p.shape[1] == 1:
+            p = p.ravel()
+        if operator == ">=":
+            return (p >= threshold).astype(np.int32)
+        else:
+            return (p > threshold).astype(np.int32)
+
+    return OptimizationResult(
+        thresholds=np.array([threshold]),
+        scores=np.array([final_score]),
+        predict=predict_binary,
+        metric=metric,
+        n_classes=2,
+    )
 
 
 # ============================================================================
@@ -782,7 +870,7 @@ def find_optimal_threshold_multiclass(
     average: str = "macro",
     sample_weight: np.ndarray | None = None,
     comparison: str = ">",
-) -> np.ndarray:
+) -> OptimizationResult:
     """Find optimal per-class thresholds for multiclass classification.
 
     Uses One-vs-Rest (OvR) strategy where each class is treated as a separate
@@ -807,14 +895,12 @@ def find_optimal_threshold_multiclass(
 
     Returns
     -------
-    np.ndarray of shape (n_classes,)
-        Optimal threshold for each class
+    OptimizationResult
+        Optimization result with per-class thresholds, scores, and predict function
     """
     from .validation import validate_multiclass_classification
 
-    true_labs, pred_prob, _ = validate_multiclass_classification(
-        true_labs, pred_prob
-    )
+    true_labs, pred_prob, _ = validate_multiclass_classification(true_labs, pred_prob)
 
     if sample_weight is not None:
         sample_weight = np.asarray(sample_weight, dtype=float)
@@ -853,11 +939,27 @@ def find_optimal_threshold_multiclass(
         pred_prob_float64 = np.asarray(pred_prob, dtype=np.float64, order="C")
 
         # Call the optimized kernel directly
-        thresholds, _, _ = coordinate_ascent_kernel(
+        thresholds, best_score, _ = coordinate_ascent_kernel(
             true_labs_int32, pred_prob_float64, max_iter=20, tol=1e-12
         )
 
-        return thresholds
+        # Create prediction function for coordinate ascent (uses argmax of shifted scores)
+        def predict_multiclass_coord(probs):
+            p = np.asarray(probs)
+            if p.ndim != 2:
+                raise ValueError("Multiclass requires 2D probabilities")
+            return _assign_labels_shifted(p, thresholds)
+
+        # Create scores array (coordinate ascent optimizes overall score, so repeat for all classes)
+        scores = np.full(n_classes, best_score)
+
+        return OptimizationResult(
+            thresholds=thresholds,
+            scores=scores,
+            predict=predict_multiclass_coord,
+            metric=metric,
+            n_classes=n_classes,
+        )
 
     # Map method to binary optimization function
     if method == "auto":
@@ -898,16 +1000,41 @@ def find_optimal_threshold_multiclass(
             sample_weight_flat = None
 
         # Find single optimal threshold
-        optimal_threshold, _ = optimize_fn(
+        result = optimize_fn(
             true_binary_flat, pred_prob_flat, metric, sample_weight_flat, operator
         )
+        optimal_threshold = result.threshold
+
+        # Create prediction function for micro averaging (uses same threshold for all classes)
+        def predict_multiclass_micro(probs):
+            p = np.asarray(probs)
+            if p.ndim != 2:
+                raise ValueError("Multiclass requires 2D probabilities")
+            # Apply same threshold to all classes and predict highest valid probability
+            thresholds = np.full(n_classes, optimal_threshold)
+            if operator == ">=":
+                valid = p >= thresholds[None, :]
+            else:
+                valid = p > thresholds[None, :]
+            masked = np.where(valid, p, -np.inf)
+            return np.argmax(masked, axis=1).astype(np.int32)
 
         # Return same threshold for all classes
-        return np.full(n_classes, optimal_threshold, dtype=float)
+        thresholds = np.full(n_classes, optimal_threshold, dtype=float)
+        scores = np.full(n_classes, result.score, dtype=float)
+
+        return OptimizationResult(
+            thresholds=thresholds,
+            scores=scores,
+            predict=predict_multiclass_micro,
+            metric=metric,
+            n_classes=n_classes,
+        )
 
     else:
         # Macro/weighted/none averaging: optimize per-class thresholds independently
         optimal_thresholds = np.zeros(n_classes, dtype=float)
+        optimal_scores = np.zeros(n_classes, dtype=float)
 
         # Create binary labels for each class (One-vs-Rest)
         true_binary_all = np.zeros((n_samples, n_classes), dtype=int)
@@ -916,16 +1043,43 @@ def find_optimal_threshold_multiclass(
 
         # Optimize each class independently
         for class_idx in range(n_classes):
-            threshold, _ = optimize_fn(
+            result = optimize_fn(
                 true_binary_all[:, class_idx],
                 pred_prob[:, class_idx],
                 metric,
                 sample_weight,
                 operator,
             )
-            optimal_thresholds[class_idx] = threshold
+            optimal_thresholds[class_idx] = result.threshold
+            optimal_scores[class_idx] = result.score
 
-        return optimal_thresholds
+        # Create prediction function for One-vs-Rest strategy
+        def predict_multiclass_ovr(probs):
+            p = np.asarray(probs)
+            if p.ndim != 2:
+                raise ValueError("Multiclass requires 2D probabilities")
+            # Apply per-class thresholds and predict highest valid probability
+            if operator == ">=":
+                valid = p >= optimal_thresholds[None, :]
+            else:
+                valid = p > optimal_thresholds[None, :]
+            masked = np.where(valid, p, -np.inf)
+            predictions = np.argmax(masked, axis=1).astype(np.int32)
+
+            # For samples where no class is above threshold, predict highest probability
+            no_valid = np.all(~valid, axis=1)
+            if np.any(no_valid):
+                predictions[no_valid] = np.argmax(p[no_valid], axis=1)
+
+            return predictions
+
+        return OptimizationResult(
+            thresholds=optimal_thresholds,
+            scores=optimal_scores,
+            predict=predict_multiclass_ovr,
+            metric=metric,
+            n_classes=n_classes,
+        )
 
 
 # ============================================================================
@@ -941,7 +1095,7 @@ def find_optimal_threshold(
     strategy: str = "auto",
     operator: str = ">=",
     require_probability: bool = True,
-) -> tuple[float, float]:
+) -> OptimizationResult:
     """Simple functional interface for binary threshold optimization.
 
     Parameters
@@ -963,8 +1117,8 @@ def find_optimal_threshold(
 
     Returns
     -------
-    tuple[float, float]
-        (optimal_threshold, metric_score)
+    OptimizationResult
+        Optimization result with threshold, score, and predict function
     """
     # Validate probability requirement
     if require_probability:

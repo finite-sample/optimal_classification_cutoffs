@@ -17,7 +17,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold, multiclass_metric_exclusive
+from optimal_cutoffs import get_optimal_threshold, multiclass_metric_single_label
 
 
 def _generate_multiclass_data(n_samples, n_classes, random_state=42):
@@ -40,7 +40,7 @@ def _generate_multiclass_data(n_samples, n_classes, random_state=42):
 def _compute_exclusive_f1(labels, probs, thresholds, comparison=">"):
     """Compute F1 score using exclusive single-label predictions."""
     try:
-        return multiclass_metric_exclusive(
+        return multiclass_metric_single_label(
             labels, probs, thresholds, metric_name="f1", comparison=comparison
         )
     except (NotImplementedError, ValueError):
