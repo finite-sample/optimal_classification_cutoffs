@@ -27,20 +27,24 @@ def plot_piecewise_f1_demonstration():
 
     # Generate a dense grid of thresholds for plotting
     thresholds = np.linspace(0.05, 0.95, 1000)
-    f1_scores = [compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in thresholds]
+    f1_scores = [
+        compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in thresholds
+    ]
 
     # Find unique probabilities (the breakpoints)
     unique_probs = np.unique(y_prob)
-    unique_f1s = [_metric_score(y_true, y_prob, t, "f1") for t in unique_probs]
+    unique_f1s = [
+        compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in unique_probs
+    ]
 
     # Run minimize_scalar to show potential suboptimal convergence
     result = optimize.minimize_scalar(
-        lambda t: -_metric_score(y_true, y_prob, t, "f1"),
+        lambda t: -compute_metric_at_threshold(y_true, y_prob, t, "f1"),
         bounds=(0, 1),
         method="bounded",
     )
     minimize_threshold = result.x
-    minimize_f1 = _metric_score(y_true, y_prob, minimize_threshold, "f1")
+    minimize_f1 = compute_metric_at_threshold(y_true, y_prob, minimize_threshold, "f1")
 
     # Find the true optimal
     optimal_idx = np.argmax(unique_f1s)
@@ -180,27 +184,33 @@ def plot_optimization_methods_comparison():
     y_prob = np.random.beta(2, 2, n_samples)  # Bell-shaped distribution
 
     thresholds = np.linspace(0.01, 0.99, 500)
-    f1_scores = [compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in thresholds]
+    f1_scores = [
+        compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in thresholds
+    ]
 
     # Smart brute force approach
     unique_probs = np.unique(y_prob)
-    unique_f1s = [_metric_score(y_true, y_prob, t, "f1") for t in unique_probs]
+    unique_f1s = [
+        compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in unique_probs
+    ]
     brute_optimal_idx = np.argmax(unique_f1s)
     brute_threshold = unique_probs[brute_optimal_idx]
     brute_f1 = unique_f1s[brute_optimal_idx]
 
     # Minimize_scalar approach
     result = optimize.minimize_scalar(
-        lambda t: -_metric_score(y_true, y_prob, t, "f1"),
+        lambda t: -compute_metric_at_threshold(y_true, y_prob, t, "f1"),
         bounds=(0, 1),
         method="bounded",
     )
     minimize_threshold = result.x
-    minimize_f1 = _metric_score(y_true, y_prob, minimize_threshold, "f1")
+    minimize_f1 = compute_metric_at_threshold(y_true, y_prob, minimize_threshold, "f1")
 
     # Fallback mechanism (what the library actually does)
     candidates = np.unique(np.append(y_prob, minimize_threshold))
-    candidate_scores = [_metric_score(y_true, y_prob, t, "f1") for t in candidates]
+    candidate_scores = [
+        compute_metric_at_threshold(y_true, y_prob, t, "f1") for t in candidates
+    ]
     fallback_idx = np.argmax(candidate_scores)
     fallback_threshold = candidates[fallback_idx]
     fallback_f1 = candidate_scores[fallback_idx]
@@ -296,12 +306,16 @@ def plot_multiple_metrics_comparison():
     optimal_thresholds = {}
 
     for metric, color in zip(metrics, colors, strict=False):
-        scores = [_metric_score(y_true, y_prob, t, metric) for t in thresholds]
+        scores = [
+            compute_metric_at_threshold(y_true, y_prob, t, metric) for t in thresholds
+        ]
         ax.plot(thresholds, scores, color=color, linewidth=2, label=metric.capitalize())
 
         # Find optimal for this metric
         unique_probs = np.unique(y_prob)
-        unique_scores = [_metric_score(y_true, y_prob, t, metric) for t in unique_probs]
+        unique_scores = [
+            compute_metric_at_threshold(y_true, y_prob, t, metric) for t in unique_probs
+        ]
         optimal_idx = np.argmax(unique_scores)
         optimal_threshold = unique_probs[optimal_idx]
         optimal_score = unique_scores[optimal_idx]
