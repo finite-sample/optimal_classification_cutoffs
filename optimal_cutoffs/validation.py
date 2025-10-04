@@ -3,14 +3,14 @@
 from typing import Any
 
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 # ============================================================================
 # Core validation - Just simple functions that return clean arrays
 # ============================================================================
 
 
-def validate_binary_labels(labels: ArrayLike) -> np.ndarray[Any, np.dtype[np.int8]]:
+def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
     """Validate and return binary labels as int8 array.
 
     Parameters
@@ -49,7 +49,7 @@ def validate_binary_labels(labels: ArrayLike) -> np.ndarray[Any, np.dtype[np.int
 
 def validate_multiclass_labels(
     labels: ArrayLike, n_classes: int | None = None
-) -> np.ndarray:
+) -> NDArray[np.int32]:
     """Validate and return multiclass labels as int32 array.
 
     Parameters
@@ -98,7 +98,7 @@ def validate_multiclass_labels(
     return arr
 
 
-def validate_probabilities(probs: ArrayLike, binary: bool = False) -> np.ndarray:
+def validate_probabilities(probs: ArrayLike, binary: bool = False) -> NDArray[np.float64]:
     """Validate and return probabilities as float64 array.
 
     Parameters
@@ -157,7 +157,7 @@ def validate_probabilities(probs: ArrayLike, binary: bool = False) -> np.ndarray
     return arr
 
 
-def validate_weights(weights: ArrayLike, n_samples: int) -> np.ndarray:
+def validate_weights(weights: ArrayLike, n_samples: int) -> NDArray[np.float64]:
     """Validate and return sample weights as float64 array.
 
     Parameters
@@ -285,28 +285,6 @@ def validate_threshold(
 # ============================================================================
 
 
-def ensure_binary(
-    labels: ArrayLike, scores: ArrayLike
-) -> tuple[np.ndarray, np.ndarray]:
-    """Quick validation for binary classification without weights.
-
-    Returns (labels, scores) validated and converted.
-    """
-    labels, scores, _ = validate_binary_classification_simple(labels, scores)
-    return labels, scores
-
-
-def ensure_multiclass(
-    labels: ArrayLike, probs: ArrayLike
-) -> tuple[np.ndarray, np.ndarray]:
-    """Quick validation for multiclass without weights.
-
-    Returns (labels, probabilities) validated and converted.
-    """
-    labels, probs, _ = validate_multiclass_classification(labels, probs)
-    return labels, probs
-
-
 def infer_problem_type(predictions: ArrayLike) -> str:
     """Infer whether this is binary or multiclass from predictions shape.
 
@@ -339,7 +317,7 @@ def validate_classification(
     problem_type = infer_problem_type(predictions)
 
     if problem_type == "binary":
-        labels, predictions, weights = validate_binary_classification_simple(
+        labels, predictions, weights = validate_binary_classification(
             labels, predictions, weights
         )
     else:
@@ -358,54 +336,29 @@ def validate_choice(value: str, choices: set[str], name: str) -> str:
 
 
 # ============================================================================
-# Legacy compatibility functions - Keep signatures compatible
+# High-level validation functions
 # ============================================================================
 
 
 def validate_binary_classification(
-    true_labs: ArrayLike | None = None,
-    pred_prob: ArrayLike | None = None,
-    *,
-    require_proba: bool = True,
-    sample_weight: ArrayLike | None = None,
-    return_default_weights: bool = False,
-    force_dtypes: bool = False,
-    labels: ArrayLike | None = None,
-    scores: ArrayLike | None = None,
-    weights: ArrayLike | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """Legacy compatible binary classification validation.
-
-    Supports both old (true_labs, pred_prob) and new (labels, scores) signatures.
-    """
-    # Handle different calling patterns
-    if labels is not None or scores is not None:
-        # New style calling
-        labels = labels if labels is not None else true_labs
-        scores = scores if scores is not None else pred_prob
-        weights = weights if weights is not None else sample_weight
-    else:
-        # Old style calling
-        labels = true_labs
-        scores = pred_prob
-        weights = sample_weight
-
-    # Validate using the new functions
-    labels, scores, weights = validate_binary_classification_simple(
-        labels, scores, weights
-    )
-
-    # Handle return_default_weights option
-    if return_default_weights and weights is None:
-        weights = np.ones(len(labels), dtype=np.float64)
-
-    return labels, scores, weights
-
-
-def validate_binary_classification_simple(
     labels: ArrayLike, scores: ArrayLike, weights: ArrayLike | None = None
-) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """Simple binary classification validation - renamed to avoid conflicts."""
+) -> tuple[NDArray[np.int8], NDArray[np.float64], NDArray[np.float64] | None]:
+    """Validate binary classification inputs.
+
+    Parameters
+    ----------
+    labels : array-like
+        Binary labels (0 or 1)
+    scores : array-like  
+        Predicted scores/probabilities
+    weights : array-like, optional
+        Sample weights
+
+    Returns
+    -------
+    tuple
+        (labels as int8, scores as float64, weights as float64 or None)
+    """
     # Validate each component
     labels = validate_binary_labels(labels)
     scores = validate_probabilities(scores, binary=True)
@@ -423,70 +376,68 @@ def validate_binary_classification_simple(
     return labels, scores, weights
 
 
-def _validate_inputs(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
+def validate_inputs(
+    labels: ArrayLike,
+    predictions: ArrayLike,
+    weights: ArrayLike | None = None,
     require_binary: bool = False,
-    require_proba: bool = True,
-    sample_weight: ArrayLike | None = None,
     allow_multiclass: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """Legacy validation function for backward compatibility."""
+    """Validate classification inputs with automatic type detection.
+
+    Parameters
+    ----------
+    labels : array-like
+        True class labels
+    predictions : array-like
+        Predicted scores/probabilities
+    weights : array-like, optional
+        Sample weights
+    require_binary : bool, default=False
+        If True, force binary classification validation
+    allow_multiclass : bool, default=True
+        If False, raise error for multiclass inputs
+
+    Returns
+    -------
+    tuple
+        (labels, predictions, weights) validated and converted
+    """
     if require_binary:
-        return validate_binary_classification(
-            true_labs,
-            pred_prob,
-            sample_weight=sample_weight,
-        )
+        return validate_binary_classification(labels, predictions, weights)
     else:
         # Try to infer problem type
-        pred_arr = np.asarray(pred_prob)
-        if pred_arr.ndim == 1 or (pred_arr.ndim == 2 and pred_arr.shape[1] == 2):
-            return validate_binary_classification(
-                true_labs,
-                pred_prob,
-                sample_weight=sample_weight,
-            )
+        pred_arr = np.asarray(predictions)
+        if pred_arr.ndim == 1 or (pred_arr.ndim == 2 and pred_arr.shape[1] <= 2):
+            return validate_binary_classification(labels, predictions, weights)
         elif pred_arr.ndim == 2 and allow_multiclass:
-            return validate_multiclass_classification(
-                true_labs, pred_prob, sample_weight
-            )
+            return validate_multiclass_classification(labels, predictions, weights)
         else:
             raise ValueError(f"Invalid prediction array shape: {pred_arr.shape}")
 
 
-def validate_multiclass_input(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-    require_consecutive: bool = False,
-    require_proba: bool = False,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Legacy compatible multiclass validation."""
-    labels, predictions, _ = validate_multiclass_classification(
-        true_labs,
-        pred_prob,
-    )
-    return labels, predictions
-
-
-def validate_multiclass_probabilities_and_labels(
-    true_labs: ArrayLike,
-    pred_prob: ArrayLike,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Legacy compatible multiclass validation with specific dtypes."""
-    labels, predictions, _ = validate_multiclass_classification(
-        true_labs,
-        pred_prob,
-    )
-    return labels, predictions
-
-
 # Choice validators for backward compatibility
 def _validate_metric_name(metric_name: str) -> None:
-    """Validate metric name (placeholder for metric registry validation)."""
-    # This is a placeholder - actual validation is done by the metric registry
-    # We keep this for API compatibility
-    pass
+    """Validate that metric exists in the metric registry.
+    
+    Parameters
+    ----------
+    metric_name : str
+        Name of the metric to validate
+        
+    Raises
+    ------
+    ValueError
+        If metric is not registered
+    """
+    from .metrics import METRIC_REGISTRY
+    
+    if metric_name not in METRIC_REGISTRY:
+        available = sorted(METRIC_REGISTRY.keys())
+        raise ValueError(
+            f"Unknown metric '{metric_name}'. "
+            f"Available metrics: {', '.join(available)}"
+        )
 
 
 def _validate_averaging_method(average: str) -> None:

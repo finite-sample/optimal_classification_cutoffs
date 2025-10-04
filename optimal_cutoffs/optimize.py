@@ -566,9 +566,6 @@ def _generic_sort_scan(
     # Import metric function
     from .metrics import METRIC_REGISTRY
 
-    if metric not in METRIC_REGISTRY:
-        raise ValueError(f"Unknown metric: {metric}")
-
     metric_fn = METRIC_REGISTRY[metric]
 
     # Sort by scores
@@ -643,9 +640,6 @@ def optimize_scipy(
     # Import metric function
     from .metrics import METRIC_REGISTRY
 
-    if metric not in METRIC_REGISTRY:
-        raise ValueError(f"Unknown metric: {metric}")
-
     metric_fn = METRIC_REGISTRY[metric]
 
     def objective(threshold: float) -> float:
@@ -715,9 +709,6 @@ def optimize_gradient(
 
     # Import metric function
     from .metrics import METRIC_REGISTRY
-
-    if metric not in METRIC_REGISTRY:
-        raise ValueError(f"Unknown metric: {metric}")
 
     metric_fn = METRIC_REGISTRY[metric]
 
@@ -819,10 +810,10 @@ def find_optimal_threshold_multiclass(
     np.ndarray of shape (n_classes,)
         Optimal threshold for each class
     """
-    from .validation import validate_multiclass_input
+    from .validation import validate_multiclass_classification
 
-    true_labs, pred_prob = validate_multiclass_input(
-        true_labs, pred_prob, require_consecutive=False, require_proba=False
+    true_labs, pred_prob, _ = validate_multiclass_classification(
+        true_labs, pred_prob
     )
 
     if sample_weight is not None:

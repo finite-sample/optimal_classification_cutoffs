@@ -57,8 +57,8 @@ class TestAveragingMathematicalIdentities:
         expected_macro_f1 = np.mean(per_class_f1_manual)
 
         # Compute using library functions
-        per_class_f1_lib = multiclass_metric(cms, "f1", average="none")
-        macro_f1_lib = multiclass_metric(cms, "f1", average="macro")
+        per_class_f1_lib = multiclass_metric_ovr(cms, "f1", average="none")
+        macro_f1_lib = multiclass_metric_ovr(cms, "f1", average="macro")
 
         # Test identity: macro = mean(per_class)
         assert macro_f1_lib == pytest.approx(expected_macro_f1, abs=1e-10)
@@ -92,7 +92,7 @@ class TestAveragingMathematicalIdentities:
         )
 
         # Compute using library function
-        micro_f1_lib = multiclass_metric(cms, "f1", average="micro")
+        micro_f1_lib = multiclass_metric_ovr(cms, "f1", average="micro")
 
         # Test identity: micro F1 = F1(sum(TP), sum(FP), sum(FN))
         assert micro_f1_lib == pytest.approx(expected_micro_f1, abs=1e-10)
@@ -135,7 +135,7 @@ class TestAveragingMathematicalIdentities:
         )
 
         # Compute using library function
-        weighted_f1_lib = multiclass_metric(cms, "f1", average="weighted")
+        weighted_f1_lib = multiclass_metric_ovr(cms, "f1", average="weighted")
 
         # Test identity: weighted = sum(f1_i * support_i) / sum(support_i)
         assert weighted_f1_lib == pytest.approx(expected_weighted_f1, abs=1e-10)
@@ -151,8 +151,8 @@ class TestAveragingMathematicalIdentities:
         )
 
         # Compute both averages
-        macro_f1 = multiclass_metric(cms, "f1", average="macro")
-        weighted_f1 = multiclass_metric(cms, "f1", average="weighted")
+        macro_f1 = multiclass_metric_ovr(cms, "f1", average="macro")
+        weighted_f1 = multiclass_metric_ovr(cms, "f1", average="weighted")
 
         # For balanced data: weighted = macro
         assert weighted_f1 == pytest.approx(macro_f1, abs=1e-10)
@@ -166,8 +166,8 @@ class TestAveragingMathematicalIdentities:
             assert metric_name in METRIC_REGISTRY
 
             # Test macro identity
-            per_class_scores = multiclass_metric(cms, metric_name, average="none")
-            macro_score = multiclass_metric(cms, metric_name, average="macro")
+            per_class_scores = multiclass_metric_ovr(cms, metric_name, average="none")
+            macro_score = multiclass_metric_ovr(cms, metric_name, average="macro")
             expected_macro = np.mean(per_class_scores)
 
             assert macro_score == pytest.approx(expected_macro, abs=1e-10), (
@@ -186,7 +186,7 @@ class TestAveragingMathematicalIdentities:
                 if total_support > 0
                 else 0.0
             )
-            weighted_score = multiclass_metric(cms, metric_name, average="weighted")
+            weighted_score = multiclass_metric_ovr(cms, metric_name, average="weighted")
 
             assert weighted_score == pytest.approx(expected_weighted, abs=1e-10), (
                 f"Weighted identity failed for {metric_name}"
@@ -205,14 +205,14 @@ class TestAveragingMathematicalIdentities:
         expected_micro_precision = (
             total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
         )
-        micro_precision = multiclass_metric(cms, "precision", average="micro")
+        micro_precision = multiclass_metric_ovr(cms, "precision", average="micro")
         assert micro_precision == pytest.approx(expected_micro_precision, abs=1e-10)
 
         # Test micro recall identity
         expected_micro_recall = (
             total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
         )
-        micro_recall = multiclass_metric(cms, "recall", average="micro")
+        micro_recall = multiclass_metric_ovr(cms, "recall", average="micro")
         assert micro_recall == pytest.approx(expected_micro_recall, abs=1e-10)
 
     def test_micro_accuracy_identity(self, known_confusion_matrices):
@@ -227,7 +227,7 @@ class TestAveragingMathematicalIdentities:
         with pytest.raises(
             ValueError, match="Micro-averaged accuracy requires exclusive"
         ):
-            multiclass_metric(cms, "accuracy", average="micro")
+            multiclass_metric_ovr(cms, "accuracy", average="micro")
 
         # The old formula computed Jaccard/IoU, not accuracy:
         total_tp = sum(cm[0] for cm in cms)
@@ -246,7 +246,7 @@ class TestAveragingMathematicalIdentities:
         cms = [(0, 100, 0, 0), (0, 100, 0, 0), (0, 100, 0, 0)]
 
         for average in ["macro", "micro", "weighted", "none"]:
-            result = multiclass_metric(cms, "f1", average=average)
+            result = multiclass_metric_ovr(cms, "f1", average=average)
 
             if average == "none":
                 assert isinstance(result, np.ndarray)
@@ -260,9 +260,9 @@ class TestAveragingMathematicalIdentities:
         cms = [(20, 80, 0, 0), (15, 85, 0, 0), (25, 75, 0, 0)]
 
         for average in ["macro", "micro", "weighted"]:
-            f1_score = multiclass_metric(cms, "f1", average=average)
-            precision_score = multiclass_metric(cms, "precision", average=average)
-            recall_score = multiclass_metric(cms, "recall", average=average)
+            f1_score = multiclass_metric_ovr(cms, "f1", average=average)
+            precision_score = multiclass_metric_ovr(cms, "precision", average=average)
+            recall_score = multiclass_metric_ovr(cms, "recall", average=average)
 
             # Perfect classification should give 1.0 for all metrics and averages
             assert f1_score == pytest.approx(1.0, abs=1e-10)
@@ -287,8 +287,8 @@ class TestAveragingMathematicalIdentities:
 
         # Test identities on this realistic data
         for metric_name in ["f1", "precision", "recall"]:
-            per_class_scores = multiclass_metric(cms, metric_name, average="none")
-            macro_score = multiclass_metric(cms, metric_name, average="macro")
+            per_class_scores = multiclass_metric_ovr(cms, metric_name, average="none")
+            macro_score = multiclass_metric_ovr(cms, metric_name, average="macro")
 
             # Macro identity should hold
             expected_macro = np.mean(per_class_scores)

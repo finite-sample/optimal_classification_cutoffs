@@ -21,18 +21,15 @@ Array = np.ndarray[Any, Any]
 NUMERICAL_TOLERANCE = 1e-12
 
 
-def _validate_inputs(
+def _validate_piecewise_inputs(
     y_true: Array, pred_prob: Array, require_proba: bool = True
 ) -> tuple[Array, Array]:
-    """Validate and convert inputs for binary classification.
+    """Validate and convert inputs for binary classification in piecewise context.
 
     This is a thin wrapper around the centralized validation for compatibility.
     """
     validated_labels, validated_probs, _ = validate_binary_classification(
-        true_labs=y_true,
-        pred_prob=pred_prob,
-        require_proba=require_proba,
-        force_dtypes=True,  # Maintain int8/float64 for performance
+        y_true, pred_prob
     )
     return validated_labels, validated_probs
 
@@ -323,7 +320,7 @@ def optimal_threshold_sortscan(
     >>> print(f"Optimal threshold: {threshold:.3f}, F1 score: {score:.3f}")
     """
     # Validate inputs
-    y, p = _validate_inputs(y_true, pred_prob, require_proba=require_proba)
+    y, p = _validate_piecewise_inputs(y_true, pred_prob, require_proba=require_proba)
     weights = _validate_sample_weights(sample_weight, y.shape[0])
 
     n = y.shape[0]

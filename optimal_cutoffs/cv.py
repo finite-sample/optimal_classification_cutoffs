@@ -14,8 +14,8 @@ from .metrics import (
     METRIC_REGISTRY,
     get_confusion_matrix,
     get_multiclass_confusion_matrix,
-    multiclass_metric,
-    multiclass_metric_exclusive,
+    multiclass_metric_ovr,
+    multiclass_metric_single_label,
 )
 from .types_minimal import (
     ComparisonOperatorLiteral,
@@ -296,11 +296,11 @@ def _evaluate_threshold_on_fold(
     if metric == "accuracy":
         # Exclusive accuracy uses the margin-based single-label decision rule
         return float(
-            multiclass_metric_exclusive(
+            multiclass_metric_single_label(
                 y_true, pred_prob, thresholds, "accuracy", comparison, sw
             )
         )
     cms = get_multiclass_confusion_matrix(
         y_true, pred_prob, thresholds, sample_weight=sw, comparison=comparison
     )
-    return float(multiclass_metric(cms, metric, average))
+    return float(multiclass_metric_ovr(cms, metric, average))

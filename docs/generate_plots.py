@@ -15,7 +15,13 @@ from scipy import optimize
 # Add the parent directory to sys.path to import optimal_cutoffs
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from optimal_cutoffs.metrics import compute_metric_at_threshold
+from optimal_cutoffs.metrics import get_confusion_matrix, METRIC_REGISTRY
+
+
+def compute_metric_at_threshold(y_true, y_prob, threshold, metric="f1"):
+    """Helper function to compute metric at threshold using new API."""
+    tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+    return METRIC_REGISTRY[metric](tp, tn, fp, fn)
 
 
 def plot_piecewise_f1_demonstration():

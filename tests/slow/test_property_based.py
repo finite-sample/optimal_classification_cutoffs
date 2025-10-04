@@ -712,15 +712,15 @@ class TestMulticlassPropertyBased:
             cms = get_multiclass_confusion_matrix(labels, probabilities, thresholds)
 
             # Test macro averaging
-            score_macro = multiclass_metric(cms, metric, "macro")
+            score_macro = multiclass_metric_ovr(cms, metric, "macro")
             assert 0 <= score_macro <= 1, f"Macro {metric} out of bounds: {score_macro}"
 
             # Test micro averaging
-            score_micro = multiclass_metric(cms, metric, "micro")
+            score_micro = multiclass_metric_ovr(cms, metric, "micro")
             assert 0 <= score_micro <= 1, f"Micro {metric} out of bounds: {score_micro}"
 
             # Test weighted averaging
-            score_weighted = multiclass_metric(cms, metric, "weighted")
+            score_weighted = multiclass_metric_ovr(cms, metric, "weighted")
             assert 0 <= score_weighted <= 1, (
                 f"Weighted {metric} out of bounds: {score_weighted}"
             )
@@ -790,10 +790,10 @@ class TestMulticlassMathematicalProperties:
             cms = get_multiclass_confusion_matrix(labels, probabilities, thresholds)
 
             # Compute different averages
-            score_macro = multiclass_metric(cms, "f1", "macro")
-            score_micro = multiclass_metric(cms, "f1", "micro")
-            score_weighted = multiclass_metric(cms, "f1", "weighted")
-            score_none = multiclass_metric(cms, "f1", "none")
+            score_macro = multiclass_metric_ovr(cms, "f1", "macro")
+            score_micro = multiclass_metric_ovr(cms, "f1", "micro")
+            score_weighted = multiclass_metric_ovr(cms, "f1", "weighted")
+            score_none = multiclass_metric_ovr(cms, "f1", "none")
 
             # All should be valid
             assert 0 <= score_macro <= 1

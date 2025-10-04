@@ -58,15 +58,15 @@ def test_multiclass_metrics():
     ]
 
     # Test macro averaging
-    f1_macro = multiclass_metric(cms, "f1", "macro")
+    f1_macro = multiclass_metric_ovr(cms, "f1", "macro")
     assert 0 <= f1_macro <= 1
 
     # Test micro averaging
-    f1_micro = multiclass_metric(cms, "f1", "micro")
+    f1_micro = multiclass_metric_ovr(cms, "f1", "micro")
     assert 0 <= f1_micro <= 1
 
     # Test weighted averaging
-    f1_weighted = multiclass_metric(cms, "f1", "weighted")
+    f1_weighted = multiclass_metric_ovr(cms, "f1", "weighted")
     assert 0 <= f1_weighted <= 1
 
 
@@ -163,9 +163,9 @@ def test_multiclass_metrics_averaging_methods():
         (1, 95, 1, 3),  # Class 2: poor performance, low support
     ]
 
-    f1_macro = multiclass_metric(cms, "f1", "macro")
-    f1_micro = multiclass_metric(cms, "f1", "micro")
-    f1_weighted = multiclass_metric(cms, "f1", "weighted")
+    f1_macro = multiclass_metric_ovr(cms, "f1", "macro")
+    f1_micro = multiclass_metric_ovr(cms, "f1", "micro")
+    f1_weighted = multiclass_metric_ovr(cms, "f1", "weighted")
 
     # All should be valid probabilities
     assert 0 <= f1_macro <= 1

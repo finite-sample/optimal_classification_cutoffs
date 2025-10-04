@@ -9,7 +9,7 @@ from numpy.typing import ArrayLike
 from .types_minimal import ComparisonOperatorLiteral, MetricFunc
 from .validation import (
     _validate_comparison_operator,
-    _validate_inputs,
+    validate_inputs,
     _validate_threshold,
 )
 
@@ -483,7 +483,7 @@ def _compute_exclusive_predictions(
     return np.where(any_above, best_by_margin, best_by_prob)
 
 
-def multiclass_metric_exclusive(
+def multiclass_metric_single_label(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
     thresholds: ArrayLike,
@@ -570,7 +570,7 @@ def multiclass_metric_exclusive(
         return float(np.mean(per_class) if per_class else 0.0)
 
 
-def multiclass_metric(
+def multiclass_metric_ovr(
     confusion_matrices: list[tuple[int | float, int | float, int | float, int | float]],
     metric_name: str,
     average: str = "macro",
@@ -591,7 +591,7 @@ def multiclass_metric(
         - "weighted": Weighted mean by support (number of true instances per class)
         - "none": No averaging, returns array of per-class metrics
 
-        Note: For exclusive single-label accuracy, use multiclass_metric_exclusive().
+        Note: For exclusive single-label accuracy, use multiclass_metric_single_label().
 
     Returns
     -------
@@ -642,7 +642,8 @@ def multiclass_metric(
             # We should compute accuracy using exclusive predictions instead
             raise ValueError(
                 "Micro-averaged accuracy requires exclusive single-label predictions. "
-                "Use multiclass_metric_exclusive() instead, or use 'macro' averaging "
+                "Use multiclass_metric_single_label() instead, or use 'macro' "
+                "averaging "
                 "which computes per-class accuracies independently."
             )
         else:
@@ -723,12 +724,11 @@ def get_confusion_matrix(
         float when sample_weight is provided to preserve fractional weighted counts.
     """
     # Validate inputs
-    true_labs, pred_prob, sample_weight = _validate_inputs(
+    true_labs, pred_prob, sample_weight = validate_inputs(
         true_labs,
         pred_prob,
+        sample_weight,
         require_binary=True,
-        require_proba=require_proba,
-        sample_weight=sample_weight,
         allow_multiclass=False,
     )
 
@@ -746,7 +746,7 @@ def get_confusion_matrix(
         pred_labs = (pred_prob >= prob).astype(int)
 
     # Use the centralized confusion matrix function
-    tp, tn, fp, fn = compute_confusion_matrix_from_labels(
+    tp, tn, fp, fn = _confusion_matrix_from_labels(
         true_labs, pred_labs, sample_weight=sample_weight
     )
 
@@ -757,7 +757,7 @@ def get_confusion_matrix(
         return float(tp), float(tn), float(fp), float(fn)
 
 
-def compute_confusion_matrix_from_labels(
+def _confusion_matrix_from_labels(
     true_labels: ArrayLike,
     pred_labels: ArrayLike,
     sample_weight: ArrayLike | None = None,
@@ -808,63 +808,22 @@ def compute_metric_at_threshold(
     sample_weight: ArrayLike | None = None,
     comparison: str = ">",
 ) -> float:
-    """Compute metric score at a given threshold for binary classification.
+    """Compute metric score at a given threshold (compatibility wrapper).
 
-    This is a generic function that computes a metric score by applying a threshold
-    to probabilities, converting to labels, and computing the specified metric.
-
-    Parameters
-    ----------
-    true_labs : ArrayLike
-        True binary labels (0 or 1)
-    pred_prob : ArrayLike
-        Predicted probabilities
-    threshold : float
-        Classification threshold
-    metric : str, default="f1"
-        Metric to compute (e.g., "f1", "accuracy", "precision", "recall")
-    sample_weight : ArrayLike, optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator for threshold application (">" or ">=")
-
-    Returns
-    -------
-    float
-        Metric score at the given threshold
-
-    Raises
-    ------
-    ValueError
-        If metric is not in METRIC_REGISTRY or comparison operator is invalid
+    This function provides compatibility for existing code while using
+    the new simplified API internally.
     """
-
-    # Validate inputs
-    true_labs, pred_prob, sample_weight = _validate_inputs(
-        true_labs, pred_prob, sample_weight=sample_weight
+    tp, tn, fp, fn = get_confusion_matrix(
+        true_labs, pred_prob, threshold, sample_weight, comparison
     )
-    _validate_comparison_operator(comparison)
-
-    # Apply threshold to get predictions
-    if comparison == ">":
-        pred_labels = (pred_prob > threshold).astype(int)
-    else:  # ">="
-        pred_labels = (pred_prob >= threshold).astype(int)
-
-    # Get confusion matrix components
-    tp, tn, fp, fn = compute_confusion_matrix_from_labels(
-        true_labs, pred_labels, sample_weight=sample_weight
-    )
-
-    # Compute metric using registry
     if metric not in METRIC_REGISTRY:
         raise ValueError(
             f"Metric '{metric}' not supported. "
             f"Available: {list(METRIC_REGISTRY.keys())}"
         )
-
     metric_func = METRIC_REGISTRY[metric]
     return float(metric_func(tp, tn, fp, fn))
+
 
 
 def compute_multiclass_metrics_from_labels(
@@ -1040,8 +999,8 @@ def get_multiclass_confusion_matrix(
         Returns int when sample_weight is None, float when sample_weight is provided.
     """
     # Validate inputs
-    true_labs, pred_prob, sample_weight = _validate_inputs(
-        true_labs, pred_prob, sample_weight=sample_weight, require_proba=require_proba
+    true_labs, pred_prob, sample_weight = validate_inputs(
+        true_labs, pred_prob, sample_weight, require_binary=False
     )
     _validate_comparison_operator(comparison)
 

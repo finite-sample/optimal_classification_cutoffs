@@ -116,7 +116,7 @@ class TestMicroAccuracyFix:
         thresholds = np.array([0.4, 0.5, 0.6])
 
         # Compute exclusive accuracy
-        exclusive_acc = multiclass_metric_exclusive(
+        exclusive_acc = multiclass_metric_single_label(
             y_true, pred_prob, thresholds, "accuracy"
         )
 
@@ -125,7 +125,7 @@ class TestMicroAccuracyFix:
 
         # OvR aggregation should raise error for accuracy
         with pytest.raises(ValueError, match="Micro-averaged accuracy requires"):
-            multiclass_metric(cms, "accuracy", "micro")
+            multiclass_metric_ovr(cms, "accuracy", "micro")
 
         # Exclusive accuracy should be reasonable (0-1 range)
         assert 0 <= exclusive_acc <= 1, (

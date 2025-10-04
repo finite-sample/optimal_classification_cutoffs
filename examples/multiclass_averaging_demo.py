@@ -62,10 +62,10 @@ def demonstrate_averaging_semantics(y_true, y_prob, class_counts):
     print("\nF1 Scores by Averaging Strategy:")
 
     # Compute F1 with different averaging strategies
-    f1_none = multiclass_metric(cms, "f1", average="none")
-    f1_macro = multiclass_metric(cms, "f1", average="macro")
-    f1_micro = multiclass_metric(cms, "f1", average="micro")
-    f1_weighted = multiclass_metric(cms, "f1", average="weighted")
+    f1_none = multiclass_metric_ovr(cms, "f1", average="none")
+    f1_macro = multiclass_metric_ovr(cms, "f1", average="macro")
+    f1_micro = multiclass_metric_ovr(cms, "f1", average="micro")
+    f1_weighted = multiclass_metric_ovr(cms, "f1", average="weighted")
 
     print(f"  Per-class (none): {f1_none}")
     print(f"  Macro average:    {f1_macro:.4f} (equal weight to each class)")
@@ -218,15 +218,15 @@ def demonstrate_practical_implications(y_true, y_prob, class_counts):
             cms = get_multiclass_confusion_matrix(y_true, y_prob, thresholds)
 
             if strategy == "none":
-                f1_scores = multiclass_metric(cms, "f1", average="none")
+                f1_scores = multiclass_metric_ovr(cms, "f1", average="none")
                 print(f"  Per-class F1: {f1_scores}")
                 print(f"  Macro average: {np.mean(f1_scores):.4f}")
             else:
-                f1_score = multiclass_metric(cms, "f1", average=strategy)
+                f1_score = multiclass_metric_ovr(cms, "f1", average=strategy)
                 print(f"  F1 score: {f1_score:.4f}")
 
                 # Also show per-class for context
-                per_class_f1 = multiclass_metric(cms, "f1", average="none")
+                per_class_f1 = multiclass_metric_ovr(cms, "f1", average="none")
                 print(f"  Per-class F1: {per_class_f1}")
 
         except Exception as e:
@@ -281,9 +281,9 @@ def compare_with_sklearn_metrics(y_true, y_prob):
     cms_optimized = get_multiclass_confusion_matrix(y_true, y_prob, optimal_thresholds)
 
     print("\nOur library F1 scores (optimized thresholds):")
-    f1_macro = multiclass_metric(cms_optimized, "f1", average="macro")
-    f1_micro = multiclass_metric(cms_optimized, "f1", average="micro")
-    f1_weighted = multiclass_metric(cms_optimized, "f1", average="weighted")
+    f1_macro = multiclass_metric_ovr(cms_optimized, "f1", average="macro")
+    f1_micro = multiclass_metric_ovr(cms_optimized, "f1", average="micro")
+    f1_weighted = multiclass_metric_ovr(cms_optimized, "f1", average="weighted")
 
     print(f"  Macro:    {f1_macro:.4f}")
     print(f"  Micro:    {f1_micro:.4f}")

@@ -44,7 +44,7 @@ class TestMulticlassAveragingSemantics:
 
     def test_average_none_returns_array(self):
         """Test that average='none' returns array of per-class scores."""
-        result = multiclass_metric(self.cms, "f1", average="none")
+        result = multiclass_metric_ovr(self.cms, "f1", average="none")
 
         assert isinstance(result, np.ndarray)
         assert len(result) == 3  # Number of classes
@@ -56,7 +56,7 @@ class TestMulticlassAveragingSemantics:
     def test_macro_micro_weighted_return_float(self):
         """Test that other averaging strategies return float."""
         for average in ["macro", "micro", "weighted"]:
-            result = multiclass_metric(self.cms, "f1", average=average)
+            result = multiclass_metric_ovr(self.cms, "f1", average=average)
 
             assert isinstance(result, (float, np.floating))
             assert 0 <= result <= 1
@@ -64,8 +64,8 @@ class TestMulticlassAveragingSemantics:
     def test_macro_averaging_identity(self):
         """Test macro averaging identity: macro = mean(per_class_scores)."""
         # Get per-class scores
-        per_class_scores = multiclass_metric(self.cms, "f1", average="none")
-        macro_score = multiclass_metric(self.cms, "f1", average="macro")
+        per_class_scores = multiclass_metric_ovr(self.cms, "f1", average="none")
+        macro_score = multiclass_metric_ovr(self.cms, "f1", average="macro")
 
         expected_macro = float(np.mean(per_class_scores))
 
@@ -88,14 +88,14 @@ class TestMulticlassAveragingSemantics:
         )
 
         # Get micro F1 from function
-        micro_f1 = multiclass_metric(self.cms, "f1", average="micro")
+        micro_f1 = multiclass_metric_ovr(self.cms, "f1", average="micro")
 
         assert micro_f1 == pytest.approx(expected_micro_f1, rel=1e-10)
 
     def test_weighted_averaging_identity(self):
         """Test weighted averaging identity: weighted = sum(score_i * support_i) / sum(support_i)."""
         # Get per-class scores and supports
-        per_class_scores = multiclass_metric(self.cms, "f1", average="none")
+        per_class_scores = multiclass_metric_ovr(self.cms, "f1", average="none")
         supports = [cm[0] + cm[3] for cm in self.cms]  # TP + FN = actual positives
 
         total_support = sum(supports)
@@ -109,7 +109,7 @@ class TestMulticlassAveragingSemantics:
             else 0.0
         )
 
-        weighted_score = multiclass_metric(self.cms, "f1", average="weighted")
+        weighted_score = multiclass_metric_ovr(self.cms, "f1", average="weighted")
 
         assert weighted_score == pytest.approx(expected_weighted, rel=1e-10)
 
@@ -129,9 +129,9 @@ class TestMulticlassAveragingSemantics:
                     with pytest.raises(
                         ValueError, match="Micro-averaged accuracy requires"
                     ):
-                        multiclass_metric(self.cms, metric_name, average=average)
+                        multiclass_metric_ovr(self.cms, metric_name, average=average)
                 else:
-                    result = multiclass_metric(self.cms, metric_name, average=average)
+                    result = multiclass_metric_ovr(self.cms, metric_name, average=average)
 
                     if average == "none":
                         assert isinstance(result, np.ndarray)
@@ -144,14 +144,14 @@ class TestMulticlassAveragingSemantics:
         with pytest.raises(
             ValueError, match="Unknown averaging method.*invalid.*Must be one of"
         ):
-            multiclass_metric(self.cms, "f1", average="invalid")
+            multiclass_metric_ovr(self.cms, "f1", average="invalid")
 
     def test_type_annotations_work(self):
         """Test that type annotations work correctly."""
         # This test mainly checks that our type hints are valid
-        result_float: float = multiclass_metric(self.cms, "f1", average="macro")
-        result_array: np.ndarray = multiclass_metric(self.cms, "f1", average="none")
-        result_union: MulticlassMetricReturn = multiclass_metric(
+        result_float: float = multiclass_metric_ovr(self.cms, "f1", average="macro")
+        result_array: np.ndarray = multiclass_metric_ovr(self.cms, "f1", average="none")
+        result_union: MulticlassMetricReturn = multiclass_metric_ovr(
             self.cms, "f1", average="macro"
         )
 

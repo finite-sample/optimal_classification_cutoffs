@@ -169,7 +169,7 @@ class TestMulticlassMetrics:
 
         # Test all averaging methods
         for average in ["macro", "micro", "weighted"]:
-            f1_score = multiclass_metric(cms, "f1", average)
+            f1_score = multiclass_metric_ovr(cms, "f1", average)
             assert_valid_metric_score(f1_score, f"{average}_f1")
 
     def test_multiclass_metrics_different_metrics(self):
@@ -189,7 +189,7 @@ class TestMulticlassMetrics:
                     # Micro accuracy requires special handling
                     continue
 
-                score = multiclass_metric(cms, metric, average)
+                score = multiclass_metric_ovr(cms, metric, average)
                 assert_valid_metric_score(score, f"{average}_{metric}")
 
     def test_multiclass_metrics_edge_cases(self):
@@ -203,7 +203,7 @@ class TestMulticlassMetrics:
 
         # Should handle gracefully without division by zero
         for average in ["macro", "micro", "weighted"]:
-            f1_score = multiclass_metric(cms, "f1", average)
+            f1_score = multiclass_metric_ovr(cms, "f1", average)
             assert_valid_metric_score(f1_score, f"{average}_f1", allow_nan=False)
 
     def test_multiclass_averaging_identities(self):
@@ -215,8 +215,8 @@ class TestMulticlassMetrics:
             (6, 11, 1, 2),  # Class 2: support = 8
         ]
 
-        macro_f1 = multiclass_metric(cms, "f1", "macro")
-        weighted_f1 = multiclass_metric(cms, "f1", "weighted")
+        macro_f1 = multiclass_metric_ovr(cms, "f1", "macro")
+        weighted_f1 = multiclass_metric_ovr(cms, "f1", "weighted")
 
         # Should be relatively close for balanced data
         assert abs(macro_f1 - weighted_f1) < 0.2
@@ -229,16 +229,16 @@ class TestMulticlassMetrics:
             (12, 82, 2, 4),  # Class 2
         ]
 
-        micro_f1 = multiclass_metric(cms, "f1", "micro")
-        macro_f1 = multiclass_metric(cms, "f1", "macro")
+        micro_f1 = multiclass_metric_ovr(cms, "f1", "micro")
+        macro_f1 = multiclass_metric_ovr(cms, "f1", "macro")
 
         # Both should be valid
         assert_valid_metric_score(micro_f1, "micro_f1")
         assert_valid_metric_score(macro_f1, "macro_f1")
 
         # For F1, micro precision = micro recall = micro F1
-        micro_precision = multiclass_metric(cms, "precision", "micro")
-        micro_recall = multiclass_metric(cms, "recall", "micro")
+        micro_precision = multiclass_metric_ovr(cms, "precision", "micro")
+        micro_recall = multiclass_metric_ovr(cms, "recall", "micro")
 
         assert micro_precision == pytest.approx(micro_recall, abs=1e-10)
         assert micro_precision == pytest.approx(micro_f1, abs=1e-10)

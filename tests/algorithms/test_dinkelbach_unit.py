@@ -5,6 +5,7 @@ under perfect calibration assumptions. The method depends only on predicted
 probabilities, not on realized labels.
 """
 
+import warnings
 import numpy as np
 import pytest
 from hypothesis import given, settings
@@ -374,3 +375,38 @@ class TestDinkelbachComparison:
 
         # They should generally be different (unless there's a unique optimum)
         # This is more of a sanity check than a strict requirement
+
+
+class TestDinkelbachConvergenceWarnings:
+    """Test convergence warnings for Dinkelbach algorithms."""
+
+    def test_dinkelbach_normal_case_no_warnings(self):
+        """Test that normal cases don't produce warnings."""
+        y_prob = np.array([0.1, 0.4, 0.6, 0.9])
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            threshold, score = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
+            
+            # Should not have any warnings for normal convergent cases
+            assert len(w) == 0
+            assert_valid_threshold(threshold)
+            assert 0.0 <= score <= 1.0
+
+    def test_dinkelbach_edge_cases_no_warnings(self):
+        """Test that edge cases handle warnings appropriately."""
+        edge_cases = [
+            np.array([0.5]),      # Single probability
+            np.array([0.0, 1.0]), # Extreme probabilities
+            np.zeros(5),          # All zeros
+            np.ones(5),           # All ones
+        ]
+        
+        for y_prob in edge_cases:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                threshold, score = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
+                
+                # Edge cases should generally converge without warnings
+                assert_valid_threshold(threshold)
+                assert 0.0 <= score <= 1.0

@@ -13,6 +13,7 @@ Key simplifications:
 from __future__ import annotations
 
 from typing import Any, Literal
+import warnings
 
 import numpy as np
 
@@ -57,8 +58,9 @@ def dinkelbach_optimize(
 
     # Initial lambda
     lam = 0.5
+    converged = False
 
-    for _ in range(max_iter):
+    for iteration in range(max_iter):
         # Find threshold that maximizes: numerator - lambda * denominator
         def objective(t, lambda_val=lam):
             return numerator_fn(t) - lambda_val * denominator_fn(t)
@@ -80,14 +82,28 @@ def dinkelbach_optimize(
         den = denominator_fn(best_t)
 
         if den == 0:
+            warnings.warn(
+                "Dinkelbach algorithm terminated early due to zero denominator "
+                f"(numerical instability) at iteration {iteration + 1}",
+                RuntimeWarning
+            )
             break
 
         new_lam = num / den
 
         if abs(new_lam - lam) < tol:
-            return float(best_t), float(new_lam)
+            converged = True
+            break
 
         lam = new_lam
+
+    if not converged and den != 0:
+        final_tolerance = abs(new_lam - lam) if 'new_lam' in locals() else float('inf')
+        warnings.warn(
+            f"Dinkelbach algorithm did not converge within {max_iter} iterations. "
+            f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
+            RuntimeWarning
+        )
 
     return float(best_t), float(lam)
 
@@ -103,7 +119,7 @@ def dinkelbach_expected_fbeta_binary(
     sample_weight: np.ndarray[Any, Any] | None = None,
     comparison: str = ">",
 ) -> tuple[float, float]:
-    """Expected F-beta optimization under calibration.
+    """Expected F-beta optimization under calibration using efficient O(n log n) algorithm.
 
     Parameters
     ----------
@@ -123,52 +139,150 @@ def dinkelbach_expected_fbeta_binary(
     score : float
         Expected F-beta score
     """
+    # Step 1: Setup and validation
     p = np.asarray(y_prob, dtype=np.float64)
-
+    n = len(p)
+    
     if sample_weight is None:
-        weights = np.ones_like(p)
+        w = np.ones(n, dtype=np.float64)
     else:
-        weights = np.asarray(sample_weight, dtype=np.float64)
-
+        w = np.asarray(sample_weight, dtype=np.float64)
+    
     # Validate inputs
     if not np.all((0 <= p) & (p <= 1)):
         raise ValueError("Probabilities must be in [0, 1]")
-    if np.any(weights < 0):
+    if np.any(w < 0):
         raise ValueError("Weights must be non-negative")
-
-    # Expected confusion matrix components as functions of threshold
-    # Under calibration: E[TP|p>t] = sum(w_i * p_i) for i where p_i > t
-
-    # Pre-compute for efficiency
-    wp = weights * p  # weighted probabilities
-    w1mp = weights * (1 - p)  # weighted (1-p)
-
-    def expected_tp(t):
-        mask = p > t
-        return np.sum(wp[mask])
-
-    def expected_fp(t):
-        mask = p > t
-        return np.sum(w1mp[mask])
-
-    def expected_fn(t):
-        mask = p <= t
-        return np.sum(wp[mask])
-
-    # F-beta numerator and denominator
-    beta2 = beta**2
-
-    def numerator(t):
-        tp = expected_tp(t)
-        return (1 + beta2) * tp
-
-    def denominator(t):
-        tp = expected_tp(t)
-        fp = expected_fp(t)
-        fn = expected_fn(t)
-        return (1 + beta2) * tp + fp + beta2 * fn
-
-    return dinkelbach_optimize(p, numerator, denominator)
+    
+    # Step 2: Sort probabilities and weights together
+    sort_idx = np.argsort(p)
+    p_sorted = p[sort_idx]
+    w_sorted = w[sort_idx]
+    
+    # Step 3: Pre-compute cumulative sums for O(1) metric evaluation
+    wp_sorted = w_sorted * p_sorted
+    w1mp_sorted = w_sorted * (1 - p_sorted)
+    
+    # Cumulative sums from right (for p > threshold)
+    cumsum_wp_right = np.zeros(n + 1)
+    cumsum_w1mp_right = np.zeros(n + 1)
+    
+    cumsum_wp_right[:-1] = np.cumsum(wp_sorted[::-1])[::-1]
+    cumsum_w1mp_right[:-1] = np.cumsum(w1mp_sorted[::-1])[::-1]
+    
+    # Cumulative sums from left (for p <= threshold)
+    cumsum_wp_left = np.zeros(n + 1)
+    cumsum_wp_left[1:] = np.cumsum(wp_sorted)
+    
+    # Step 4: Define efficient metric functions using cumulative sums
+    def compute_fbeta_at_index(idx: int) -> tuple[float, float]:
+        """Compute F-beta numerator and denominator at threshold index."""
+        # For threshold at p_sorted[idx], we predict positive for p > p_sorted[idx]
+        
+        # Expected TP: sum of p*w for p > threshold
+        expected_tp = cumsum_wp_right[idx + 1]
+        
+        # Expected FP: sum of (1-p)*w for p > threshold  
+        expected_fp = cumsum_w1mp_right[idx + 1]
+        
+        # Expected FN: sum of p*w for p <= threshold
+        expected_fn = cumsum_wp_left[idx + 1]
+        
+        beta2 = beta ** 2
+        numerator = (1 + beta2) * expected_tp
+        denominator = (1 + beta2) * expected_tp + expected_fp + beta2 * expected_fn
+        
+        return numerator, denominator
+    
+    # Step 5: Dinkelbach iterations with efficient evaluation
+    lambda_val = 0.5
+    max_iter = 100
+    tol = 1e-12
+    converged = False
+    
+    # Get unique threshold candidates (including edge cases)
+    unique_p, unique_idx = np.unique(p_sorted, return_index=True)
+    # Add threshold at endpoints for completeness
+    threshold_indices = list(unique_idx) + [n]
+    if len(unique_p) == 0 or unique_p[0] > 0:
+        threshold_indices = [-1] + threshold_indices
+    
+    for iteration in range(max_iter):
+        best_threshold = 0.5
+        best_value = -np.inf
+        best_score = 0.0
+        
+        # Evaluate objective at each unique threshold
+        for idx in threshold_indices:
+            if idx == -1:
+                # Threshold = 0 (everything predicted positive)
+                threshold = 0.0
+                num = cumsum_wp_right[0]
+                den = cumsum_wp_right[0] + cumsum_w1mp_right[0]
+            elif idx == n:
+                # Threshold = 1 (nothing predicted positive)
+                threshold = 1.0
+                num, den = 0.0, cumsum_wp_left[n]
+                if den == 0:
+                    den = 1.0  # Avoid division by zero
+            else:
+                threshold = p_sorted[idx]
+                num, den = compute_fbeta_at_index(idx)
+            
+            # Objective: maximize num - lambda * den
+            obj_value = num - lambda_val * den
+            
+            if obj_value > best_value:
+                best_value = obj_value
+                best_threshold = threshold
+                if den > 0:
+                    best_score = num / den
+                else:
+                    best_score = 0.0
+        
+        # Update lambda
+        if best_threshold == 0.0:
+            idx = -1
+        elif best_threshold == 1.0:
+            idx = n
+        else:
+            idx = np.searchsorted(p_sorted, best_threshold, side='right') - 1
+        
+        if idx == -1:
+            num = cumsum_wp_right[0]
+            den = cumsum_wp_right[0] + cumsum_w1mp_right[0]
+        elif idx == n:
+            num, den = 0.0, cumsum_wp_left[n]
+            if den == 0:
+                den = 1.0
+        else:
+            num, den = compute_fbeta_at_index(idx)
+        
+        if den == 0:
+            warnings.warn(
+                "Dinkelbach expected F-beta optimization terminated early due to zero denominator "
+                f"(numerical instability) at iteration {iteration + 1}",
+                RuntimeWarning
+            )
+            break
+            
+        new_lambda = num / den if den > 0 else 0.0
+        
+        if abs(new_lambda - lambda_val) < tol:
+            converged = True
+            return float(best_threshold), float(best_score)
+        
+        lambda_val = new_lambda
+    
+    if not converged and den != 0:
+        final_tolerance = abs(new_lambda - lambda_val) if 'new_lambda' in locals() else float('inf')
+        warnings.warn(
+            f"Dinkelbach expected F-beta optimization did not converge within {max_iter} iterations. "
+            f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
+            RuntimeWarning
+        )
+    
+    return float(best_threshold), float(best_score)
 
 
 def expected_precision(
@@ -236,6 +350,7 @@ def dinkelbach_expected_fbeta_multilabel(
     beta: float = 1.0,
     sample_weight: np.ndarray[Any, Any] | None = None,
     average: Literal["macro", "micro", "weighted"] = "macro",
+    true_labels: np.ndarray[Any, Any] | None = None,
     comparison: str = ">",
 ) -> dict[str, Any]:
     """Expected F-beta optimization for multilabel/multiclass.
@@ -252,7 +367,11 @@ def dinkelbach_expected_fbeta_multilabel(
         Averaging strategy:
         - "macro": Per-class thresholds, unweighted mean
         - "micro": Single global threshold
-        - "weighted": Per-class thresholds, weighted mean
+        - "weighted": Per-class thresholds, weighted by true class frequencies
+    true_labels : array of shape (n_samples,), optional
+        True class labels. Required when average="weighted" to compute class
+        frequencies.
+        Should contain integer class indices from 0 to n_classes-1.
     comparison : str
         Comparison operator (kept for backward compatibility)
 
@@ -296,15 +415,26 @@ def dinkelbach_expected_fbeta_multilabel(
         if average == "macro":
             avg_score = np.mean(scores)
         else:  # weighted
-            # Weight by class frequency
-            if sample_weight is not None:
-                # This is a simplification - proper weighting would need true labels
-                class_weights = np.sum(P * sample_weight[:, None], axis=0)
-            else:
-                class_weights = np.sum(P, axis=0)
+            # Weight by true class frequencies
+            if true_labels is None:
+                raise ValueError(
+                    "Weighted averaging requires true_labels to compute class "
+                    "frequencies"
+                )
 
-            class_weights /= class_weights.sum()
-            avg_score = np.average(scores, weights=class_weights)
+            # Compute class frequencies from true labels
+            class_counts = np.bincount(true_labels, minlength=n_classes)
+
+            # Handle case where some classes have no samples
+            if np.any(class_counts == 0):
+                # Only weight by classes that have samples
+                mask = class_counts > 0
+                if not np.any(mask):
+                    avg_score = 0.0  # No samples for any class
+                else:
+                    avg_score = np.average(scores[mask], weights=class_counts[mask])
+            else:
+                avg_score = np.average(scores, weights=class_counts)
 
         return {
             "thresholds": thresholds,

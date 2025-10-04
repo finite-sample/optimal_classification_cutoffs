@@ -9,7 +9,7 @@ from optimal_cutoffs import (
     get_multiclass_confusion_matrix,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
-    multiclass_metric,
+    multiclass_metric_ovr,
 )
 
 # Generate synthetic multiclass data
@@ -90,9 +90,9 @@ for i, cm in enumerate(cms):
     print(f"  Class {i}: TP={tp}, TN={tn}, FP={fp}, FN={fn}")
 
 # Compute multiclass metrics with different averaging strategies
-f1_macro = multiclass_metric(cms, "f1", "macro")
-f1_micro = multiclass_metric(cms, "f1", "micro")
-f1_weighted = multiclass_metric(cms, "f1", "weighted")
+f1_macro = multiclass_metric_ovr(cms, "f1", "macro")
+f1_micro = multiclass_metric_ovr(cms, "f1", "micro")
+f1_weighted = multiclass_metric_ovr(cms, "f1", "weighted")
 
 print("\nMulticlass F1 scores:")
 print(f"  Macro average:    {f1_macro:.3f}")

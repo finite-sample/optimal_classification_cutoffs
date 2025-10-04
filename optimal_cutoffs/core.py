@@ -24,7 +24,7 @@ from .types_minimal import (
 )
 from .validation import (
     _validate_comparison_operator,
-    _validate_inputs,
+    validate_inputs,
     _validate_metric_name,
     _validate_optimization_method,
 )
@@ -131,7 +131,7 @@ def get_optimal_threshold(
 
     # Validate inputs if we have true labels
     if true_labs is not None:
-        _validate_inputs(true_labs, pred_prob, allow_multiclass=True)
+        validate_inputs(true_labs, pred_prob, allow_multiclass=True)
 
     # Route to mode-specific optimizers (simplified from router pattern)
     result: Any
@@ -298,13 +298,12 @@ def _optimize_expected(
         # Ensure average is compatible with expected function
         avg_method = average if average in {"macro", "weighted", "micro"} else "macro"
         sw = np.asarray(sample_weight) if sample_weight is not None else None
-        cw = np.asarray(class_weight) if class_weight is not None else None
         return dinkelbach_expected_fbeta_multilabel(
             pred_prob,
             beta,
-            avg_method,  # type: ignore[arg-type]
-            sw,
-            cw,
+            sw,  # sample_weight
+            avg_method,  # average
+            true_labs,  # true_labels
             comparison,
         )
     else:
