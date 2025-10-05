@@ -32,8 +32,7 @@ from .expected import (
     dinkelbach_expected_fbeta_multilabel,
 )
 from .metrics import (
-    METRIC_REGISTRY,
-    VECTORIZED_REGISTRY,
+    METRICS,
     compute_metric_at_threshold,
     compute_multiclass_metrics_from_labels,
     get_confusion_matrix,
@@ -78,8 +77,7 @@ __all__ = [
     "make_linear_counts_metric",
     "multiclass_metric_ovr",
     "multiclass_metric_single_label",
-    "METRIC_REGISTRY",
-    "VECTORIZED_REGISTRY",
+    "METRICS",
     "register_metric",
     "register_metrics",
     "is_piecewise_metric",

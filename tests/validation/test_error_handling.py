@@ -260,6 +260,7 @@ class TestGracefulFailure:
         try:
             result = get_optimal_threshold(y_true, y_prob, method="minimize")
             # If it succeeds, threshold should be valid
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
         except (ValueError, RuntimeError) as e:
             # If it fails, error should be informative
@@ -274,6 +275,7 @@ class TestGracefulFailure:
         # Should either work or fail gracefully
         try:
             result = get_optimal_threshold(y_true, y_prob)
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
         except (ValueError, RuntimeError) as e:
             # Should have informative error message
@@ -290,6 +292,7 @@ class TestGracefulFailure:
         # Should work for reasonable large datasets
         try:
             result = get_optimal_threshold(y_true, y_prob, method="unique_scan")
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
         except MemoryError:
             # If memory error occurs, it should be caught and handled
@@ -307,6 +310,7 @@ class TestErrorRecovery:
 
         # Auto method should try fallbacks if primary method fails
         result = get_optimal_threshold(y_true, y_prob, method="auto")
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
     def test_parameter_correction_warnings(self):

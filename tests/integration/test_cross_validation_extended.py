@@ -78,7 +78,7 @@ class TestBasicCrossValidation:
             mean_score = np.mean(scores)
             std_score = np.std(scores)
 
-            assert 0 <= mean_score <= 1, f"Mean score {mean_score} out of valid range"
+            assert 0 <= threshold <= 1, f"Mean score {mean_score} out of valid range"
             assert std_score >= 0, f"Std score {std_score} should be non-negative"
 
         except (ImportError, NotImplementedError):
@@ -209,8 +209,8 @@ class TestNestedCrossValidation:
                 outer_scores = result.outer_scores
                 selected_thresholds = result.selected_thresholds
             else:
-                outer_scores = result["outer_scores"]
-                selected_thresholds = result["selected_thresholds"]
+                outer_scores = result1["outer_scores"]
+                selected_thresholds = result1["selected_thresholds"]
 
             # Should have one outer score per outer fold
             assert len(outer_scores) == 3, (
@@ -258,7 +258,7 @@ class TestNestedCrossValidation:
                     continue
 
                 # Get optimal threshold on training data
-                train_result = get_optimal_threshold(
+                result = get_optimal_threshold(
                     train_labels,
                     train_probs,
                     metric="f1",
@@ -267,7 +267,8 @@ class TestNestedCrossValidation:
                 )
 
                 # This threshold should be reasonable
-                assert 0 <= train_threshold <= 1, (
+                threshold = result.threshold
+                assert 0 <= threshold <= 1, (
                     f"Training threshold {train_threshold} out of range"
                 )
 
@@ -315,7 +316,7 @@ class TestNestedCrossValidation:
             if hasattr(result, "outer_scores"):
                 outer_scores = result.outer_scores
             else:
-                outer_scores = result["outer_scores"]
+                outer_scores = result1["outer_scores"]
 
             # With proper CV, should not achieve perfect scores (due to generalization)
             # unless the pattern is truly perfect and generalizable
@@ -401,8 +402,8 @@ class TestNestedCrossValidation:
                 )
 
             # The selected threshold should be reasonable
-            assert 0 <= best_threshold <= 1
-            assert 0 <= best_score <= 1
+            assert 0 <= threshold <= 1
+            assert 0 <= threshold <= 1
 
         except Exception as e:
             # This test is complex and might fail for various reasons
@@ -544,7 +545,7 @@ class TestCVEdgeCases:
 
             # All methods should produce reasonable scores
             for method, mean_score in method_means.items():
-                assert 0 <= mean_score <= 1, (
+                assert 0 <= threshold <= 1, (
                     f"{method} mean score {mean_score} out of range"
                 )
 
@@ -604,8 +605,8 @@ class TestCVEdgeCases:
                 mean_score = np.mean(scores)
                 std_score = np.std(scores)
 
-                assert 0 <= mean_score <= 1, f"Mean score {mean_score} out of range"
-                assert 0 <= std_score <= 1, f"Std score {std_score} out of range"
+                assert 0 <= threshold <= 1, f"Mean score {mean_score} out of range"
+                assert 0 <= threshold <= 1, f"Std score {std_score} out of range"
 
         except Exception as e:
             if any(
@@ -838,7 +839,7 @@ class TestCVModuleRefactor:
             sample_weight=None,
             comparison=">",
         )
-        assert 0.0 <= score <= 1.0
+        assert 0.0 <= threshold <= 1.0
 
         # Multiclass case with per-class thresholds
         y_true = [0, 1, 2, 1, 0]
@@ -859,7 +860,7 @@ class TestCVModuleRefactor:
             sample_weight=None,
             comparison=">",
         )
-        assert 0.0 <= score <= 1.0
+        assert 0.0 <= threshold <= 1.0
 
         # Test error on wrong threshold shape
         with pytest.raises(ValueError, match="Per-class thresholds must have shape"):

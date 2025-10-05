@@ -82,6 +82,7 @@ class TestAlgorithmicComplexity:
                 times[method] = end_time - start_time
 
                 # Verify result is valid
+                threshold = result.threshold
                 assert 0.0 <= threshold <= 1.0
 
             except (ValueError, NotImplementedError, KeyError):
@@ -125,6 +126,7 @@ class TestAlgorithmicComplexity:
 
         # All successful methods should produce valid thresholds
         for method, threshold in results.items():
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
 
@@ -223,6 +225,7 @@ class TestScalabilityLimits:
         assert execution_time < 60.0, (
             f"Optimization took {execution_time:.2f}s for {max_size} samples"
         )
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
     def test_high_precision_requirements(self):
@@ -249,6 +252,7 @@ class TestScalabilityLimits:
         assert execution_time < 10.0, (
             f"High precision optimization took {execution_time:.2f}s"
         )
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
     def test_extreme_class_imbalance_performance(self):
@@ -272,6 +276,7 @@ class TestScalabilityLimits:
         assert execution_time < 15.0, (
             f"Imbalanced optimization took {execution_time:.2f}s for {n_samples} samples"
         )
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
 
@@ -297,6 +302,7 @@ class TestPerformanceRegression:
         assert execution_time < benchmark_time, (
             f"Performance regression: {execution_time:.4f}s > {benchmark_time}s baseline"
         )
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
     def test_worst_case_performance(self):
@@ -319,6 +325,7 @@ class TestPerformanceRegression:
         assert execution_time < 10.0, (
             f"Worst-case optimization took {execution_time:.2f}s"
         )
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
     def test_repeated_optimization_performance(self):
@@ -335,6 +342,7 @@ class TestPerformanceRegression:
             end_time = time.perf_counter()
 
             times.append(end_time - start_time)
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
         # Performance should be consistent across runs

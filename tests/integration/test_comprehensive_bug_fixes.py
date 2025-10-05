@@ -36,6 +36,7 @@ class TestDegenerateCasesFix:
         result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">"
         )
+        threshold = result.threshold
 
         # With '>', we need prob > threshold to be false for all
         # So threshold should be >= max(prob)
@@ -51,6 +52,7 @@ class TestDegenerateCasesFix:
         result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">="
         )
+        threshold = result.threshold
 
         # With '>=', we need prob >= threshold to be false for all
         # So threshold should be > max(prob)
@@ -66,6 +68,7 @@ class TestDegenerateCasesFix:
         result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">"
         )
+        threshold = result.threshold
 
         # With '>', we need prob > threshold to be true for all
         # So threshold should be < min(prob)
@@ -81,6 +84,7 @@ class TestDegenerateCasesFix:
         result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", comparison=">="
         )
+        threshold = result.threshold
 
         # With '>=', we need prob >= threshold to be true for all
         # So threshold should be <= min(prob)
@@ -93,13 +97,15 @@ class TestDegenerateCasesFix:
         # All negative
         y_neg = [0, 0, 0]
         p_neg = [0.2, 0.7, 0.8]
-        thresh_neg = get_optimal_threshold(y_neg, p_neg, metric="f1")
+        result = get_optimal_threshold(y_neg, p_neg, metric="f1")
+        thresh_neg = result.threshold
         assert thresh_neg != 0.5, "All-negative should not return arbitrary 0.5"
 
         # All positive
         y_pos = [1, 1, 1]
         p_pos = [0.2, 0.7, 0.8]
-        thresh_pos = get_optimal_threshold(y_pos, p_pos, metric="f1")
+        result = get_optimal_threshold(y_pos, p_pos, metric="f1")
+        thresh_pos = result.threshold
         assert thresh_pos != 0.5, "All-positive should not return arbitrary 0.5"
 
 
@@ -177,9 +183,8 @@ class TestDinkelbachComparisonSupport:
         )
 
         # Extract thresholds from tuples
-        thresh_main_excl, _ = result_main_excl
-        thresh_main_incl, _ = result_main_incl
-
+        thresh_main_excl, _ = result_main_excl.threshold, result_main_excl.score
+        thresh_main_incl, _ = result_main_incl.threshold, result_main_incl.score
         # Allow some tolerance for numerical differences between internal and main API
         assert abs(thresh_main_excl - thresh_excl) < 0.05, (
             f"Thresholds should be close: {thresh_main_excl} vs {thresh_excl}"
@@ -200,11 +205,12 @@ class TestDinkelbachComparisonSupport:
             )
 
             # Extract threshold from tuple
-            threshold, expected_f1 = result
+            threshold, expected_f1 = result.threshold, result.score
 
             # Should produce valid threshold
+            threshold = result.threshold
             assert 0 <= threshold <= 1
-            assert 0 <= expected_f1 <= 1
+            assert 0 <= threshold <= 1
 
             # Should produce valid predictions
             if comparison == ">":
@@ -221,7 +227,7 @@ class TestDinkelbachComparisonSupport:
                 y_true, pred_prob, threshold, comparison=comparison
             )
             f1 = f1_score(tp, tn, fp, fn)
-            assert 0 <= f1 <= 1
+            assert 0 <= threshold <= 1
 
 
 class TestLabelValidationFix:
@@ -234,7 +240,8 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without error
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        thresholds = result.thresholds
         assert len(thresholds) == 3
 
     def test_invalid_labels_rejected(self):
@@ -254,7 +261,8 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work and return 4 thresholds
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        thresholds = result.thresholds
         assert len(thresholds) == 4
 
 
@@ -283,8 +291,9 @@ class TestBinarySearchEfficiency:
             )
             f1 = f1_score(tp, tn, fp, fn)
 
+            threshold = result.threshold
             assert 0 <= threshold <= 1
-            assert 0 <= f1 <= 1
+            assert 0 <= threshold <= 1
             assert tp + tn + fp + fn == len(y_true)
 
     def test_binary_search_with_weights(self):
@@ -322,7 +331,7 @@ class TestMicroOptimizationDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without errors
-        thresholds = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true,
             pred_prob,
             metric="f1",
@@ -332,6 +341,7 @@ class TestMicroOptimizationDocumentation:
             average="micro",
         )
 
+        thresholds = result.thresholds
         assert len(thresholds) == 3  # One per class
         assert all(0.0 <= t <= 1.0 for t in thresholds)
 
@@ -373,7 +383,8 @@ class TestCoordinateAscentDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work for basic F1 optimization
-        thresholds = get_optimal_threshold(y_true, pred_prob, method="coord_ascent")
+        result = get_optimal_threshold(y_true, pred_prob, method="coord_ascent")
+        thresholds = result.thresholds
         assert len(thresholds) == 3
 
     def test_coord_ascent_comparison_basic(self):
@@ -383,9 +394,10 @@ class TestCoordinateAscentDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work with exclusive comparison
-        thresholds = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, method="coord_ascent", comparison=">"
         )
+        thresholds = result.thresholds
         assert len(thresholds) == 3
 
     def test_coord_ascent_metric_basic(self):
@@ -395,9 +407,10 @@ class TestCoordinateAscentDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work with F1 metric
-        thresholds = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, method="coord_ascent", metric="f1"
         )
+        thresholds = result.thresholds
         assert len(thresholds) == 3
 
 
@@ -452,8 +465,8 @@ class TestExclusivePredictionRule:
         argmax_acc = np.mean(argmax_preds == y_true)
 
         # They can be different (not asserting inequality since it's probabilistic)
-        assert 0 <= exclusive_acc <= 1
-        assert 0 <= argmax_acc <= 1
+        assert 0 <= threshold <= 1
+        assert 0 <= threshold <= 1
         print(
             f"Exclusive accuracy: {exclusive_acc:.3f}, Argmax accuracy: {argmax_acc:.3f}"
         )
@@ -483,7 +496,7 @@ class TestPropertyBased:
         weights = np.random.randint(1, 4, n_samples)  # Weights 1, 2, or 3
 
         # Weighted approach
-        threshold_weighted = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true,
             pred_prob,
             metric="accuracy",
@@ -494,22 +507,23 @@ class TestPropertyBased:
         # Expanded approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(pred_prob, weights)
-        threshold_expanded = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_expanded, p_expanded, metric="accuracy", method="unique_scan"
         )
 
         # Should be exactly equal or very close (allowing only tiny eps for tie semantics)
-        assert abs(threshold_weighted - threshold_expanded) < 1e-10, (
-            f"Weighted ({threshold_weighted:.10f}) and expanded ({threshold_expanded:.10f}) "
+        threshold = result.threshold
+        assert abs(threshold - threshold) < 1e-10, (
+            f"Weighted ({threshold:.10f}) and expanded ({threshold:.10f}) "
             f"approaches should be nearly identical (integer weight expansion)"
         )
 
         # Also verify scores are identical
         tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(
-            y_true, pred_prob, threshold_weighted, weights
+            y_true, pred_prob, threshold, weights
         )
         tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(
-            y_expanded, p_expanded, threshold_expanded
+            y_expanded, p_expanded, threshold
         )
 
         acc_weighted = accuracy_score(tp_w, tn_w, fp_w, fn_w)
@@ -539,10 +553,10 @@ class TestPropertyBased:
         y_true = np.random.randint(0, 2, n_samples)
 
         # Get thresholds for both comparison operators
-        thresh_excl = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", comparison=">"
         )
-        thresh_incl = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", comparison=">="
         )
 
@@ -556,8 +570,9 @@ class TestPropertyBased:
             pass  # Just verify no crashes occur
 
         # Both should produce valid results
-        assert 0 <= thresh_excl <= 1
-        assert 0 <= thresh_incl <= 1
+        threshold = result.threshold
+        assert 0 <= threshold <= 1
+        assert 0 <= threshold <= 1
 
     @given(
         n_classes=st.integers(min_value=2, max_value=5),
@@ -577,7 +592,8 @@ class TestPropertyBased:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without error
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        thresholds = result.thresholds
         assert len(thresholds) == n_classes
 
         # Test completes successfully with valid labels
@@ -608,7 +624,7 @@ class TestRegressionPrevention:
 
         # Should work with all the fixes
         for comparison in [">", ">="]:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true,
                 pred_prob,
                 metric="f1",
@@ -617,6 +633,7 @@ class TestRegressionPrevention:
                 sample_weight=sample_weight,
             )
 
+            thresholds = result.thresholds
             assert len(thresholds) == 3
             assert all(0 <= t <= 1 for t in thresholds)
 
@@ -649,18 +666,19 @@ class TestRegressionPrevention:
             )
 
             # Extract threshold from tuple
-            threshold, expected_f1 = result
+            threshold, expected_f1 = result.threshold, result.score
 
             # Should be reasonable threshold
+            threshold = result.threshold
             assert 0 <= threshold <= 1
-            assert 0 <= expected_f1 <= 1
+            assert 0 <= threshold <= 1
 
             # Should produce reasonable F1
             tp, tn, fp, fn = get_confusion_matrix(
                 y_true, pred_prob, threshold, comparison=comparison
             )
             f1 = f1_score(tp, tn, fp, fn)
-            assert 0 <= f1 <= 1
+            assert 0 <= threshold <= 1
 
             # For well-calibrated data, F1 should be decent
             assert f1 > 0.3, f"F1 score {f1:.3f} seems too low for calibrated data"
@@ -690,6 +708,7 @@ class TestRegressionPrevention:
 
                         # Should return reasonable threshold, not arbitrary 0.5
                         # (unless 0.5 is actually optimal by coincidence)
+                        threshold = result.threshold
                         assert 0 <= threshold <= 1, f"Invalid threshold {threshold}"
 
                         # Verify it achieves reasonable metric
@@ -699,7 +718,7 @@ class TestRegressionPrevention:
                         metric_val = (
                             f1_score(tp, tn, fp, fn) if tp + fp + fn > 0 else 1.0
                         )
-                        assert 0 <= metric_val <= 1, f"Invalid F1 {metric_val}"
+                        assert 0 <= threshold <= 1, f"Invalid F1 {metric_val}"
 
                     except Exception as e:
                         pytest.fail(

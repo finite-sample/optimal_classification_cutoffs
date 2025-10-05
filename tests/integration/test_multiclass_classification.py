@@ -32,11 +32,12 @@ class TestMulticlassWorkflows:
         y_true, y_prob = generate_multiclass_data(100, n_classes=3, random_state=42)
 
         # Test optimization
-        thresholds = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
 
+        thresholds = result.thresholds
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
 
         # Test confusion matrix computation
         cms = get_multiclass_confusion_matrix(y_true, y_prob, thresholds)
@@ -52,13 +53,14 @@ class TestMulticlassWorkflows:
         methods = ["unique_scan", "minimize", "coord_ascent"]
 
         for method in methods:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", method=method
             )
 
+            thresholds = result.thresholds
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(result.threshold)
+                assert_valid_threshold(threshold)
 
     def test_multiclass_different_metrics(self):
         """Test multiclass optimization with different metrics."""
@@ -67,11 +69,12 @@ class TestMulticlassWorkflows:
         metrics = ["f1", "accuracy", "precision", "recall"]
 
         for metric in metrics:
-            thresholds = get_optimal_threshold(y_true, y_prob, metric=metric)
+            result = get_optimal_threshold(y_true, y_prob, metric=metric)
 
+            thresholds = result.thresholds
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(result.threshold)
+                assert_valid_threshold(threshold)
 
     def test_multiclass_different_class_counts(self):
         """Test multiclass optimization with different numbers of classes."""
@@ -80,11 +83,12 @@ class TestMulticlassWorkflows:
                 50, n_classes=n_classes, random_state=42
             )
 
-            thresholds = get_optimal_threshold(y_true, y_prob, metric="f1")
+            result = get_optimal_threshold(y_true, y_prob, metric="f1")
 
+            thresholds = result.thresholds
             assert len(thresholds) == n_classes
             for threshold in thresholds:
-                assert_valid_threshold(result.threshold)
+                assert_valid_threshold(threshold)
 
 
 class TestMulticlassConfusionMatrix:
@@ -251,53 +255,56 @@ class TestCoordinateAscent:
         """Test basic coordinate ascent functionality."""
         y_true, y_prob = generate_multiclass_data(40, n_classes=3, random_state=42)
 
-        thresholds = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, method="coord_ascent", metric="f1"
         )
 
+        thresholds = result.thresholds
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
 
     def test_coordinate_ascent_vs_ovr(self):
         """Test coordinate ascent vs One-vs-Rest approaches."""
         y_true, y_prob = generate_multiclass_data(50, n_classes=3, random_state=42)
 
         # One-vs-Rest (default unique_scan)
-        thresholds_ovr = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, method="unique_scan", metric="f1"
         )
 
         # Coordinate ascent
-        thresholds_coord = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, method="coord_ascent", metric="f1"
         )
 
         # Both should produce valid results
+        thresholds = result.thresholds
         assert len(thresholds_ovr) == 3
         assert len(thresholds_coord) == 3
 
         for threshold in list(thresholds_ovr) + list(thresholds_coord):
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
 
     def test_coordinate_ascent_comparison_operators(self):
         """Test coordinate ascent with different comparison operators."""
         y_true, y_prob = generate_multiclass_data(30, n_classes=3, random_state=42)
 
         for comparison in [">", ">="]:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, method="coord_ascent", comparison=comparison
             )
 
+            thresholds = result.thresholds
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(result.threshold)
+                assert_valid_threshold(threshold)
 
     def test_coordinate_ascent_single_label_consistency(self):
         """Test that coordinate ascent produces single-label predictions."""
         y_true, y_prob = generate_multiclass_data(40, n_classes=3, random_state=42)
 
-        thresholds = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, method="coord_ascent", metric="f1"
         )
 
@@ -337,7 +344,8 @@ class TestMulticlassLabelValidation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without error for OvR methods
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        thresholds = result.thresholds
         assert len(thresholds) == 3
 
     def test_multiclass_label_validation_errors(self):
@@ -358,7 +366,8 @@ class TestMulticlassLabelValidation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work and return 4 thresholds
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        thresholds = result.thresholds
         assert len(thresholds) == 4
 
 
@@ -370,13 +379,14 @@ class TestMulticlassWithWeights:
         y_true, y_prob = generate_multiclass_data(40, n_classes=3, random_state=42)
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
-        thresholds = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
 
+        thresholds = result.thresholds
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
 
     def test_multiclass_weights_different_methods(self):
         """Test multiclass weights with different optimization methods."""
@@ -387,13 +397,14 @@ class TestMulticlassWithWeights:
         methods = ["unique_scan", "minimize"]
 
         for method in methods:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, method=method, sample_weight=weights
             )
 
+            thresholds = result.thresholds
             assert len(thresholds) == 3
             for threshold in thresholds:
-                assert_valid_threshold(result.threshold)
+                assert_valid_threshold(threshold)
 
     def test_multiclass_weights_vs_expansion(self):
         """Test that weighted multiclass matches sample expansion."""
@@ -410,20 +421,20 @@ class TestMulticlassWithWeights:
         weights = np.array([2, 1, 3, 1])  # Integer weights
 
         # Weighted approach
-        thresholds_weighted = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, pred_prob, metric="accuracy", sample_weight=weights
         )
 
         # Expansion approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(pred_prob, weights, axis=0)
-        thresholds_expanded = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_expanded, p_expanded, metric="accuracy"
         )
 
         # Should be nearly identical
         np.testing.assert_allclose(
-            thresholds_weighted, thresholds_expanded, rtol=1e-10, atol=1e-10
+            thresholds, thresholds_expanded, rtol=1e-10, atol=1e-10
         )
 
 
@@ -487,11 +498,12 @@ class TestMulticlassEdgeCases:
         pred_prob = np.random.rand(4, 3)
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
 
+        thresholds = result.thresholds
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
 
     def test_multiclass_perfect_probabilities(self):
         """Test multiclass with perfect probability predictions."""
@@ -507,22 +519,24 @@ class TestMulticlassEdgeCases:
             ]
         )
 
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
 
+        thresholds = result.thresholds
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
 
     def test_multiclass_uniform_probabilities(self):
         """Test multiclass with uniform probability distributions."""
         y_true = np.array([0, 1, 2, 0, 1, 2])
         pred_prob = np.full((6, 3), 1 / 3)  # All probabilities equal
 
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
 
+        thresholds = result.thresholds
         assert len(thresholds) == 3
         for threshold in thresholds:
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
 
 
 class TestMulticlassAPIConsistency:
@@ -533,12 +547,13 @@ class TestMulticlassAPIConsistency:
         y_true, y_prob = generate_multiclass_data(40, n_classes=3, random_state=42)
 
         # Using general function
-        thresholds1 = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
 
         # Using specific multiclass function
         thresholds2 = get_optimal_multiclass_thresholds(y_true, y_prob, metric="f1")
 
         # Should be identical
+        thresholds = result.thresholds
         np.testing.assert_allclose(thresholds1, thresholds2, rtol=1e-12, atol=1e-12)
 
     def test_multiclass_input_validation_consistency(self):
@@ -547,18 +562,20 @@ class TestMulticlassAPIConsistency:
         y_true, y_prob = generate_multiclass_data(30, n_classes=3, random_state=42)
 
         # Should work with both functions
-        thresholds1 = get_optimal_threshold(y_true, y_prob)
+        result = get_optimal_threshold(y_true, y_prob)
         thresholds2 = get_optimal_multiclass_thresholds(y_true, y_prob)
 
+        thresholds = result.thresholds
         assert len(thresholds1) == len(thresholds2) == 3
 
     def test_multiclass_return_types_consistency(self):
         """Test that multiclass functions return consistent types."""
         y_true, y_prob = generate_multiclass_data(25, n_classes=3, random_state=42)
 
-        thresholds = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
 
         # Should return numpy array
+        thresholds = result.thresholds
         assert isinstance(thresholds, np.ndarray)
         assert thresholds.ndim == 1
         assert len(thresholds) == 3

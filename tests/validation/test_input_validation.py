@@ -290,7 +290,8 @@ class TestEndToEndValidation:
         y_prob = [0.2, 0.8, 0.4, 0.6]
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
         # Invalid cases
         with pytest.raises(ValueError):
@@ -309,7 +310,7 @@ class TestEndToEndValidation:
         threshold = 0.5
 
         # Valid case
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, result.threshold)
+        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
         assert all(
             isinstance(x, (int, float, np.integer, np.floating))
             for x in [tp, tn, fp, fn]
@@ -335,10 +336,10 @@ class TestEndToEndValidation:
 
         # Valid case
         try:
-            thresholds = get_optimal_multiclass_thresholds(y_true, y_prob, metric="f1")
-            assert len(thresholds) == 3
-            for threshold in thresholds:
-                assert_valid_threshold(result.threshold)
+            result = get_optimal_multiclass_thresholds(y_true, y_prob, metric="f1")
+            assert len(result.thresholds) == 3
+            for threshold in result.thresholds:
+                assert_valid_threshold(threshold)
         except (AttributeError, NameError):
             # Function might not exist in current version
             pass
@@ -378,7 +379,8 @@ class TestEdgeCaseValidation:
 
         # Should work
         result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
     def test_all_same_class_validation(self):
         """Test validation when all samples are same class."""
@@ -387,7 +389,8 @@ class TestEdgeCaseValidation:
 
         # Should work
         result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
     def test_extreme_probability_validation(self):
         """Test validation with extreme probability values."""
@@ -396,4 +399,5 @@ class TestEdgeCaseValidation:
 
         # Should work
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)

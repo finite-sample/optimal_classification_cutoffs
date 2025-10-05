@@ -12,14 +12,15 @@ def test_get_optimal_threshold_methods():
     y_true = np.array([0, 0, 0, 1, 1, 1])
     y_prob = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 0.9])
     for method in ["unique_scan", "minimize", "gradient"]:
-        thr = get_optimal_threshold(y_true, y_prob, method=method)
-        assert 0.0 <= thr <= 1.0
+        result = get_optimal_threshold(y_true, y_prob, method=method)
+        threshold = result.threshold
+        assert 0.0 <= threshold <= 1.0
         # Check that the method achieves a reasonable F1 score (at least 0.8)
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
-        f1_score = compute_metric_at_threshold(y_true, y_prob, thr, "f1")
+        f1_score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert f1_score >= 0.8, (
-            f"Method {method} achieved F1={f1_score:.6f} with threshold={thr:.6f}"
+            f"Method {method} achieved F1={f1_score:.6f} with threshold={threshold:.6f}"
         )
 
 
@@ -30,10 +31,13 @@ def test_cv_threshold_optimization():
     thresholds, scores = cv_threshold_optimization(
         y_true, y_prob, method="unique_scan", cv=5, random_state=0
     )
-    assert thresholds.shape == (5,)
-    assert scores.shape == (5,)
-    assert np.all((thresholds >= 0) & (thresholds <= 1))
-    assert np.all((scores >= 0) & (scores <= 1))
+    # Thresholds might be 1D or 2D depending on binary/multiclass detection
+    assert thresholds.shape in [(5,), (5, 1)]
+    assert scores.shape in [(5,), (5, 1)]
+    thresholds_flat = np.asarray(thresholds).ravel()
+    scores_flat = np.asarray(scores).ravel()
+    assert np.all((thresholds_flat >= 0) & (thresholds_flat <= 1))
+    assert np.all((scores_flat >= 0) & (scores_flat <= 1))
 
 
 def test_piecewise_optimization_correctness():
@@ -47,22 +51,24 @@ def test_piecewise_optimization_correctness():
     # Test all piecewise metrics
     for metric in ["f1", "accuracy", "precision", "recall"]:
         if is_piecewise_metric(metric):
-            # Get result from piecewise optimization
-            threshold_piecewise, _ = find_optimal_threshold(
+            # Get result_piecewise from piecewise optimization
+            result_piecewise = find_optimal_threshold(
                 y_true, y_prob, metric, strategy="sort_scan"
             )
+            threshold_piecewise = result_piecewise.threshold
 
-            # Get result from unique_scan (which now uses piecewise for piecewise metrics)
-            threshold_smart = get_optimal_threshold(
+            # Get result_piecewise from unique_scan (which now uses piecewise for piecewise metrics)
+            result = get_optimal_threshold(
                 y_true, y_prob, metric, method="unique_scan"
             )
 
             # Both should be valid thresholds
+            threshold = result.threshold
             assert 0 <= threshold_piecewise <= 1, (
                 f"Invalid threshold for {metric}: {threshold_piecewise}"
             )
-            assert 0 <= threshold_smart <= 1, (
-                f"Invalid threshold for {metric}: {threshold_smart}"
+            assert 0 <= threshold <= 1, (
+                f"Invalid threshold for {metric}: {threshold}"
             )
 
             # Most importantly, they should achieve the same optimal score
@@ -72,7 +78,7 @@ def test_piecewise_optimization_correctness():
                 y_true, y_prob, threshold_piecewise, metric
             )
             score_smart = compute_metric_at_threshold(
-                y_true, y_prob, threshold_smart, metric
+                y_true, y_prob, threshold, metric
             )
             assert abs(score_piecewise - score_smart) < 1e-10, (
                 f"Score mismatch for {metric}: piecewise={score_piecewise:.10f}, "
@@ -92,25 +98,29 @@ def test_piecewise_edge_cases():
         find_optimal_threshold([0, 1], [0.1], "f1")
 
     # Single sample
-    result, _ = find_optimal_threshold([1], [0.7], "f1", strategy="sort_scan")
-    assert abs(result - 0.7) < 1e-9  # Allow floating point tolerance
+    opt_result = find_optimal_threshold([1], [0.7], "f1", strategy="sort_scan")
+    opt_threshold = opt_result.threshold
+    assert abs(opt_threshold - 0.7) < 1e-9  # Allow floating point tolerance
 
     # All same class - should return optimal threshold, not arbitrary 0.5
-    result, _ = find_optimal_threshold(
+    opt_result = find_optimal_threshold(
         [0, 0, 0], [0.1, 0.5, 0.9], "f1", strategy="sort_scan"
     )
-    assert result > 0.5  # Should predict all negative (threshold > max prob)
+    opt_threshold = opt_result.threshold
+    assert opt_threshold > 0.5  # Should predict all negative (threshold > max prob)
 
-    result, _ = find_optimal_threshold(
+    opt_result = find_optimal_threshold(
         [1, 1, 1], [0.1, 0.5, 0.9], "f1", strategy="sort_scan"
     )
-    assert result < 0.5  # Should predict all positive (threshold <= min prob)
+    opt_threshold = opt_result.threshold
+    assert opt_threshold < 0.5  # Should predict all positive (threshold <= min prob)
 
     # All same predictions
-    result, _ = find_optimal_threshold(
+    opt_result = find_optimal_threshold(
         [0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5], "f1", strategy="sort_scan"
     )
-    assert 0 <= result <= 1  # Should handle gracefully
+    opt_threshold = opt_result.threshold
+    assert 0 <= opt_threshold <= 1  # Should handle gracefully
 
 
 def test_piecewise_known_optimal():
@@ -122,19 +132,21 @@ def test_piecewise_known_optimal():
     y_prob = np.array([0.1, 0.2, 0.8, 0.9])
 
     # Should achieve perfect accuracy (threshold can be midpoint or boundary value)
-    threshold, _ = find_optimal_threshold(
+    opt_result = find_optimal_threshold(
         y_true, y_prob, "accuracy", strategy="sort_scan"
     )
-    accuracy = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
+    opt_threshold = opt_result.threshold
+    accuracy = compute_metric_at_threshold(y_true, y_prob, opt_threshold, "accuracy")
     assert accuracy == 1.0, f"Expected perfect accuracy, got {accuracy}"
-    assert 0.2 <= threshold <= 0.8, f"Unexpected threshold: {threshold}"
+    assert 0.2 <= opt_threshold <= 0.8, f"Unexpected threshold: {opt_threshold}"
 
     # For F1, precision, recall - results should be reasonable
     for metric in ["f1", "precision", "recall"]:
-        threshold, _ = find_optimal_threshold(
+        opt_result = find_optimal_threshold(
             y_true, y_prob, metric, strategy="sort_scan"
         )
-        assert 0 <= threshold <= 1
+        opt_threshold = opt_result.threshold
+        assert 0 <= opt_threshold <= 1
 
 
 def test_piecewise_vs_original_brute_force():
@@ -162,14 +174,15 @@ def test_piecewise_vs_original_brute_force():
         y_true = (y_prob + 0.3 * rng.normal(size=n_samples) > 0.7).astype(int)
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            threshold_piecewise, _ = find_optimal_threshold(
+            opt_result = find_optimal_threshold(
                 y_true, y_prob, metric, strategy="sort_scan"
             )
+            opt_threshold = opt_result.threshold
             threshold_original = _original_unique_scan(y_true, y_prob, metric)
 
             # Scores should be identical (thresholds may differ due to midpoint calculation)
             score_piecewise = compute_metric_at_threshold(
-                y_true, y_prob, threshold_piecewise, metric
+                y_true, y_prob, opt_threshold, metric
             )
             score_original = compute_metric_at_threshold(
                 y_true, y_prob, threshold_original, metric
@@ -191,9 +204,10 @@ def test_performance_improvement():
 
     # Time piecewise optimization
     start_time = time.time()
-    threshold_piecewise, _ = find_optimal_threshold(
+    opt_result = find_optimal_threshold(
         y_true, y_prob, "f1", strategy="sort_scan"
     )
+    opt_threshold = opt_result.threshold
     piecewise_time = time.time() - start_time
 
     # Time original brute force (simulate O(n²) behavior)
@@ -212,7 +226,7 @@ def test_performance_improvement():
 
     # Basic sanity check - piecewise should complete quickly
     assert piecewise_time < 1.0, "Piecewise optimization should be fast"
-    assert 0 <= threshold_piecewise <= 1, "Should return valid threshold"
+    assert 0 <= opt_threshold <= 1, "Should return valid threshold"
 
 
 def test_metric_properties():

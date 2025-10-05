@@ -11,7 +11,7 @@ from sklearn.model_selection import (
 
 from .core import get_optimal_threshold
 from .metrics import (
-    METRIC_REGISTRY,
+    METRICS,
     get_confusion_matrix,
     get_multiclass_confusion_matrix,
     multiclass_metric_ovr,
@@ -365,7 +365,7 @@ def _evaluate_threshold_on_fold(
             y_true, pred_prob, t, sample_weight=sw, comparison=comparison
         )
         # Metric validation happens early in CV functions - no need to validate again
-        metric_fn = METRIC_REGISTRY[metric]
+        metric_fn = METRICS[metric].scalar_fn
         return float(metric_fn(tp, tn, fp, fn))
 
     # Multiclass / multilabel (n, K)

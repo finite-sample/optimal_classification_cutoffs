@@ -69,6 +69,7 @@ class TestLabelDistributionEdgeCases:
 
         # Test with get_optimal_threshold
         result = get_optimal_threshold(labels, probabilities, "accuracy")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Confusion matrix should be valid
@@ -89,6 +90,7 @@ class TestLabelDistributionEdgeCases:
 
         # Test with get_optimal_threshold
         result = get_optimal_threshold(labels, probabilities, "recall")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Confusion matrix should be valid
@@ -106,6 +108,7 @@ class TestLabelDistributionEdgeCases:
 
         # Should find a reasonable threshold
         result = get_optimal_threshold(labels, probabilities, "f1")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # The optimal threshold should likely be between 0.5 and 0.95
@@ -126,6 +129,7 @@ class TestLabelDistributionEdgeCases:
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = get_optimal_threshold(labels, probabilities, metric)
+            threshold = result.threshold
             assert 0 <= threshold <= 1
 
             # Should achieve reasonable performance
@@ -147,6 +151,7 @@ class TestLabelDistributionEdgeCases:
 
         # Should handle extreme imbalance
         result = get_optimal_threshold(labels, probabilities, "f1")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Test confusion matrix validity
@@ -191,6 +196,7 @@ class TestProbabilityDistributionEdgeCases:
             # For recall, optimal threshold might be very low to capture all positives
             # For precision, optimal threshold might be high to avoid false positives
             if metric == "recall":
+                threshold = result.threshold
                 assert 0.05 <= threshold <= 0.75, (
                     f"Unexpected threshold {threshold} for {metric}"
                 )
@@ -228,6 +234,7 @@ class TestProbabilityDistributionEdgeCases:
 
         # Should handle narrow ranges gracefully
         result = get_optimal_threshold(labels, probabilities, "f1")
+        threshold = result.threshold
         assert 0.48 <= threshold <= 0.52
 
         # Should produce valid confusion matrix
@@ -242,6 +249,7 @@ class TestProbabilityDistributionEdgeCases:
         probabilities = np.array([0.01, 0.02, 0.03, 0.04, 0.95, 0.96, 0.97, 0.98])
 
         result = get_optimal_threshold(labels, probabilities, "f1")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should achieve good separation
@@ -293,6 +301,7 @@ class TestNumericalEdgeCases:
         result = get_optimal_threshold(labels, probabilities, "f1")
         end_time = time.time()
 
+        threshold = result.threshold
         assert 0 <= threshold <= 1
         assert end_time - start_time < 5.0  # Should complete in reasonable time
 
@@ -310,6 +319,7 @@ class TestNumericalEdgeCases:
 
         # Should handle near-zero probabilities
         result = get_optimal_threshold(labels, probabilities, "accuracy")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should achieve perfect separation
@@ -329,6 +339,7 @@ class TestNumericalEdgeCases:
 
         # Should handle tiny differences gracefully
         result = get_optimal_threshold(labels, probabilities, "f1")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should produce valid confusion matrix
@@ -353,6 +364,7 @@ class TestNumericalEdgeCases:
 
         # Should handle precision limits gracefully
         result = get_optimal_threshold(labels, probabilities, "accuracy")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
 
@@ -449,6 +461,7 @@ class TestPerformanceEdgeCases:
         result = get_optimal_threshold(labels, probabilities, "f1")
         end_time = time.time()
 
+        threshold = result.threshold
         assert 0 <= threshold <= 1
         assert end_time - start_time < 10.0  # Should complete in reasonable time
 
@@ -461,6 +474,7 @@ class TestPerformanceEdgeCases:
 
         # Should handle without excessive memory usage
         result = get_optimal_threshold(labels, probabilities, "accuracy")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Test confusion matrix doesn't explode memory
@@ -478,6 +492,7 @@ class TestMinimalDatasets:
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
     def test_single_negative_sample(self):
@@ -487,6 +502,7 @@ class TestMinimalDatasets:
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
 
@@ -500,6 +516,7 @@ class TestExtremeProbabilityValues:
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
             # With all probabilities at 0, optimal strategy depends on comparison operator
@@ -513,6 +530,7 @@ class TestExtremeProbabilityValues:
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
             # With all probabilities at 1, optimal strategy depends on comparison operator
@@ -525,6 +543,7 @@ class TestExtremeProbabilityValues:
         pred_prob = [1e-10, 2e-10, 3e-10, 4e-10, 5e-10]
 
         result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
         # Should handle small probabilities without numerical issues
@@ -537,6 +556,7 @@ class TestExtremeProbabilityValues:
         pred_prob = [1 - 1e-10, 1 - 2e-10, 1 - 3e-10, 1 - 4e-10, 1 - 5e-10]
 
         result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
         # Should handle probabilities near 1 without numerical issues

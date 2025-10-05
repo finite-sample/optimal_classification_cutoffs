@@ -47,7 +47,8 @@ class TestConcurrentStressTesting:
                 execution_time = end_time - start_time
                 execution_times.append(execution_time)
 
-                assert_valid_threshold(result.threshold)
+                threshold = result.threshold
+                assert_valid_threshold(threshold)
                 success_count += 1
 
                 # Verify quality occasionally
@@ -92,7 +93,8 @@ class TestConcurrentStressTesting:
             for i, (y_true, pred_prob) in enumerate(datasets):
                 try:
                     result = get_optimal_threshold(y_true, pred_prob)
-                    assert_valid_threshold(result.threshold)
+                    threshold = result.threshold
+                    assert_valid_threshold(threshold)
                     success_count += 1
                 except MemoryError:
                     # Expected under high memory pressure
@@ -125,9 +127,10 @@ class TestConcurrentStressTesting:
             y_true, pred_prob = generate_binary_data(n_samples, random_state=seed)
 
             result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
-            score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+            score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
 
-            assert_valid_threshold(result.threshold)
+            threshold = result.threshold
+            assert_valid_threshold(threshold)
             assert_valid_metric_score(score, "f1")
 
             thresholds.append(threshold)
@@ -189,7 +192,8 @@ class TestResourceExhaustionStress:
 
                 execution_time = end_time - start_time
 
-                assert_valid_threshold(result.threshold)
+                threshold = result.threshold
+                assert_valid_threshold(threshold)
                 assert execution_time < 60.0, (
                     f"Scenario {i} took {execution_time:.2f}s with {max_size} samples"
                 )
@@ -240,7 +244,8 @@ class TestResourceExhaustionStress:
                     warnings.simplefilter("ignore")  # Suppress expected warnings
 
                     result = get_optimal_threshold(y_true, pred_prob)
-                    assert_valid_threshold(result.threshold)
+                    threshold = result.threshold
+                    assert_valid_threshold(threshold)
 
                     score = compute_metric_at_threshold(
                         y_true, pred_prob, threshold, "f1"
@@ -302,9 +307,10 @@ class TestRobustnessUnderAdversarialConditions:
                     y_true[0] = 0
 
                 result = get_optimal_threshold(y_true, pred_prob)
-                assert_valid_threshold(result.threshold)
+                threshold = result.threshold
+                assert_valid_threshold(threshold)
 
-                score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+                score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
                 assert_valid_metric_score(score, "f1")
 
             except Exception as e:
@@ -342,7 +348,8 @@ class TestRobustnessUnderAdversarialConditions:
                 result = get_optimal_threshold(case["y_true"], case["pred_prob"])
 
                 if case["should_work"]:
-                    assert_valid_threshold(result.threshold)
+                    threshold = result.threshold
+                    assert_valid_threshold(threshold)
                 else:
                     pytest.fail(f"Case {i} should have failed but didn't")
 
@@ -393,7 +400,8 @@ class TestRobustnessUnderAdversarialConditions:
                     warnings.simplefilter("ignore")  # Suppress precision warnings
 
                     result = get_optimal_threshold(y_true, pred_prob)
-                    assert_valid_threshold(result.threshold)
+                    threshold = result.threshold
+                    assert_valid_threshold(threshold)
 
                 print(f"Floating point case '{case['name']}' succeeded")
 
@@ -426,7 +434,8 @@ class TestLongRunningReliability:
                 result = get_optimal_threshold(y_true, pred_prob)
                 end_time = time.perf_counter()
                 initial_times.append(end_time - start_time)
-                assert_valid_threshold(result.threshold)
+                threshold = result.threshold
+                assert_valid_threshold(threshold)
             except Exception:
                 failure_count += 1
 
@@ -436,7 +445,8 @@ class TestLongRunningReliability:
 
             try:
                 result = get_optimal_threshold(y_true, pred_prob)
-                assert_valid_threshold(result.threshold)
+                threshold = result.threshold
+                assert_valid_threshold(threshold)
             except Exception:
                 failure_count += 1
 
@@ -449,7 +459,8 @@ class TestLongRunningReliability:
                 result = get_optimal_threshold(y_true, pred_prob)
                 end_time = time.perf_counter()
                 final_times.append(end_time - start_time)
-                assert_valid_threshold(result.threshold)
+                threshold = result.threshold
+                assert_valid_threshold(threshold)
             except Exception:
                 failure_count += 1
 

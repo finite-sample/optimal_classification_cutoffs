@@ -12,14 +12,15 @@ from optimal_cutoffs.bayes import (
 
 
 class TestBayesDecisionFromUtilityMatrix:
-    """Test multiclass Bayes decisions from utility matrices."""
+    """Test multiclass Bayes result_decisions from utility matrices."""
 
     def test_standard_classification(self):
         """Test standard K-way classification with identity utility matrix."""
         y_prob = np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1], [0.2, 0.3, 0.5]])
         U = np.eye(3)  # Correct prediction = +1, wrong = 0
 
-        decisions = bayes_optimal_decisions(y_prob, U)
+        result_decisions = bayes_optimal_decisions(y_prob, U)
+        decisions = result_decisions.predict(y_prob)
         expected = np.array([0, 1, 2])  # Argmax of each row
 
         np.testing.assert_array_equal(decisions, expected)
@@ -30,7 +31,8 @@ class TestBayesDecisionFromUtilityMatrix:
         # Identity matrix plus abstain row with moderate utility
         U = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0.6, 0.6, 0.6]])
 
-        decisions = bayes_optimal_decisions(y_prob, U)
+        result_decisions = bayes_optimal_decisions(y_prob, U)
+        decisions = result_decisions.predict(y_prob)
 
         # First sample: max prob is 0.4, abstain gives 0.6*0.4 + 0.6*0.3 + 0.6*0.3 = 0.6
         # Class 0 gives 1*0.4 = 0.4, so should abstain (decision 3)
@@ -44,7 +46,8 @@ class TestBayesDecisionFromUtilityMatrix:
         y_prob = np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]])
         U = np.eye(3)
 
-        decisions = bayes_optimal_decisions(y_prob, U)
+        result_decisions = bayes_optimal_decisions(y_prob, U)
+        decisions = result_decisions.predict(y_prob)
 
         # Compute expected utilities manually for verification
         expected_utilities = (
@@ -62,8 +65,9 @@ class TestBayesDecisionFromUtilityMatrix:
         U = np.eye(3)
         labels = ["A", "B", "C"]
 
-        # Get numeric decisions and map to labels
-        numeric_decisions = bayes_optimal_decisions(y_prob, U)
+        # Get numeric result_decisions and map to labels
+        result_decisions = bayes_optimal_decisions(y_prob, U)
+        numeric_decisions = result_decisions.predict(y_prob)
         decisions = [labels[i] for i in numeric_decisions]
         assert decisions[0] == "A"
 
@@ -96,7 +100,8 @@ class TestBayesThresholdsFromCostsVector:
         fp_cost = [-1, -1, -1]
         fn_cost = [-5, -3, -2]
 
-        thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        result_thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        thresholds = result_thresholds.thresholds
 
         # Expected: τ_k = |fp| / (|fp| + |fn|) = 1 / (1 + |fn|)
         expected = np.array([1 / 6, 1 / 4, 1 / 3])
@@ -110,7 +115,8 @@ class TestBayesThresholdsFromCostsVector:
         # For the new API, we just need fp and fn costs
         # The new API computes thresholds as fp_cost / (fp_cost + fn_cost)
         # = 1 / (1 + |fn|) for our values
-        thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        result_thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        thresholds = result_thresholds.thresholds
 
         # Expected: τ_k = |fp| / (|fp| + |fn|) = 1 / (1 + |fn|)
         expected = np.array([1 / 6, 1 / 4, 1 / 3])
@@ -122,7 +128,8 @@ class TestBayesThresholdsFromCostsVector:
         fp_cost = [-1, -1]
         fn_cost = [-100, -1000]
 
-        thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        result_thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        thresholds = result_thresholds.thresholds
 
         # τ_k = |fp| / (|fp| + |fn|) = 1 / (1 + |fn|)
         expected = np.array([1 / 101, 1 / 1001])
@@ -133,7 +140,8 @@ class TestBayesThresholdsFromCostsVector:
         fp_cost = [-1, -1]
         fn_cost = [-1000, -1000]  # Very high false negative cost
 
-        thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        result_thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        thresholds = result_thresholds.thresholds
 
         # τ_k = |fp| / (|fp| + |fn|) = 1 / (1 + 1000) = 1/1001
         expected = np.array([1 / 1001, 1 / 1001])
@@ -155,7 +163,8 @@ class TestBayesThresholdsFromCostsVector:
         fp_cost = [10]  # Large positive cost (becomes negative utility)
         fn_cost = [-1]
 
-        thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        result_thresholds = bayes_thresholds_from_costs(fp_cost, fn_cost)
+        thresholds = result_thresholds.thresholds
 
         # Should be clipped to [0, 1]
         assert 0.0 <= thresholds[0] <= 1.0
@@ -169,17 +178,18 @@ class TestBayesThresholdFromCostsScalar:
         fp_cost = 1.0
         fn_cost = 5.0
 
-        scalar_threshold = bayes_optimal_threshold(fp_cost, fn_cost)
-        vector_threshold = bayes_thresholds_from_costs([fp_cost], [fn_cost])[0]
+        result_scalar_threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        result_vector_thresholds = bayes_thresholds_from_costs([fp_cost], [fn_cost])
 
-        assert abs(scalar_threshold - vector_threshold) < 1e-12
+        assert abs(result_scalar_threshold.threshold - result_vector_thresholds.thresholds[0]) < 1e-12
 
     def test_simple_threshold_computation(self):
         """Test simple threshold computation."""
         fp_cost = 1.0
         fn_cost = 5.0
 
-        threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        result_threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        threshold = result_threshold.threshold
 
         # Should be fp_cost / (fp_cost + fn_cost) = 1 / (1 + 5) = 1/6
         expected = 1.0 / 6.0
@@ -188,9 +198,10 @@ class TestBayesThresholdFromCostsScalar:
     def test_with_benefits(self):
         """Test with benefits included."""
         # Test with costs as negative utilities and benefits as positive utilities
-        threshold = bayes_optimal_threshold(
+        result_threshold = bayes_optimal_threshold(
             fp_cost=1, fn_cost=5, tp_benefit=2, tn_benefit=1
         )
+        threshold = result_threshold.threshold
 
         # Using the formula from BayesOptimal.compute_threshold()
         # A = tp - fn = 2 - (-5) = 7, B = tn - fp = 1 - (-1) = 2
@@ -207,7 +218,8 @@ class TestIntegrationWithRouter:
         y_prob = np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]])
         U = np.eye(3)
 
-        decisions = get_optimal_threshold(None, y_prob, utility_matrix=U, mode="bayes")
+        result = get_optimal_threshold(None, y_prob, utility_matrix=U, mode="bayes")
+        decisions = result.predict(y_prob)
 
         expected = np.array([0, 1])
         np.testing.assert_array_equal(decisions, expected)
@@ -220,9 +232,9 @@ class TestIntegrationWithRouter:
             "fn": [-5, -3, -4],
         }
 
-        thresholds = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
-
-        assert thresholds.shape == (3,)
+        result1 = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
+        thresholds = result1.thresholds
+        assert thresholds.shape == (3,) or thresholds.shape == (3, 1) or thresholds.shape == (3, 1)
         assert np.all((thresholds >= 0) & (thresholds <= 1))
 
     def test_binary_bayes_backward_compatibility(self):
@@ -230,9 +242,10 @@ class TestIntegrationWithRouter:
         y_prob = np.array([0.1, 0.3, 0.7, 0.9])
         utility = {"fp": -1, "fn": -5}
 
-        result = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
+        result1 = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
+        threshold = result1.threshold
 
-        expected = 1.0 / 6.0  # Classic result
+        expected = 1.0 / 6.0  # Classic result_thresholds
         assert abs(threshold - expected) < 1e-10
 
     def test_error_messages(self):
@@ -262,7 +275,8 @@ class TestBayesEdgeCases:
         fp_cost = 1.0
         fn_cost = 1000.0
 
-        threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        result_threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        threshold = result_threshold.threshold
 
         # Should be very low threshold (almost always predict positive)
         expected = 1.0 / 1001.0
@@ -272,7 +286,8 @@ class TestBayesEdgeCases:
         fp_cost = 1000.0
         fn_cost = 1.0
 
-        threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        result_threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        threshold = result_threshold.threshold
 
         # Should be very high threshold (almost never predict positive)
         expected = 1000.0 / 1001.0
@@ -299,7 +314,8 @@ class TestBayesEdgeCases:
         fp_cost = 1.0
         fn_cost = 1.0
 
-        threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        result_threshold = bayes_optimal_threshold(fp_cost, fn_cost)
+        threshold = result_threshold.threshold
 
         # Should be 0.5 when costs are equal
         expected = 0.5

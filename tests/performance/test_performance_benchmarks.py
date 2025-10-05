@@ -121,6 +121,7 @@ class TestAlgorithmicComplexity:
         execution_time = end_time - start_time
 
         # Validate result
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
         # Execution time should scale roughly with number of unique values
@@ -149,6 +150,7 @@ class TestMemoryUsageCharacteristics:
             result = get_optimal_threshold(
                 y_true, pred_prob, metric="f1", method="sort_scan"
             )
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
         except Exception as e:
             pytest.skip(f"Sort_scan not available: {e}")
@@ -172,6 +174,7 @@ class TestMemoryUsageCharacteristics:
                 result = get_optimal_threshold(
                     y_true, pred_prob, metric="f1", method=method
                 )
+                threshold = result.threshold
                 assert 0.0 <= threshold <= 1.0
             except Exception as e:
                 print(f"Method {method} failed on large dataset: {e}")
@@ -218,6 +221,7 @@ class TestWorstCasePerformance:
             )
             end_time = time.time()
 
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
             # Should complete in reasonable time even in worst case
             assert end_time - start_time < 15.0, (
@@ -241,6 +245,7 @@ class TestWorstCasePerformance:
         )
         end_time = time.time()
 
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
         assert end_time - start_time < 10.0, "Too slow with extreme class imbalance"
 
@@ -259,6 +264,7 @@ class TestWorstCasePerformance:
         )
         end_time = time.time()
 
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
         # Should be fast with few unique values
         assert end_time - start_time < 1.0, "Too slow with tied probabilities"
@@ -285,6 +291,7 @@ class TestNumericalStabilityPerformance:
         )
         end_time = time.time()
 
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
         assert end_time - start_time < 5.0, "Too slow with very close probabilities"
 
@@ -306,6 +313,7 @@ class TestNumericalStabilityPerformance:
         )
         end_time = time.time()
 
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
         assert end_time - start_time < 3.0, "Too slow with extreme probability values"
 
@@ -328,6 +336,7 @@ class TestConcurrentPerformance:
             result = get_optimal_threshold(
                 y_true, pred_prob, metric="f1", method="unique_scan"
             )
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
         total_end_time = time.time()
@@ -353,6 +362,7 @@ class TestConcurrentPerformance:
             end_time = time.time()
 
             timings[metric] = end_time - start_time
+            threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
         # Timings should be similar across metrics (within factor of 3)

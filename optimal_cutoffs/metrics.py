@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from .validation import (
     _validate_comparison_operator,
@@ -17,8 +17,11 @@ from .validation import (
 @dataclass
 class MetricInfo:
     """Complete information about a metric."""
+
     scalar_fn: Callable[[float, float, float, float], float]
-    vectorized_fn: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None
+    vectorized_fn: (
+        Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None
+    ) = None
     is_piecewise: bool = True
     maximize: bool = True
     needs_proba: bool = False
@@ -31,11 +34,20 @@ METRICS: dict[str, MetricInfo] = {}
 def register_metric(
     name: str | None = None,
     func: Callable[[float, float, float, float], float] | None = None,
-    vectorized_func: Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None = None,
+    vectorized_func: Callable[
+        [np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray
+    ]
+    | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
-) -> Callable[[float, float, float, float], float] | Callable[[Callable[[float, float, float, float], float]], Callable[[float, float, float, float], float]]:
+) -> (
+    Callable[[float, float, float, float], float]
+    | Callable[
+        [Callable[[float, float, float, float], float]],
+        Callable[[float, float, float, float], float],
+    ]
+):
     """Register a metric function with optional vectorized version.
 
     Parameters
@@ -75,7 +87,9 @@ def register_metric(
         )
         return func
 
-    def decorator(f: Callable[[float, float, float, float], float]) -> Callable[[float, float, float, float], float]:
+    def decorator(
+        f: Callable[[float, float, float, float], float],
+    ) -> Callable[[float, float, float, float], float]:
         metric_name = name or f.__name__
         METRICS[metric_name] = MetricInfo(
             scalar_fn=f,
@@ -89,9 +103,36 @@ def register_metric(
     return decorator
 
 
+def register_alias(alias_name: str, target_name: str) -> None:
+    """Register an alias for an existing metric.
+
+    Parameters
+    ----------
+    alias_name:
+        The alias name to register.
+    target_name:
+        The name of the existing metric to point to.
+
+    Raises
+    ------
+    ValueError
+        If the target metric doesn't exist.
+    """
+    if target_name not in METRICS:
+        available = sorted(METRICS.keys())
+        preview = ", ".join(available[:10])
+        raise ValueError(
+            f"Target metric '{target_name}' not found. Available: [{preview}]"
+        )
+    METRICS[alias_name] = METRICS[target_name]
+
+
 def register_metrics(
     metrics: dict[str, Callable[[float, float, float, float], float]],
-    vectorized_metrics: dict[str, Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]] | None = None,
+    vectorized_metrics: dict[
+        str, Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]
+    ]
+    | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
@@ -141,8 +182,9 @@ def is_piecewise_metric(metric_name: str) -> bool:
         True if the metric is piecewise-constant, False otherwise.
         Defaults to True for unknown metrics.
     """
-    properties = METRIC_PROPERTIES.get(metric_name, {"is_piecewise": True})
-    return bool(properties["is_piecewise"])
+    if metric_name not in METRICS:
+        return True  # Default for unknown metrics
+    return METRICS[metric_name].is_piecewise
 
 
 def should_maximize_metric(metric_name: str) -> bool:
@@ -159,7 +201,9 @@ def should_maximize_metric(metric_name: str) -> bool:
         True if the metric should be maximized, False if minimized.
         Defaults to True for unknown metrics.
     """
-    return bool(METRIC_PROPERTIES.get(metric_name, {"maximize": True})["maximize"])
+    if metric_name not in METRICS:
+        return True  # Default for unknown metrics
+    return METRICS[metric_name].maximize
 
 
 def needs_probability_scores(metric_name: str) -> bool:
@@ -176,8 +220,9 @@ def needs_probability_scores(metric_name: str) -> bool:
         True if the metric needs probability scores, False otherwise.
         Defaults to False for unknown metrics.
     """
-    properties = METRIC_PROPERTIES.get(metric_name, {"needs_proba": False})
-    return bool(properties["needs_proba"])
+    if metric_name not in METRICS:
+        return False  # Default for unknown metrics
+    return METRICS[metric_name].needs_proba
 
 
 def has_vectorized_implementation(metric_name: str) -> bool:
@@ -193,7 +238,9 @@ def has_vectorized_implementation(metric_name: str) -> bool:
     bool
         True if the metric has a vectorized implementation, False otherwise.
     """
-    return metric_name in VECTORIZED_REGISTRY
+    if metric_name not in METRICS:
+        return False
+    return METRICS[metric_name].vectorized_fn is not None
 
 
 def get_vectorized_metric(metric_name: str) -> Callable[..., Any]:
@@ -214,14 +261,69 @@ def get_vectorized_metric(metric_name: str) -> Callable[..., Any]:
     ValueError
         If metric is not available in vectorized form.
     """
-    if metric_name not in VECTORIZED_REGISTRY:
-        available = sorted(VECTORIZED_REGISTRY.keys())
+    if metric_name not in METRICS:
+        available = sorted(METRICS.keys())
         preview = ", ".join(available[:10])
+        raise ValueError(f"Unknown metric '{metric_name}'. Available: [{preview}]")
+
+    vectorized_fn = METRICS[metric_name].vectorized_fn
+    if vectorized_fn is None:
+        available_vectorized = [
+            name for name, info in METRICS.items() if info.vectorized_fn is not None
+        ]
+        preview = ", ".join(available_vectorized[:10])
         raise ValueError(
             f"Vectorized implementation not available for metric '{metric_name}'. "
-            f"Available (first 10): [{preview}] ... (total={len(available)})"
+            f"Available vectorized (first 10): [{preview}] ... (total={len(available_vectorized)})"
         )
-    return VECTORIZED_REGISTRY[metric_name]
+
+    return vectorized_fn
+
+
+def _safe_div(
+    numerator: np.ndarray[Any, Any] | float, denominator: np.ndarray[Any, Any] | float
+) -> np.ndarray[Any, Any] | float:
+    """Safe division that returns 0 when denominator is 0."""
+    if isinstance(numerator, np.ndarray) or isinstance(denominator, np.ndarray):
+        # Ensure both are arrays for vectorized operations
+        num = np.asarray(numerator, dtype=float)
+        den = np.asarray(denominator, dtype=float)
+        return np.divide(num, den, out=np.zeros_like(num, dtype=float), where=den > 0)
+    else:
+        # Scalar case
+        return numerator / denominator if denominator > 0 else 0.0
+
+
+def _scalarize(
+    vectorized_func: Callable[..., np.ndarray[Any, Any]],
+) -> Callable[..., float]:
+    """Convert a vectorized metric function to a scalar version.
+
+    Parameters
+    ----------
+    vectorized_func:
+        A function that accepts (tp, tn, fp, fn) as arrays and returns array of scores.
+
+    Returns
+    -------
+    Callable[..., float]
+        A function that accepts (tp, tn, fp, fn) as scalars and returns a scalar score.
+    """
+
+    def scalar_wrapper(
+        tp: int | float, tn: int | float, fp: int | float, fn: int | float
+    ) -> float:
+        # Convert scalars to single-element arrays
+        tp_arr = np.array([tp], dtype=float)
+        tn_arr = np.array([tn], dtype=float)
+        fp_arr = np.array([fp], dtype=float)
+        fn_arr = np.array([fn], dtype=float)
+
+        # Call vectorized function and extract scalar result
+        result_arr = vectorized_func(tp_arr, tn_arr, fp_arr, fn_arr)
+        return float(result_arr[0])
+
+    return scalar_wrapper
 
 
 # Vectorized metric implementations for O(n log n) optimization
@@ -231,24 +333,8 @@ def _f1_vectorized(
     fp: np.ndarray[Any, Any],
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
-    """Vectorized F1 score computation."""
-    precision = np.divide(
-        tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0
-    )
-    recall = np.divide(
-        tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0
-    )
-    f1_numerator = 2 * precision * recall
-    f1_denominator = precision + recall
-    return cast(
-        np.ndarray[Any, Any],
-        np.divide(
-            f1_numerator,
-            f1_denominator,
-            out=np.zeros_like(tp, dtype=float),
-            where=f1_denominator > 0,
-        ),
-    )
+    """Vectorized F1 score computation using cleaner formula: 2*TP / (2*TP + FP + FN)."""
+    return cast(np.ndarray[Any, Any], _safe_div(2 * tp, 2 * tp + fp + fn))
 
 
 def _accuracy_vectorized(
@@ -258,11 +344,7 @@ def _accuracy_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized accuracy computation."""
-    total = tp + tn + fp + fn
-    return cast(
-        np.ndarray[Any, Any],
-        np.divide(tp + tn, total, out=np.zeros_like(tp, dtype=float), where=total > 0),
-    )
+    return cast(np.ndarray[Any, Any], _safe_div(tp + tn, tp + tn + fp + fn))
 
 
 def _precision_vectorized(
@@ -272,10 +354,7 @@ def _precision_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized precision computation."""
-    return cast(
-        np.ndarray[Any, Any],
-        np.divide(tp, tp + fp, out=np.zeros_like(tp, dtype=float), where=(tp + fp) > 0),
-    )
+    return cast(np.ndarray[Any, Any], _safe_div(tp, tp + fp))
 
 
 def _recall_vectorized(
@@ -285,10 +364,7 @@ def _recall_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized recall computation."""
-    return cast(
-        np.ndarray[Any, Any],
-        np.divide(tp, tp + fn, out=np.zeros_like(tp, dtype=float), where=(tp + fn) > 0),
-    )
+    return cast(np.ndarray[Any, Any], _safe_div(tp, tp + fn))
 
 
 def _iou_vectorized(
@@ -298,11 +374,7 @@ def _iou_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized IoU/Jaccard score computation."""
-    denom = tp + fp + fn
-    return cast(
-        np.ndarray[Any, Any],
-        np.divide(tp, denom, out=np.zeros_like(tp, dtype=float), where=denom > 0),
-    )
+    return cast(np.ndarray[Any, Any], _safe_div(tp, tp + fp + fn))
 
 
 def _specificity_vectorized(
@@ -312,17 +384,14 @@ def _specificity_vectorized(
     fn: np.ndarray[Any, Any],
 ) -> np.ndarray[Any, Any]:
     """Vectorized specificity computation."""
-    denom = tn + fp
-    return cast(
-        np.ndarray[Any, Any],
-        np.divide(tn, denom, out=np.zeros_like(tn, dtype=float), where=denom > 0),
-    )
+    return cast(np.ndarray[Any, Any], _safe_div(tn, tn + fp))
 
 
-def f1_score(
-    tp: int | float, tn: int | float, fp: int | float, fn: int | float
-) -> float:
-    r"""Compute the F\ :sub:`1` score.
+# Scalar metric functions derived from vectorized implementations
+f1_score = _scalarize(_f1_vectorized)
+f1_score.__doc__ = r"""Compute the F\ :sub:`1` score.
+
+    Derived from vectorized implementation for consistency.
 
     Parameters
     ----------
@@ -334,19 +403,12 @@ def f1_score(
     float
         The harmonic mean of precision and recall.
     """
-    precision = tp / (tp + fp) if tp + fp > 0 else 0.0
-    recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-    return (
-        2 * precision * recall / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
-    )
 
 
-def accuracy_score(
-    tp: int | float, tn: int | float, fp: int | float, fn: int | float
-) -> float:
-    """Compute classification accuracy.
+accuracy_score = _scalarize(_accuracy_vectorized)
+accuracy_score.__doc__ = """Compute classification accuracy.
+
+    Derived from vectorized implementation for consistency.
 
     Parameters
     ----------
@@ -358,14 +420,12 @@ def accuracy_score(
     float
         Ratio of correct predictions to total samples.
     """
-    total = tp + tn + fp + fn
-    return (tp + tn) / total if total > 0 else 0.0
 
 
-def precision_score(
-    tp: int | float, tn: int | float, fp: int | float, fn: int | float
-) -> float:
-    """Compute precision (positive predictive value).
+precision_score = _scalarize(_precision_vectorized)
+precision_score.__doc__ = """Compute precision (positive predictive value).
+
+    Derived from vectorized implementation for consistency.
 
     Parameters
     ----------
@@ -377,13 +437,12 @@ def precision_score(
     float
         Ratio of true positives to predicted positives.
     """
-    return tp / (tp + fp) if tp + fp > 0 else 0.0
 
 
-def recall_score(
-    tp: int | float, tn: int | float, fp: int | float, fn: int | float
-) -> float:
-    """Compute recall (sensitivity, true positive rate).
+recall_score = _scalarize(_recall_vectorized)
+recall_score.__doc__ = """Compute recall (sensitivity, true positive rate).
+
+    Derived from vectorized implementation for consistency.
 
     Parameters
     ----------
@@ -395,13 +454,12 @@ def recall_score(
     float
         Ratio of true positives to actual positives.
     """
-    return tp / (tp + fn) if tp + fn > 0 else 0.0
 
 
-def jaccard_score(
-    tp: int | float, tn: int | float, fp: int | float, fn: int | float
-) -> float:
-    """Compute the Jaccard index (IoU score).
+jaccard_score = _scalarize(_iou_vectorized)
+jaccard_score.__doc__ = """Compute the Jaccard index (IoU score).
+
+    Derived from vectorized implementation for consistency.
 
     Parameters
     ----------
@@ -413,13 +471,12 @@ def jaccard_score(
     float
         Intersection over Union: tp / (tp + fp + fn).
     """
-    return tp / (tp + fp + fn) if (tp + fp + fn) > 0 else 0.0
 
 
-def specificity_score(
-    tp: int | float, tn: int | float, fp: int | float, fn: int | float
-) -> float:
-    """Compute the specificity (true negative rate).
+specificity_score = _scalarize(_specificity_vectorized)
+specificity_score.__doc__ = """Compute the specificity (true negative rate).
+
+    Derived from vectorized implementation for consistency.
 
     Parameters
     ----------
@@ -431,7 +488,6 @@ def specificity_score(
     float
         True negative rate: tn / (tn + fp).
     """
-    return tn / (tn + fp) if (tn + fp) > 0 else 0.0
 
 
 def _compute_exclusive_predictions(
@@ -606,10 +662,10 @@ def multiclass_metric_ovr(
     float | np.ndarray
         Aggregated metric score (float) or per-class scores (array) if average="none".
     """
-    if metric_name not in METRIC_REGISTRY:
+    if metric_name not in METRICS:
         raise ValueError(f"Unknown metric: {metric_name}")
 
-    metric_func = METRIC_REGISTRY[metric_name]
+    metric_func = METRICS[metric_name].scalar_fn
 
     if average == "macro":
         # Unweighted mean of per-class scores
@@ -808,6 +864,98 @@ def _confusion_matrix_from_labels(
     return tp, tn, fp, fn
 
 
+def compute_vectorized_confusion_matrices(
+    y_sorted: NDArray[np.int8], weights_sorted: NDArray[np.float64]
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    """Compute confusion matrix counts for all possible cuts using cumulative sums.
+
+    Given labels and weights sorted in the same order as descending probabilities,
+    returns (tp, tn, fp, fn) as vectors for every cut k.
+
+    The indexing convention is:
+    - Index 0: "predict nothing as positive" (all negative predictions)
+    - Index k (k > 0): predict first k items as positive, rest as negative
+
+    At cut index k:
+      tp[k] = sum of weights for positive labels in first k items
+      fp[k] = sum of weights for negative labels in first k items
+      fn[k] = P - tp[k] (remaining positive weight)
+      tn[k] = N - fp[k] (remaining negative weight)
+
+    Where P = total positive weight, N = total negative weight.
+
+    Parameters
+    ----------
+    y_sorted : NDArray[np.int8]
+        Binary labels sorted by descending probability.
+    weights_sorted : NDArray[np.float64]
+        Sample weights sorted by descending probability.
+
+    Returns
+    -------
+    tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]
+        Arrays of (tp, tn, fp, fn) counts for each cut position. Length is n+1
+        where n is the number of samples, with index 0 being "predict nothing".
+    """
+    # Compute total positive and negative weights
+    P = float(np.sum(weights_sorted * y_sorted))
+    N = float(np.sum(weights_sorted * (1 - y_sorted)))
+
+    # Cumulative weighted counts for cuts after each item
+    tp_cumsum = np.cumsum(weights_sorted * y_sorted)
+    fp_cumsum = np.cumsum(weights_sorted * (1 - y_sorted))
+
+    # Include "predict nothing" case at the beginning
+    tp = np.concatenate([[0.0], tp_cumsum])
+    fp = np.concatenate([[0.0], fp_cumsum])
+
+    # Complement counts
+    fn = P - tp
+    tn = N - fp
+
+    return tp, tn, fp, fn
+
+
+def apply_metric_to_confusion_counts(
+    metric_fn: Callable[[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]],
+    tp: NDArray[np.float64],
+    tn: NDArray[np.float64],
+    fp: NDArray[np.float64],
+    fn: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Apply metric function to vectorized confusion matrix counts.
+
+    Parameters
+    ----------
+    metric_fn : Callable
+        Metric function that accepts (tp, tn, fp, fn) as arrays and returns
+        array of scores.
+    tp, tn, fp, fn : NDArray[np.float64]
+        Confusion matrix count arrays.
+
+    Returns
+    -------
+    NDArray[np.float64]
+        Array of metric scores for each threshold.
+
+    Raises
+    ------
+    ValueError
+        If metric function doesn't return array with correct shape.
+    """
+    scores = metric_fn(tp, tn, fp, fn)
+
+    # Ensure scores is a numpy array
+    scores = np.asarray(scores)
+
+    if scores.shape != tp.shape:
+        raise ValueError(
+            f"metric_fn must return array with shape {tp.shape}, got {scores.shape}."
+        )
+
+    return scores
+
+
 def compute_metric_at_threshold(
     true_labs: ArrayLike,
     pred_prob: ArrayLike,
@@ -824,12 +972,11 @@ def compute_metric_at_threshold(
     tp, tn, fp, fn = get_confusion_matrix(
         true_labs, pred_prob, threshold, sample_weight, comparison
     )
-    if metric not in METRIC_REGISTRY:
+    if metric not in METRICS:
         raise ValueError(
-            f"Metric '{metric}' not supported. "
-            f"Available: {list(METRIC_REGISTRY.keys())}"
+            f"Metric '{metric}' not supported. Available: {list(METRICS.keys())}"
         )
-    metric_func = METRIC_REGISTRY[metric]
+    metric_func = METRICS[metric].scalar_fn
     return float(metric_func(tp, tn, fp, fn))
 
 
@@ -872,102 +1019,36 @@ def compute_multiclass_metrics_from_labels(
     if true_labels.shape != pred_labels.shape:
         raise ValueError("true_labels and pred_labels must have same shape")
 
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight, dtype=float)
-        if sample_weight.shape[0] != true_labels.shape[0]:
-            raise ValueError("sample_weight must have same length as labels")
+    if sample_weight is None:
+        weights = np.ones_like(true_labels, dtype=float)
     else:
-        sample_weight = np.ones_like(true_labels, dtype=float)
+        weights = np.asarray(sample_weight, dtype=float)
+        if weights.shape[0] != true_labels.shape[0]:
+            raise ValueError("sample_weight must have same length as labels")
 
-    # Determine number of classes
     if n_classes is None:
-        n_classes = max(int(np.max(true_labels)) + 1, int(np.max(pred_labels)) + 1)
+        n_classes = (
+            int(max(true_labels.max(initial=-1), pred_labels.max(initial=-1))) + 1
+        )
 
-    # Handle accuracy separately (it's computed differently)
+    # Special case: accuracy (computed directly from labels)
     if metric == "accuracy":
         correct = (true_labels == pred_labels).astype(float)
-        return float(np.average(correct, weights=sample_weight))
+        return float(np.average(correct, weights=weights))
 
-    # For other metrics, compute per-class confusion matrices
-    tp = np.zeros(n_classes, dtype=float)
-    fp = np.zeros(n_classes, dtype=float)
-    fn = np.zeros(n_classes, dtype=float)
-    support = np.zeros(n_classes, dtype=float)  # for weighted averaging
+    # Build OvR confusion matrices once
+    cms: list[tuple[float, float, float, float]] = []
+    for k in range(n_classes):
+        true_bin = (true_labels == k).astype(int)
+        pred_bin = (pred_labels == k).astype(int)
+        tp = float(np.sum(weights * (true_bin == 1) * (pred_bin == 1)))
+        tn = float(np.sum(weights * (true_bin == 0) * (pred_bin == 0)))
+        fp = float(np.sum(weights * (true_bin == 0) * (pred_bin == 1)))
+        fn = float(np.sum(weights * (true_bin == 1) * (pred_bin == 0)))
+        cms.append((tp, tn, fp, fn))
 
-    for class_idx in range(n_classes):
-        # Binary classification for this class vs all others
-        true_binary = (true_labels == class_idx).astype(int)
-        pred_binary = (pred_labels == class_idx).astype(int)
-
-        # Compute confusion matrix for this class
-        tp[class_idx] = np.sum(sample_weight * (true_binary == 1) * (pred_binary == 1))
-        fp[class_idx] = np.sum(sample_weight * (true_binary == 0) * (pred_binary == 1))
-        fn[class_idx] = np.sum(sample_weight * (true_binary == 1) * (pred_binary == 0))
-        support[class_idx] = np.sum(sample_weight * (true_labels == class_idx))
-
-    # Compute per-class metrics
-    if metric == "precision":
-        per_class_scores = np.divide(
-            tp, tp + fp, out=np.zeros_like(tp), where=(tp + fp) > 0
-        )
-    elif metric == "recall":
-        per_class_scores = np.divide(
-            tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0
-        )
-    elif metric == "f1":
-        precision = np.divide(tp, tp + fp, out=np.zeros_like(tp), where=(tp + fp) > 0)
-        recall = np.divide(tp, tp + fn, out=np.zeros_like(tp), where=(tp + fn) > 0)
-        per_class_scores = np.divide(
-            2 * precision * recall,
-            precision + recall,
-            out=np.zeros_like(precision),
-            where=(precision + recall) > 0,
-        )
-    else:
-        raise ValueError(f"Metric '{metric}' not supported")
-
-    # Apply averaging strategy
-    if average == "none":
-        return per_class_scores
-    elif average == "macro":
-        return float(np.mean(per_class_scores))
-    elif average == "micro":
-        # Micro averaging: compute global metric from summed confusion matrices
-        total_tp = np.sum(tp)
-        total_fp = np.sum(fp)
-        total_fn = np.sum(fn)
-
-        if metric == "precision":
-            return float(
-                total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
-            )
-        elif metric == "recall":
-            return float(
-                total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
-            )
-        elif metric == "f1":
-            micro_precision = float(
-                total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
-            )
-            micro_recall = float(
-                total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
-            )
-            return float(
-                2 * micro_precision * micro_recall / (micro_precision + micro_recall)
-                if micro_precision + micro_recall > 0
-                else 0.0
-            )
-        else:
-            raise ValueError(f"Metric '{metric}' not supported for micro averaging")
-    elif average == "weighted":
-        # Weighted averaging by support
-        total_support = np.sum(support)
-        if total_support > 0:
-            return float(np.sum(per_class_scores * support) / total_support)
-        else:
-            return float(np.mean(per_class_scores))
-    else:
-        raise ValueError(f"Invalid average method: {average}")
+    # Route through multiclass_metric_ovr for all other metrics
+    return multiclass_metric_ovr(cms, metric_name=metric, average=average)
 
 
 def get_multiclass_confusion_matrix(
@@ -1178,15 +1259,17 @@ def make_cost_metric(
     )
 
 
-# Register built-in metrics manually to avoid decorator type issues
+# Register built-in metrics (primary names only)
 register_metric("f1", f1_score, _f1_vectorized)
 register_metric("accuracy", accuracy_score, _accuracy_vectorized)
 register_metric("precision", precision_score, _precision_vectorized)
 register_metric("recall", recall_score, _recall_vectorized)
 register_metric("iou", jaccard_score, _iou_vectorized)
-register_metric("jaccard", jaccard_score, _iou_vectorized)
 register_metric("specificity", specificity_score, _specificity_vectorized)
-register_metric("tnr", specificity_score, _specificity_vectorized)
-register_metric("ppv", precision_score, _precision_vectorized)
-register_metric("tpr", recall_score, _recall_vectorized)
-register_metric("sensitivity", recall_score, _recall_vectorized)
+
+# Register aliases to avoid duplication
+register_alias("jaccard", "iou")
+register_alias("tnr", "specificity")
+register_alias("ppv", "precision")
+register_alias("tpr", "recall")
+register_alias("sensitivity", "recall")

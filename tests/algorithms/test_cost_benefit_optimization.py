@@ -58,41 +58,45 @@ class TestBayesThresholds:
     def test_bayes_threshold_classic_cost_case(self):
         """Test classic cost case: C_FP=1, C_FN=5."""
         # Expected threshold: C_FP / (C_FP + C_FN) = 1/(1+5) = 1/6 ≈ 0.1667
-        threshold = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
+        result_threshold = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
+        threshold = result_threshold.threshold
         expected = 1.0 / 6.0
         assert abs(threshold - expected) < 1e-10
 
     def test_bayes_threshold_from_costs_equivalent(self):
-        """Test that costs wrapper gives same result as utilities."""
-        threshold1 = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
-        threshold2 = bayes_optimal_threshold(fp_cost=1.0, fn_cost=5.0)
-        assert abs(threshold1 - threshold2) < 1e-12
+        """Test that costs wrapper gives same result_threshold as utilities."""
+        result1 = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
+        result2 = bayes_optimal_threshold(fp_cost=1.0, fn_cost=5.0)
+        assert abs(result1.threshold - result2.threshold) < 1e-12
 
     def test_bayes_threshold_with_benefits(self):
         """Test threshold with benefits for correct predictions."""
         # U_tp=2, U_tn=1, U_fp=-1, U_fn=-5
         # t* = (U_tn - U_fp) / [(U_tn - U_fp) + (U_tp - U_fn)]
         # t* = (1 - (-1)) / [(1 - (-1)) + (2 - (-5))] = 2 / (2 + 7) = 2/9
-        threshold = bayes_optimal_threshold(
+        result_threshold = bayes_optimal_threshold(
             fp_cost=1, fn_cost=5, tp_benefit=2, tn_benefit=1
         )
+        threshold = result_threshold.threshold
         expected = 2.0 / 9.0
         assert abs(threshold - expected) < 1e-10
 
     def test_bayes_threshold_degenerate_cases(self):
         """Test degenerate cases where one action dominates."""
         # Case 1: Positive always better (very high TP benefit, no costs)
-        threshold = bayes_optimal_threshold(
+        result_threshold = bayes_optimal_threshold(
             fp_cost=0, fn_cost=0, tp_benefit=100, tn_benefit=0
         )
+        threshold = result_threshold.threshold
         # Should predict all as positive -> very low threshold
         assert threshold < 1e-10
 
         # Case 2: Negative always better (U_fn >= U_tp to get threshold >= 1.0)
         # Make false negative utility higher than true positive utility
-        threshold = bayes_optimal_threshold(
+        result_threshold = bayes_optimal_threshold(
             fp_cost=100, fn_cost=0, tp_benefit=-10, tn_benefit=1
         )
+        threshold = result_threshold.threshold
         # Should predict all as negative -> very high threshold
         assert threshold >= 1.0
 
@@ -102,17 +106,17 @@ class TestBayesThresholds:
         # U_tp = U_tn = 1.0, U_fp = U_fn = 0.0
         # t* = (1-0) / [(1-0) + (1-0)] = 1/2 = 0.5
 
-        # New API doesn't have comparison parameter - both should give same result
-        thresh_excl = bayes_optimal_threshold(
+        # New API doesn't have comparison parameter - both should give same result_threshold
+        result_thresh_excl = bayes_optimal_threshold(
             fp_cost=0, fn_cost=0, tp_benefit=1, tn_benefit=1
         )
-        thresh_incl = bayes_optimal_threshold(
+        result_thresh_incl = bayes_optimal_threshold(
             fp_cost=0, fn_cost=0, tp_benefit=1, tn_benefit=1
         )
 
         # Both should be close to 0.5, with slight differences for tie handling
-        assert abs(thresh_excl - 0.5) < 1e-10
-        assert abs(thresh_incl - 0.5) < 1e-10
+        assert abs(result_thresh_excl.threshold - 0.5) < 1e-10
+        assert abs(result_thresh_incl.threshold - 0.5) < 1e-10
 
 
 class TestUtilityOptimization:
@@ -127,20 +131,20 @@ class TestUtilityOptimization:
         y = (np.random.uniform(0, 1, size=n) < p).astype(int)  # Calibrated
 
         # Simple cost case: FP=1, FN=5
-        result = get_optimal_threshold(
+        result1 = get_optimal_threshold(
             y, p, utility={"fp": -1.0, "fn": -5.0}, comparison=">="
         )
 
         # Should be reasonable threshold (not extreme)
-        assert 0.01 < threshold < 0.99
+        assert 0.01 < result1.threshold < 0.99
 
         # Verify it actually optimizes the utility
-        tp, tn, fp, fn = get_confusion_matrix(y, p, threshold, comparison=">=")
+        tp, tn, fp, fn = get_confusion_matrix(y, p, result1.threshold, comparison=">=")
         utility_score = 0 * tp + 0 * tn + (-1) * fp + (-5) * fn
 
         # Test nearby thresholds should give worse utility
         for delta in [-0.01, 0.01]:
-            test_thresh = np.clip(threshold + delta, 0, 1)
+            test_thresh = np.clip(result1.threshold + delta, 0, 1)
             tp_test, tn_test, fp_test, fn_test = get_confusion_matrix(
                 y, p, test_thresh, comparison=">="
             )
@@ -156,19 +160,20 @@ class TestUtilityOptimization:
         y = (np.random.uniform(0, 1, size=n) < p).astype(int)  # Calibrated
 
         # Cost case: FP=1, FN=5
-        thresh_empirical = get_optimal_threshold(
+        result1 = get_optimal_threshold(
             y, p, utility={"fp": -1.0, "fn": -5.0}, comparison=">="
         )
-        thresh_bayes = get_optimal_threshold(
+        result2 = get_optimal_threshold(
             None, p, utility={"fp": -1.0, "fn": -5.0}, mode="bayes", comparison=">="
         )
 
         # Should be reasonably close on well-calibrated data (increased tolerance)
-        assert abs(thresh_empirical - thresh_bayes) < 0.3
+        assert abs(result1.threshold - result2.threshold) < 0.3
 
         # Bayes should be exactly 1/(1+5) = 1/6
         expected_bayes = 1.0 / 6.0
-        assert abs(thresh_bayes - expected_bayes) < 1e-10
+        threshold = result1.threshold
+        assert abs(result2.threshold - expected_bayes) < 1e-10
 
     def test_minimize_cost_flag(self):
         """Test minimize_cost flag behavior."""
@@ -178,12 +183,12 @@ class TestUtilityOptimization:
         y = (np.random.uniform(0, 1, size=n) < 0.5).astype(int)
 
         # These should be equivalent
-        thresh1 = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
-        thresh2 = get_optimal_threshold(
+        result1 = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
+        result2 = get_optimal_threshold(
             y, p, utility={"fp": 1.0, "fn": 5.0}, minimize_cost=True
         )
 
-        assert abs(thresh1 - thresh2) < 1e-12
+        assert abs(result1.threshold - result2.threshold) < 1e-12
 
     def test_utility_with_sample_weights(self):
         """Test utility optimization with sample weights."""
@@ -194,9 +199,10 @@ class TestUtilityOptimization:
         weights = np.random.uniform(0.5, 2.0, size=n)  # Varying weights
 
         # Should not raise an error
-        result = get_optimal_threshold(
+        result1 = get_optimal_threshold(
             y, p, utility={"tp": 1.0, "fp": -1.0}, sample_weight=weights
         )
+        threshold = result1.threshold
         assert 0 <= threshold <= 1
 
     def test_utility_multiclass_basic(self):
@@ -207,8 +213,9 @@ class TestUtilityOptimization:
 
         # Should either work or raise some kind of error without crashing
         try:
-            thresholds = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
+            result1 = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
             # If it works, should return valid thresholds
+            thresholds = result1.thresholds
             assert len(thresholds) == 3
         except (NotImplementedError, ValueError):
             # If not implemented, that's also acceptable
@@ -228,16 +235,16 @@ class TestUtilityMetricIntegration:
         y = (np.random.uniform(0, 1, size=n) < 0.4).astype(int)
 
         # F1 optimization
-        thresh_f1 = get_optimal_threshold(y, p, metric="f1", method="sort_scan")
+        result1 = get_optimal_threshold(y, p, metric="f1", method="sort_scan")
 
         # Utility optimization that rewards TP and penalizes FP/FN equally
-        thresh_util = get_optimal_threshold(
+        result2 = get_optimal_threshold(
             y, p, utility={"tp": 1.0, "fp": -0.5, "fn": -0.5}
         )
 
         # Check that predictions are mostly the same
-        pred_f1 = (p > thresh_f1).astype(int)
-        pred_util = (p > thresh_util).astype(int)
+        pred_f1 = (p > result1.threshold).astype(int)
+        pred_util = (p > result2.threshold).astype(int)
         agreement = np.mean(pred_f1 == pred_util)
 
         # Should agree on most samples (heuristic test)
@@ -252,14 +259,14 @@ class TestUtilityMetricIntegration:
 
         # Base utilities
         base_util = {"tp": 2.0, "tn": 1.0, "fp": -1.0, "fn": -3.0}
-        thresh1 = get_optimal_threshold(y, p, utility=base_util)
+        result1 = get_optimal_threshold(y, p, utility=base_util)
 
         # Scaled utilities (multiply by 10)
         scaled_util = {k: v * 10 for k, v in base_util.items()}
-        thresh2 = get_optimal_threshold(y, p, utility=scaled_util)
+        result2 = get_optimal_threshold(y, p, utility=scaled_util)
 
         # Should give same threshold (up to numerical precision)
-        assert abs(thresh1 - thresh2) < 1e-10
+        assert abs(result1.threshold - result2.threshold) < 1e-10
 
     def test_utility_respects_comparison_operator(self):
         """Test that utility optimization respects comparison operator."""
@@ -268,15 +275,15 @@ class TestUtilityMetricIntegration:
         y = np.array([0, 0, 1, 0, 1, 1])
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 y, p, utility={"tp": 1.0, "fn": -1.0}, comparison=comparison
             )
 
             # Apply threshold and check consistency
             if comparison == ">":
-                pred = (p > threshold).astype(int)
+                pred = (p > result1.threshold).astype(int)
             else:
-                pred = (p >= threshold).astype(int)
+                pred = (p >= result1.threshold).astype(int)
 
             # Should produce valid predictions (not a strong test, but checks basic functionality)
             assert len(pred) == len(y)
@@ -291,9 +298,10 @@ class TestEdgeCases:
         p = np.array([0.1, 0.5, 0.9])
 
         # This should work (no true_labs needed)
-        result = get_optimal_threshold(
+        result1 = get_optimal_threshold(
             None, p, utility={"fp": -1, "fn": -5}, mode="bayes"
         )
+        threshold = result1.threshold
         assert 0 <= threshold <= 1
 
     def test_empirical_requires_true_labels(self):
@@ -315,11 +323,13 @@ class TestEdgeCases:
         y = np.random.randint(0, 2, size=n)
 
         # Empty dict should work (all utilities = 0)
-        result = get_optimal_threshold(y, p, utility={})
+        result1 = get_optimal_threshold(y, p, utility={})
+        threshold = result1.threshold
         assert 0 <= threshold <= 1
 
         # Single utility should work
-        result = get_optimal_threshold(y, p, utility={"tp": 1.0})
+        result2 = get_optimal_threshold(y, p, utility={"tp": 1.0})
+        threshold = result2.threshold
         assert 0 <= threshold <= 1
 
 

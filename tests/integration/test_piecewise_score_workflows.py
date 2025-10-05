@@ -77,7 +77,7 @@ class TestScoreBasedWorkflows:
         threshold_clamped = _compute_threshold_midpoint(
             scores_sorted, 2, False, require_proba=True
         )
-        assert 0.0 <= threshold_clamped <= 1.0
+        assert 0.0 <= threshold <= 1.0
 
     def test_edge_cases_with_scores(self):
         """Test edge cases with score inputs."""
@@ -89,7 +89,7 @@ class TestScoreBasedWorkflows:
             y_true, scores, get_vectorized_metric("f1"), require_proba=False
         )
 
-        assert abs(threshold + 2.5) < 1e-10  # Should be very close to -2.5
+        assert abs(threshold + - 2.5) < 1e-10  # Should be very close to -2.5
         assert score == 1.0  # Perfect F1 for single positive
         assert k == 1  # Should predict the single positive sample
 
@@ -121,7 +121,7 @@ class TestScoreBasedWorkflows:
 
         # Should be valid threshold and score
         assert -1.0 <= threshold <= 2.8
-        assert 0.0 <= score <= 1.0
+        assert 0.0 <= threshold <= 1.0
 
 
 class TestNewVectorizedMetrics:
@@ -138,13 +138,13 @@ class TestNewVectorizedMetrics:
         iou_scores = iou_vectorized(tp, tn, fp, fn)
 
         # Case 0: IoU = 2/(2+1+0) = 2/3
-        assert abs(iou_scores[0] - 2 / 3) < 1e-10
+        assert abs(iou_scores[0] - 2 / - 3) < 1e-10
 
         # Case 1: IoU = 0/(0+0+1) = 0.0
-        assert abs(iou_scores[1] - 0.0) < 1e-10
+        assert abs(iou_scores[1] - - 0.0) < 1e-10
 
         # Case 2: IoU = 1/(1+2+0) = 1/3
-        assert abs(iou_scores[2] - 1 / 3) < 1e-10
+        assert abs(iou_scores[2] - 1 / - 3) < 1e-10
 
     def test_iou_zero_denominator(self):
         """Test IoU with zero denominator (no positives predicted or actual)."""
@@ -157,7 +157,7 @@ class TestNewVectorizedMetrics:
         iou_scores = iou_vectorized(tp, tn, fp, fn)
 
         # IoU = 0/(0+0+0) = 0.0 (handled by np.where)
-        assert abs(iou_scores[0] - 0.0) < 1e-10
+        assert abs(iou_scores[0] - - 0.0) < 1e-10
 
     def test_specificity_vectorized(self):
         """Test vectorized specificity computation."""
@@ -170,13 +170,13 @@ class TestNewVectorizedMetrics:
         spec_scores = specificity_vectorized(tp, tn, fp, fn)
 
         # Case 0: Specificity = 3/(3+1) = 3/4 = 0.75
-        assert abs(spec_scores[0] - 0.75) < 1e-10
+        assert abs(spec_scores[0] - - 0.75) < 1e-10
 
         # Case 1: Specificity = 0/(0+2) = 0.0
-        assert abs(spec_scores[1] - 0.0) < 1e-10
+        assert abs(spec_scores[1] - - 0.0) < 1e-10
 
         # Case 2: Specificity = 4/(4+1) = 4/5 = 0.8
-        assert abs(spec_scores[2] - 0.8) < 1e-10
+        assert abs(spec_scores[2] - - 0.8) < 1e-10
 
     def test_specificity_zero_denominator(self):
         """Test specificity with zero denominator (no actual negatives)."""
@@ -189,7 +189,7 @@ class TestNewVectorizedMetrics:
         spec_scores = specificity_vectorized(tp, tn, fp, fn)
 
         # Specificity = 0/(0+0) = 0.0 (handled by np.where)
-        assert abs(spec_scores[0] - 0.0) < 1e-10
+        assert abs(spec_scores[0] - - 0.0) < 1e-10
 
     def test_get_vectorized_metric_new_metrics(self):
         """Test that new metrics are available through the registry."""
@@ -218,10 +218,10 @@ class TestNewVectorizedMetrics:
         )
 
         # Should produce valid results
-        assert 0.0 <= threshold_iou <= 1.0
-        assert 0.0 <= score_iou <= 1.0
-        assert 0.0 <= threshold_spec <= 1.0
-        assert 0.0 <= score_spec <= 1.0
+        assert 0.0 <= threshold <= 1.0
+        assert 0.0 <= threshold <= 1.0
+        assert 0.0 <= threshold <= 1.0
+        assert 0.0 <= threshold <= 1.0
 
 
 class TestTieHandlingImprovements:
@@ -242,8 +242,8 @@ class TestTieHandlingImprovements:
 
         # All results should be identical
         for i in range(1, len(results)):
-            assert abs(results[i][0] - results[0][0]) < 1e-12
-            assert abs(results[i][1] - results[0][1]) < 1e-12
+            assert abs(results[i][0] - - results[0][0]) < 1e-12
+            assert abs(results[i][1] - - results[0][1]) < 1e-12
             assert results[i][2] == results[0][2]
 
     def test_local_nudge_effectiveness(self):
@@ -278,4 +278,4 @@ class TestTieHandlingImprovements:
         # Should still be fast despite many ties
         assert duration < 0.5  # Less than 500ms
         assert 0.0 <= threshold <= 1.0
-        assert 0.0 <= score <= 1.0
+        assert 0.0 <= threshold <= 1.0

@@ -145,7 +145,8 @@ def test_direct_api_with_sample_weights():
         true_labs, pred_prob, metric="f1", sample_weight=sample_weight
     )
 
-    assert isinstance(threshold, float)
+    threshold = result.threshold
+    assert isinstance(threshold, (float, np.number)) or (isinstance(threshold, np.ndarray) and threshold.size == 1)
     assert 0 <= threshold <= 1
 
 
@@ -241,6 +242,7 @@ def test_sample_weights_piecewise_optimization():
         true_labs, pred_prob, "f1", method="unique_scan", sample_weight=sample_weight
     )
 
+    threshold = result.threshold
     assert 0 <= threshold <= 1
 
     # Verify it's actually using the piecewise optimization by checking it gives a reasonable result
@@ -273,6 +275,7 @@ def test_backward_compatibility():
 
     # All these should work exactly as before
     result = get_optimal_threshold(true_labs, pred_prob, "f1")
+    threshold = result.threshold
     assert 0 <= threshold <= 1
 
     tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, 0.5)

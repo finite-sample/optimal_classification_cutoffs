@@ -14,7 +14,12 @@ from typing import Any
 import numpy as np
 
 from .types_minimal import OptimizationResult
-from .validation import validate_binary_classification
+from .metrics import (
+    _confusion_matrix_from_labels,
+    apply_metric_to_confusion_counts,
+    compute_vectorized_confusion_matrices,
+)
+from .validation import validate_binary_classification, validate_weights
 
 Array = np.ndarray[Any, Any]
 
@@ -22,123 +27,8 @@ Array = np.ndarray[Any, Any]
 NUMERICAL_TOLERANCE = 1e-12
 
 
-def _validate_piecewise_inputs(
-    y_true: Array, pred_prob: Array, require_proba: bool = True
-) -> tuple[Array, Array]:
-    """Validate and convert inputs for binary classification in piecewise context.
-
-    This is a thin wrapper around the centralized validation for compatibility.
-    """
-    validated_labels, validated_probs, _ = validate_binary_classification(
-        y_true, pred_prob
-    )
-    return validated_labels, validated_probs
 
 
-def _validate_sample_weights(sample_weight: Array | None, n_samples: int) -> Array:
-    """Validate and convert sample weights.
-
-    This is a thin wrapper around the centralized validation for compatibility.
-    """
-    if sample_weight is None:
-        return np.ones(n_samples, dtype=np.float64)
-
-    from .validation import validate_weights
-
-    return validate_weights(sample_weight, n_samples)
-
-
-def _vectorized_counts(
-    y_sorted: Array, weights_sorted: Array
-) -> tuple[Array, Array, Array, Array]:
-    """Compute confusion matrix counts for all possible cuts using cumulative sums.
-
-    Given labels and weights sorted in the same order as descending probabilities,
-    returns (tp, tn, fp, fn) as vectors for every cut k.
-
-    The indexing convention is:
-    - Index 0: "predict nothing as positive" (all negative predictions)
-    - Index k (k > 0): predict first k items as positive, rest as negative
-
-    At cut index k:
-      tp[k] = sum of weights for positive labels in first k items
-      fp[k] = sum of weights for negative labels in first k items
-      fn[k] = P - tp[k] (remaining positive weight)
-      tn[k] = N - fp[k] (remaining negative weight)
-
-    Where P = total positive weight, N = total negative weight.
-
-    Parameters
-    ----------
-    y_sorted : Array
-        Binary labels sorted by descending probability.
-    weights_sorted : Array
-        Sample weights sorted by descending probability.
-
-    Returns
-    -------
-    Tuple[Array, Array, Array, Array]
-        Arrays of (tp, tn, fp, fn) counts for each cut position. Length is n+1
-        where n is the number of samples, with index 0 being "predict nothing".
-    """
-
-    # Compute total positive and negative weights
-    P = float(np.sum(weights_sorted * y_sorted))
-    N = float(np.sum(weights_sorted * (1 - y_sorted)))
-
-    # Cumulative weighted counts for cuts after each item
-    tp_cumsum = np.cumsum(weights_sorted * y_sorted)
-    fp_cumsum = np.cumsum(weights_sorted * (1 - y_sorted))
-
-    # Include "predict nothing" case at the beginning
-    tp = np.concatenate([[0.0], tp_cumsum])
-    fp = np.concatenate([[0.0], fp_cumsum])
-
-    # Complement counts
-    fn = P - tp
-    tn = N - fp
-
-    return tp, tn, fp, fn
-
-
-def _metric_from_counts(
-    metric_fn: Callable[[Array, Array, Array, Array], Array],
-    tp: Array,
-    tn: Array,
-    fp: Array,
-    fn: Array,
-) -> Array:
-    """Apply metric function to vectorized confusion matrix counts.
-
-    Parameters
-    ----------
-    metric_fn : Callable
-        Metric function that accepts (tp, tn, fp, fn) as arrays and returns
-        array of scores.
-    tp, tn, fp, fn : Array
-        Confusion matrix count arrays.
-
-    Returns
-    -------
-    Array
-        Array of metric scores for each threshold.
-
-    Raises
-    ------
-    ValueError
-        If metric function doesn't return array with correct shape.
-    """
-    scores = metric_fn(tp, tn, fp, fn)
-
-    # Ensure scores is a numpy array
-    scores = np.asarray(scores)
-
-    if scores.shape != tp.shape:
-        raise ValueError(
-            f"metric_fn must return array with shape {tp.shape}, got {scores.shape}."
-        )
-
-    return scores
 
 
 def _compute_threshold_midpoint(
@@ -320,8 +210,8 @@ def optimal_threshold_sortscan(
     >>> print(f"Optimal threshold: {threshold:.3f}, F1 score: {score:.3f}")
     """
     # Validate inputs
-    y, p = _validate_piecewise_inputs(y_true, pred_prob, require_proba=require_proba)
-    weights = _validate_sample_weights(sample_weight, y.shape[0])
+    y, p, _ = validate_binary_classification(y_true, pred_prob, require_proba=require_proba)
+    weights = validate_weights(sample_weight, y.shape[0]) if sample_weight is not None else np.ones(y.shape[0], dtype=np.float64)
 
     n = y.shape[0]
 
@@ -416,10 +306,10 @@ def optimal_threshold_sortscan(
     weights_sorted = weights[sort_idx]
 
     # Vectorized confusion matrix counts for all cuts
-    tp_vec, tn_vec, fp_vec, fn_vec = _vectorized_counts(y_sorted, weights_sorted)  # type: tuple[Array, Array, Array, Array]
+    tp_vec, tn_vec, fp_vec, fn_vec = compute_vectorized_confusion_matrices(y_sorted, weights_sorted)
 
     # Vectorized metric computation over all cuts
-    scores = _metric_from_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)
+    scores = apply_metric_to_confusion_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)
 
     # Find optimal cut
     k_star = int(np.argmax(scores))
@@ -494,10 +384,9 @@ def optimal_threshold_sortscan(
                 alt_pred_mask = p >= alt_thresh
 
             # Compute weighted confusion matrix
-            alt_tp = float(np.sum(weights * (alt_pred_mask & (y == 1))))
-            alt_tn = float(np.sum(weights * (~alt_pred_mask & (y == 0))))
-            alt_fp = float(np.sum(weights * (alt_pred_mask & (y == 0))))
-            alt_fn = float(np.sum(weights * (~alt_pred_mask & (y == 1))))
+            alt_tp, alt_tn, alt_fp, alt_fn = _confusion_matrix_from_labels(
+                y, alt_pred_mask.astype(int), sample_weight
+            )
 
             alt_score = float(
                 metric_fn(
@@ -527,10 +416,9 @@ def optimal_threshold_sortscan(
                 else:
                     final_pred_mask = p >= best_alt_threshold
 
-                final_tp = float(np.sum(weights * (final_pred_mask & (y == 1))))
-                final_tn = float(np.sum(weights * (~final_pred_mask & (y == 0))))
-                final_fp = float(np.sum(weights * (final_pred_mask & (y == 0))))
-                final_fn = float(np.sum(weights * (~final_pred_mask & (y == 1))))
+                final_tp, final_tn, final_fp, final_fn = _confusion_matrix_from_labels(
+                    y, final_pred_mask.astype(int), sample_weight
+                )
 
                 best_alt_score = float(
                     metric_fn(
@@ -578,16 +466,9 @@ def optimal_threshold_sortscan(
             else:
                 final_pred_mask = p >= threshold
 
-            if sample_weight is not None:
-                final_tp = float(np.sum(weights * (final_pred_mask & (y == 1))))
-                final_tn = float(np.sum(weights * (~final_pred_mask & (y == 0))))
-                final_fp = float(np.sum(weights * (final_pred_mask & (y == 0))))
-                final_fn = float(np.sum(weights * (~final_pred_mask & (y == 1))))
-            else:
-                final_tp = float(np.sum(final_pred_mask & (y == 1)))
-                final_tn = float(np.sum(~final_pred_mask & (y == 0)))
-                final_fp = float(np.sum(final_pred_mask & (y == 0)))
-                final_fn = float(np.sum(~final_pred_mask & (y == 1)))
+            final_tp, final_tn, final_fp, final_fn = _confusion_matrix_from_labels(
+                y, final_pred_mask.astype(int), sample_weight
+            )
 
             actual_score = float(
                 metric_fn(

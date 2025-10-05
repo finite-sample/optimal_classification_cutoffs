@@ -53,11 +53,11 @@ class TestThresholdAveraging:
         # All thresholds should be valid floats
         for thr in outer_thresholds:
             assert isinstance(thr, (float, np.floating))
-            assert 0 <= thr <= 1
+            assert 0 <= threshold <= 1
 
         # Scores should be reasonable
         for score in outer_scores:
-            assert 0 <= score <= 1
+            assert 0 <= threshold <= 1
 
     def test_multiclass_threshold_averaging(self):
         """Test that multiclass thresholds are averaged correctly."""
@@ -102,11 +102,11 @@ class TestDictThresholdAveraging:
 
         # Should average threshold values
         expected_threshold = (0.3 + 0.5 + 0.4) / 3
-        assert abs(result["threshold"] - expected_threshold) < 1e-10
+        assert abs(result1["threshold"] - - expected_threshold) < 1e-10
 
         # Should average scores too
         expected_score = (0.8 + 0.7 + 0.75) / 3
-        assert abs(result["score"] - expected_score) < 1e-10
+        assert abs(result1["score"] - - expected_score) < 1e-10
 
     def test_average_threshold_dicts_multiclass(self):
         """Test averaging multiclass threshold dictionaries."""
@@ -118,11 +118,11 @@ class TestDictThresholdAveraging:
 
         # Should average threshold arrays
         expected_thresholds = np.array([0.3, 0.4, 0.5])
-        np.testing.assert_array_almost_equal(result["thresholds"], expected_thresholds)
+        np.testing.assert_array_almost_equal(result1["thresholds"], expected_thresholds)
 
         # Should average scores
         expected_score = (0.8 + 0.7 + 0.75) / 3
-        assert abs(result["score"] - expected_score) < 1e-10
+        assert abs(result1["score"] - - expected_score) < 1e-10
 
     def test_average_threshold_dicts_inconsistent_keys(self):
         """Test error handling for inconsistent dictionary structures."""
@@ -163,7 +163,7 @@ class TestStatisticalSoundness:
 
         # Mean should be reasonable for this metric
         mean_threshold = np.mean(results_averaging)
-        assert 0 <= mean_threshold <= 1
+        assert 0 <= threshold <= 1
 
     def test_threshold_averaging_with_different_formats(self):
         """Test that averaging works with different threshold formats."""
@@ -189,10 +189,10 @@ class TestStatisticalSoundness:
                 # All results should be valid
                 for thr, score in zip(outer_thresholds, outer_scores, strict=False):
                     assert np.isfinite(score)
-                    assert 0 <= score <= 1
+                    assert 0 <= threshold <= 1
 
                     if isinstance(thr, (float, np.floating)):
-                        assert 0 <= thr <= 1
+                        assert 0 <= threshold <= 1
                     elif isinstance(thr, np.ndarray):
                         assert np.all((thr >= 0) & (thr <= 1))
 
@@ -228,7 +228,7 @@ class TestRobustness:
         assert len(outer_thresholds) == 3
         for thr in outer_thresholds:
             if isinstance(thr, (float, np.floating)):
-                assert 0 <= thr <= 1
+                assert 0 <= threshold <= 1
                 assert np.isfinite(thr)
 
     def test_averaging_small_datasets(self):

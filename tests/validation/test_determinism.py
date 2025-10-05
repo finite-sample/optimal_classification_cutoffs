@@ -64,7 +64,7 @@ class TestBasicDeterminism:
                     result = get_optimal_threshold(
                         labels, probs, metric="f1", method=method, comparison=">"
                     )
-                    thresholds.append(threshold)
+                    thresholds.append(result.threshold)
 
                 except (ValueError, NotImplementedError) as e:
                     if "not supported" in str(e).lower():
@@ -98,7 +98,7 @@ class TestBasicDeterminism:
                         method="sort_scan",
                         comparison=">=",
                     )
-                    results.append(threshold)
+                    results.append(result.threshold)
 
                 except ValueError as e:
                     if "not supported" in str(e).lower():
@@ -129,7 +129,7 @@ class TestBasicDeterminism:
                     sample_weight=weights,
                     comparison=">",
                 )
-                results.append(threshold)
+                results.append(result.threshold)
 
             except (ValueError, NotImplementedError):
                 pytest.skip("Weighted optimization not supported")
@@ -162,7 +162,7 @@ class TestBasicDeterminism:
                 result = get_optimal_threshold(
                     labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
-                results.append(threshold)
+                results.append(result.threshold)
 
             # Should be identical
             for i in range(1, len(results)):
@@ -193,7 +193,7 @@ class TestStableSorting:
                 result = get_optimal_threshold(
                     labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
-                results.append(threshold)
+                results.append(result.threshold)
 
             except ValueError:
                 pytest.skip("Tied score scenario not supported")
@@ -221,7 +221,7 @@ class TestStableSorting:
                         method="sort_scan",
                         comparison=comparison,
                     )
-                    results.append((comparison, threshold))
+                    results.append((comparison, result.threshold))
 
                 except ValueError:
                     continue
@@ -255,6 +255,7 @@ class TestStableSorting:
             )
 
             # Test behavior at the tied probability value
+            threshold = result.threshold
             if abs(threshold - 0.5) < 1e-10:
                 # If threshold is exactly at tie value, behavior should be consistent
                 pred = probs > threshold
@@ -286,7 +287,7 @@ class TestStableSorting:
                 result = get_optimal_threshold(
                     labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
-                thresholds.append(threshold)
+                thresholds.append(result.threshold)
 
             except ValueError:
                 continue
@@ -312,14 +313,16 @@ class TestNumericalStability:
             )
 
             # Should handle precision issues gracefully
+            threshold = result.threshold
             assert 0 <= threshold <= 1
             assert not np.isnan(threshold)
             assert not np.isinf(threshold)
 
             # Result should be reproducible
-            threshold2 = get_optimal_threshold(
+            result2 = get_optimal_threshold(
                 labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
+            threshold2 = result2.threshold
 
             assert threshold == threshold2, (
                 f"Numerical precision case not reproducible: {threshold} vs {threshold2}"
@@ -343,7 +346,7 @@ class TestNumericalStability:
                     result = get_optimal_threshold(
                         labels, probs, metric="accuracy", method=method, comparison=">"
                     )
-                    results.append(threshold)
+                    results.append(result.threshold)
 
                 except (ValueError, NotImplementedError) as e:
                     if "not supported" in str(e).lower():
@@ -387,6 +390,8 @@ class TestNumericalStability:
                 )
 
                 # Small perturbations should produce small changes (or no change)
+                base_threshold = base_result.threshold
+                perturbed_threshold = perturbed_result.threshold
                 threshold_change = abs(perturbed_threshold - base_threshold)
 
                 # Either no change (stable) or change proportional to perturbation
@@ -421,6 +426,7 @@ class TestNumericalStability:
                     )
 
                     # Should handle edge cases gracefully
+                    threshold = result.threshold
                     assert 0 <= threshold <= 1, (
                         f"Threshold {threshold} out of bounds for edge case"
                     )
@@ -428,13 +434,14 @@ class TestNumericalStability:
                     assert not np.isinf(threshold), "Infinite threshold for edge case"
 
                     # Should be reproducible
-                    threshold2 = get_optimal_threshold(
+                    result2 = get_optimal_threshold(
                         labels,
                         probs,
                         metric="accuracy",
                         method="sort_scan",
                         comparison=comparison,
                     )
+                    threshold2 = result2.threshold
 
                     assert threshold == threshold2, (
                         f"Edge case not reproducible: {threshold} vs {threshold2}"
@@ -476,7 +483,7 @@ class TestReproducibilityAcrossPlatforms:
                 result = get_optimal_threshold(
                     labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
-                results.append(threshold)
+                results.append(result.threshold)
 
             except ValueError:
                 continue
@@ -497,7 +504,7 @@ class TestReproducibilityAcrossPlatforms:
         probs_array = np.array(probs_list)
 
         try:
-            threshold_list = get_optimal_threshold(
+            result_list = get_optimal_threshold(
                 labels_list,
                 probs_list,
                 metric="accuracy",
@@ -505,7 +512,7 @@ class TestReproducibilityAcrossPlatforms:
                 comparison=">",
             )
 
-            threshold_array = get_optimal_threshold(
+            result_array = get_optimal_threshold(
                 labels_array,
                 probs_array,
                 metric="accuracy",
@@ -514,6 +521,8 @@ class TestReproducibilityAcrossPlatforms:
             )
 
             # Should be identical
+            threshold_list = result_list.threshold
+            threshold_array = result_array.threshold
             assert threshold_list == threshold_array, (
                 f"List vs array inputs give different results: {threshold_list} vs {threshold_array}"
             )
@@ -533,7 +542,7 @@ class TestReproducibilityAcrossPlatforms:
                 result = get_optimal_threshold(
                     labels, probs, metric="f1", method="sort_scan", comparison=">="
                 )
-                results.append((i, threshold))
+                results.append((i, result.threshold))
 
             except ValueError:
                 continue
@@ -557,11 +566,11 @@ class TestReproducibilityAcrossPlatforms:
         probs_perm = probs[perm]
 
         try:
-            threshold_original = get_optimal_threshold(
+            result_original = get_optimal_threshold(
                 labels, probs, metric="accuracy", method="sort_scan", comparison=">"
             )
 
-            threshold_permuted = get_optimal_threshold(
+            result_permuted = get_optimal_threshold(
                 labels_perm,
                 probs_perm,
                 metric="accuracy",
@@ -570,6 +579,8 @@ class TestReproducibilityAcrossPlatforms:
             )
 
             # Results should be identical (threshold optimization is order-independent)
+            threshold_original = result_original.threshold
+            threshold_permuted = result_permuted.threshold
             assert threshold_original == threshold_permuted, (
                 f"Order dependence detected: original={threshold_original}, permuted={threshold_permuted}"
             )

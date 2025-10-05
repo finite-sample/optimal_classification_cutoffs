@@ -59,7 +59,7 @@ class TestCoordinateAscentCore:
         # Class 2: TP=1, FP=0, FN=1 -> F1 = 2*1/(2*1+0+1) = 2/3 ≈ 0.667
         # Macro-F1 = (0.5 + 0.4 + 0.667) / 3 ≈ 0.522
 
-        assert 0.52 <= macro_f1 <= 0.53
+        assert 0.52 <= threshold <= 0.53
 
     def test_coord_ascent_monotone_macro_f1(self):
         """Test that coordinate ascent produces monotone increasing macro-F1."""
@@ -84,7 +84,7 @@ class TestCoordinateAscentCore:
 
         # Verify final result
         assert len(tau) == C
-        assert 0.0 <= best_macro <= 1.0
+        assert 0.0 <= result1.threshold <= 1.0
         assert best_macro == history[-1]
 
     def test_coord_ascent_vs_ovr_baseline(self):
@@ -133,7 +133,7 @@ class TestCoordinateAscentCore:
         )
 
         assert len(tau) == 2
-        assert 0.0 <= best_macro <= 1.0
+        assert 0.0 <= result1.threshold <= 1.0
         assert len(history) >= 1
 
     def test_coord_ascent_initialization_strategies(self):
@@ -153,7 +153,7 @@ class TestCoordinateAscentCore:
                 y_true_int32, P_float64, max_iter=5, tol=tol
             )
             assert len(tau) == C
-            assert 0.0 <= best_macro <= 1.0
+            assert 0.0 <= result1.threshold <= 1.0
 
         # Test invalid tolerance (replacing init validation)
         with pytest.raises((ValueError, TypeError)):
@@ -307,4 +307,4 @@ class TestCoordinateAscentPerformance:
             # Should terminate before max_iter due to convergence
             assert len(history) <= 20
             assert len(tau) == C
-            assert 0.0 <= best_macro <= 1.0
+            assert 0.0 <= result1.threshold <= 1.0

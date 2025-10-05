@@ -59,8 +59,8 @@ class TestComparisonOperators:
         )
 
         # Both should be valid thresholds
-        assert 0 <= thresh_gt <= 1
-        assert 0 <= thresh_gte <= 1
+        assert 0 <= thresh_gt.threshold <= 1
+        assert 0 <= thresh_gte.threshold <= 1
 
         # They might be the same or different, both are valid
         # The key is that the function accepts both operators without error
@@ -124,14 +124,14 @@ class TestComparisonOperators:
         )
 
         # Should return arrays of thresholds
-        assert isinstance(thresh_gt, np.ndarray)
-        assert isinstance(thresh_gte, np.ndarray)
-        assert len(thresh_gt) == n_classes
-        assert len(thresh_gte) == n_classes
+        assert isinstance(thresh_gt.thresholds, np.ndarray)
+        assert isinstance(thresh_gte.thresholds, np.ndarray)
+        assert len(thresh_gt.thresholds) == n_classes
+        assert len(thresh_gte.thresholds) == n_classes
 
         # All thresholds should be valid
-        assert np.all((thresh_gt >= 0) & (thresh_gt <= 1))
-        assert np.all((thresh_gte >= 0) & (thresh_gte <= 1))
+        assert np.all((thresh_gt.thresholds >= 0) & (thresh_gt.thresholds <= 1))
+        assert np.all((thresh_gte.thresholds >= 0) & (thresh_gte.thresholds <= 1))
 
     @pytest.mark.skip(
         reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly"

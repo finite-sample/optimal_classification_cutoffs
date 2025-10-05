@@ -307,6 +307,7 @@ class TestWeightEdgeCases:
             y, p, metric="f1", method="sort_scan", sample_weight=w
         )
 
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Only non-zero weighted samples should contribute

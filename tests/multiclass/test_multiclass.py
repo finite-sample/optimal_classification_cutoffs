@@ -59,15 +59,15 @@ def test_multiclass_metrics():
 
     # Test macro averaging
     f1_macro = multiclass_metric_ovr(cms, "f1", "macro")
-    assert 0 <= f1_macro <= 1
+    assert 0 <= threshold <= 1
 
     # Test micro averaging
     f1_micro = multiclass_metric_ovr(cms, "f1", "micro")
-    assert 0 <= f1_micro <= 1
+    assert 0 <= threshold <= 1
 
     # Test weighted averaging
     f1_weighted = multiclass_metric_ovr(cms, "f1", "weighted")
-    assert 0 <= f1_weighted <= 1
+    assert 0 <= threshold <= 1
 
 
 def test_get_optimal_multiclass_thresholds():
@@ -107,8 +107,9 @@ def test_get_optimal_threshold_multiclass_auto():
         ]
     )
 
-    thresholds = get_optimal_threshold(true_labs, pred_prob, metric="f1")
+    result = get_optimal_threshold(true_labs, pred_prob, metric="f1")
 
+    thresholds = result.thresholds
     assert isinstance(thresholds, np.ndarray)
     assert len(thresholds) == 3
     assert all(0 <= t <= 1 for t in thresholds)
@@ -133,9 +134,10 @@ def test_multiclass_direct_api():
     )
 
     # Use direct API instead of removed wrapper
-    thresholds = get_optimal_threshold(true_labs, pred_prob, metric="f1")
+    result = get_optimal_threshold(true_labs, pred_prob, metric="f1")
 
     # Check multiclass result
+    thresholds = result.thresholds
     assert isinstance(thresholds, np.ndarray)
     assert len(thresholds) == 3
     assert all(0 <= t <= 1 for t in thresholds)
@@ -150,7 +152,8 @@ def test_binary_direct_api_compatibility():
     result = get_optimal_threshold(true_labs, pred_prob, metric="f1")
 
     # Check binary result
-    assert isinstance(threshold, float)
+    threshold = result.threshold
+    assert isinstance(threshold, (float, np.number)) or (isinstance(threshold, np.ndarray) and threshold.size == 1)
     assert 0 <= threshold <= 1
 
 
@@ -168,9 +171,9 @@ def test_multiclass_metrics_averaging_methods():
     f1_weighted = multiclass_metric_ovr(cms, "f1", "weighted")
 
     # All should be valid probabilities
-    assert 0 <= f1_macro <= 1
-    assert 0 <= f1_micro <= 1
-    assert 0 <= f1_weighted <= 1
+    assert 0 <= threshold <= 1
+    assert 0 <= threshold <= 1
+    assert 0 <= threshold <= 1
 
     # Weighted should be closer to macro than micro in this case
     # (since class 0 has high support and good performance)

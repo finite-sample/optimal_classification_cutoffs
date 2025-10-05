@@ -10,7 +10,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .metrics import is_piecewise_metric
-
 from .types_minimal import OptimizationResult
 from .validation import (
     _validate_comparison_operator,
@@ -53,7 +52,7 @@ def get_optimal_threshold(
         of shape (n_samples, n_classes) with class probabilities.
     metric : str, default="f1"
         Metric to optimize. Supported metrics include "accuracy", "f1",
-        "precision", "recall", etc. See metrics.METRIC_REGISTRY for full list.
+        "precision", "recall", etc. See metrics.METRICS for full list.
     method : {
         "auto", "sort_scan", "unique_scan", "minimize", "gradient", "coord_ascent"
     }

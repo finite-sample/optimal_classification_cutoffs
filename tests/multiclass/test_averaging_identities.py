@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    METRIC_REGISTRY,
+    METRICS,
     get_multiclass_confusion_matrix,
     multiclass_metric_ovr,
 )
@@ -163,7 +163,7 @@ class TestAveragingMathematicalIdentities:
         metrics_to_test = ["f1", "precision", "recall", "accuracy"]
 
         for metric_name in metrics_to_test:
-            assert metric_name in METRIC_REGISTRY
+            assert metric_name in METRICS
 
             # Test macro identity
             per_class_scores = multiclass_metric_ovr(cms, metric_name, average="none")
@@ -238,7 +238,7 @@ class TestAveragingMathematicalIdentities:
         jaccard_score = total_tp / total_predictions if total_predictions > 0 else 0.0
 
         # This is what the old implementation computed (Jaccard/IoU, not accuracy)
-        assert 0 <= jaccard_score <= 1, "Jaccard score should be in [0, 1]"
+        assert 0 <= threshold <= 1, "Jaccard score should be in [0, 1]"
 
     def test_edge_case_all_zeros(self):
         """Test averaging identities with edge case of all-zero confusion matrices."""

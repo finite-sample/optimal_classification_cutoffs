@@ -88,24 +88,25 @@ class TestCoordinateAscentMonotonicity:
 
         try:
             # Use coordinate ascent method
-            final_thresholds = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            thresholds = result1.thresholds
 
-            # Verify final result is reasonable
-            assert len(final_thresholds) == probs.shape[1]
-            assert all(0 <= t <= 1 for t in final_thresholds)
+            # Verify final result1 is reasonable
+            assert len(thresholds) == probs.shape[1]
+            assert all(0 <= t <= 1 for t in thresholds)
 
             # Compute final F1
-            final_f1 = _compute_exclusive_f1(labels, probs, final_thresholds, ">")
+            final_f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
             assert 0 <= final_f1 <= 1, f"Final F1 {final_f1} out of valid range"
 
             # Test that small perturbations don't significantly improve F1
             # (indicating we're at least at a local optimum)
             for _ in range(5):
                 rng = np.random.default_rng(456)
-                perturbed_thresholds = final_thresholds + rng.normal(
-                    0, 0.05, size=len(final_thresholds)
+                perturbed_thresholds = thresholds + rng.normal(
+                    0, 0.05, size=len(thresholds)
                 )
                 perturbed_thresholds = np.clip(perturbed_thresholds, 0, 1)
 
@@ -131,18 +132,19 @@ class TestCoordinateAscentMonotonicity:
         )
 
         try:
-            # Get coordinate ascent result
-            optimal_thresholds = get_optimal_threshold(
+            # Get coordinate ascent result1
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
-            optimal_f1 = _compute_exclusive_f1(labels, probs, optimal_thresholds, ">")
+            thresholds = result.thresholds
+            optimal_f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
 
             # Compare against multiple random initializations
             rng = np.random.default_rng(999)
             random_f1s = []
 
             for _ in range(10):
-                random_thresholds = rng.uniform(0, 1, size=len(optimal_thresholds))
+                random_thresholds = rng.uniform(0, 1, size=len(thresholds))
                 random_f1 = _compute_exclusive_f1(labels, probs, random_thresholds, ">")
                 random_f1s.append(random_f1)
 
@@ -176,11 +178,12 @@ class TestCoordinateAscentMonotonicity:
         )
 
         try:
-            # Get optimized result
-            optimal_thresholds = get_optimal_threshold(
+            # Get optimized result1
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
-            optimal_f1 = _compute_exclusive_f1(labels, probs, optimal_thresholds, ">")
+            thresholds = result.thresholds
+            optimal_f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
 
             # Test several poor starting points
             poor_starts = [
@@ -218,9 +221,10 @@ class TestCoordinateAscentConvergence:
 
         try:
             # This should complete without infinite loops or convergence errors
-            thresholds = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            thresholds = result1.thresholds
 
             # Basic sanity checks
             assert len(thresholds) == probs.shape[1]
@@ -248,9 +252,10 @@ class TestCoordinateAscentConvergence:
             # Run multiple times - should get identical results
             results = []
             for _ in range(3):
-                thresholds = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="f1", method="coord_ascent", comparison=">"
                 )
+                thresholds = result.thresholds
                 results.append(thresholds)
 
             # All results should be identical
@@ -279,7 +284,7 @@ class TestCoordinateAscentConvergence:
 
             start_time = time.time()
 
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -292,6 +297,7 @@ class TestCoordinateAscentConvergence:
             )
 
             # Result should be valid
+            thresholds = result.thresholds
             assert len(thresholds) == probs.shape[1]
             assert all(0 <= t <= 1 for t in thresholds)
 
@@ -321,11 +327,12 @@ class TestSingleLabelConsistency:
         )
 
         try:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Apply the argmax(p - tau) rule
+            thresholds = result.thresholds
             scores = probs - thresholds.reshape(1, -1)
             predicted_classes = np.argmax(scores, axis=1)
 
@@ -361,21 +368,22 @@ class TestSingleLabelConsistency:
         )
 
         try:
-            # Get coordinate ascent (single-label) result
-            thresholds_coord = get_optimal_threshold(
+            # Get coordinate ascent (single-label) result1
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            thresholds = result.thresholds
 
-            # Get independent per-class (OvR) result
-            thresholds_ovr = get_optimal_threshold(
+            # Get independent per-class (OvR) result1
+            result2 = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 
             # Apply both approaches
-            scores_coord = probs - thresholds_coord.reshape(1, -1)
+            scores_coord = probs - thresholds.reshape(1, -1)
             pred_coord = np.argmax(scores_coord, axis=1)
 
-            pred_ovr = probs > thresholds_ovr.reshape(1, -1)
+            pred_ovr = probs > result2.thresholds.reshape(1, -1)
 
             # Convert coordinate ascent to one-hot for comparison
             pred_coord_onehot = np.zeros_like(probs, dtype=bool)
@@ -417,18 +425,19 @@ class TestSingleLabelConsistency:
         )
 
         try:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
             # Apply single-label rule
+            thresholds = result.thresholds
             scores = probs - thresholds.reshape(1, -1)
             predictions = np.argmax(scores, axis=1)
 
             # Compute resulting F1
             coord_f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
 
-            # The key test: coordinate ascent should produce a valid result
+            # The key test: coordinate ascent should produce a valid result1
             assert 0 <= coord_f1 <= 1, (
                 f"Coordinate ascent F1 {coord_f1} out of valid range"
             )
@@ -461,11 +470,13 @@ class TestCoordinateAscentEdgeCases:
         )
 
         try:
-            thresholds = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            thresholds = result1.thresholds
 
             # Should handle extreme probabilities gracefully
+            thresholds = result1.thresholds
             assert len(thresholds) == probs.shape[1]
             assert all(0 <= t <= 1 for t in thresholds)
             assert all(not np.isnan(t) and not np.isinf(t) for t in thresholds)
@@ -488,11 +499,13 @@ class TestCoordinateAscentEdgeCases:
         probs = np.full((6, 3), 1 / 3)  # All probabilities equal (uniform)
 
         try:
-            thresholds = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            thresholds = result1.thresholds
 
             # Should produce valid thresholds even with uniform probabilities
+            thresholds = result1.thresholds
             assert len(thresholds) == probs.shape[1]
             assert all(0 <= t <= 1 for t in thresholds)
 
@@ -519,17 +532,19 @@ class TestCoordinateAscentEdgeCases:
         probs = np.array([[0.2, 0.7, 0.1]])
 
         try:
-            thresholds = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            thresholds = result1.thresholds
 
             # Should handle single sample case
+            thresholds = result1.thresholds
             assert len(thresholds) == probs.shape[1]
             assert all(0 <= t <= 1 for t in thresholds)
 
             # Single sample should be predicted correctly if possible
             scores = probs - thresholds.reshape(1, -1)
-            np.argmax(scores, axis=1)[0]
+            pred = np.argmax(scores, axis=1)[0]
 
             # Optimal prediction should match the true label if reasonable
             f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
@@ -550,11 +565,13 @@ class TestCoordinateAscentEdgeCases:
         labels, probs = _generate_multiclass_data(n_samples, n_classes, random_state=42)
 
         try:
-            thresholds = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            thresholds = result1.thresholds
 
             # Basic invariants
+            thresholds = result1.thresholds
             assert len(thresholds) == n_classes, "Wrong number of thresholds"
             assert all(0 <= t <= 1 for t in thresholds), "Thresholds out of [0,1] range"
             assert all(not np.isnan(t) and not np.isinf(t) for t in thresholds), (

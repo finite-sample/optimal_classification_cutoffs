@@ -53,7 +53,7 @@ class TestExclusiveVsOvRDistinction:
 
         # Get thresholds using coordinate ascent (which ensures exclusive predictions)
         try:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -86,7 +86,7 @@ class TestExclusiveVsOvRDistinction:
         )
 
         # Use OvR optimization (method='auto' typically uses OvR for multiclass)
-        thresholds = get_optimal_threshold(
+        result = get_optimal_threshold(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
 
@@ -118,7 +118,7 @@ class TestExclusiveVsOvRDistinction:
         )
 
         # Get OvR thresholds (standard approach)
-        thresholds_ovr = get_optimal_threshold(
+        result = get_optimal_threshold(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
 
@@ -190,7 +190,7 @@ class TestExclusiveVsOvRDistinction:
         labels, probs = _generate_multiclass_data(n_samples=20, n_classes=3)
 
         # Get OvR thresholds
-        thresholds_ovr = get_optimal_threshold(
+        result = get_optimal_threshold(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
 
@@ -238,11 +238,12 @@ class TestMulticlassAccuracySemantics:
         # Try to compute multiclass accuracy with OvR approach
         # This should either work by converting to exclusive or raise an error
         try:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="accuracy", method="auto", comparison=">"
             )
 
             # If it works, verify the result makes sense
+            thresholds = result.thresholds
             assert len(thresholds) == probs.shape[1]
             assert all(0 <= t <= 1 for t in thresholds)
 
@@ -262,9 +263,10 @@ class TestMulticlassAccuracySemantics:
 
         # F1 should work with OvR approach
         try:
-            thresholds_f1 = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
+            thresholds = result.thresholds
             assert len(thresholds_f1) == probs.shape[1]
 
         except Exception as e:
@@ -272,11 +274,12 @@ class TestMulticlassAccuracySemantics:
 
         # Accuracy should require exclusive approach or raise error
         try:
-            thresholds_accuracy = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="accuracy", method="auto", comparison=">"
             )
 
             # If it works, it should produce exclusive-style results
+            thresholds = result.thresholds
             assert len(thresholds_accuracy) == probs.shape[1]
 
         except ValueError as e:
@@ -303,7 +306,7 @@ class TestMulticlassAccuracySemantics:
         # Any method that produces single-label predictions should be consistent
         # with the exclusive accuracy computation
         try:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -326,7 +329,8 @@ class TestMulticlassAccuracySemantics:
 
             except (NotImplementedError, ValueError):
                 # If exclusive accuracy not implemented, just verify manual computation
-                assert 0 <= manual_accuracy <= 1
+                threshold = result.threshold
+                assert 0 <= threshold <= 1
 
         except (ValueError, NotImplementedError):
             pytest.skip("Coordinate ascent or exclusive accuracy not available")
@@ -348,11 +352,12 @@ class TestMulticlassEdgeCases:
 
         # This is technically binary, but might be handled as multiclass
         try:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 
             # Should produce valid thresholds
+            thresholds = result.thresholds
             assert len(thresholds) == probs.shape[1]
 
         except ValueError as e:
@@ -374,7 +379,7 @@ class TestMulticlassEdgeCases:
 
         for method in ["auto", "sort_scan"]:
             try:
-                thresholds = get_optimal_threshold(
+                result = get_optimal_threshold(
                     labels, probs, metric="f1", method=method, comparison=">"
                 )
 
@@ -401,11 +406,12 @@ class TestMulticlassEdgeCases:
         )
 
         try:
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 
             # Should handle ambiguous cases gracefully
+            thresholds = result.thresholds
             assert len(thresholds) == probs.shape[1]
             assert all(0 <= t <= 1 for t in thresholds)
 
@@ -430,7 +436,7 @@ class TestMulticlassEdgeCases:
 
         try:
             # Use any method that should produce reasonable thresholds
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 

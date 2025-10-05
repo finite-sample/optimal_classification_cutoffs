@@ -104,7 +104,7 @@ class TestCoreInvariants:
                 threshold = max(0.0, min(1.0, threshold))
 
                 try:
-                    score = compute_metric_at_threshold(y_true, y_prob, result.threshold, metric)
+                    score = compute_metric_at_threshold(y_true, y_prob, threshold, metric)
                     if score > best_score:
                         best_score = score
                         best_threshold = threshold
@@ -339,7 +339,7 @@ class TestStatisticalProperties:
         if len(labels) > 3:  # Need enough samples for correlation
             # Handle case where variance is zero (all values identical)
             if np.std(labels) > 1e-10 and np.std(probabilities) > 1e-10:
-                correlation = abs(np.corrcoef(labels, probabilities)[0, 1])
+                correlation = abs(np.corrcoef(labels, - probabilities)[0, 1])
                 if correlation >= 0.9:  # Already highly correlated
                     return
             else:
@@ -430,6 +430,7 @@ class TestStatisticalProperties:
             )
 
             # Threshold should be valid
+            threshold = result.threshold
             assert 0 <= threshold <= 1
 
             # Should produce a valid confusion matrix
@@ -460,6 +461,7 @@ class TestNumericalStability:
 
         # Should handle gracefully without numerical issues
         result = get_optimal_threshold(labels, probabilities, "f1")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Confusion matrix should be valid
@@ -483,6 +485,7 @@ class TestNumericalStability:
 
         # Should handle extreme values gracefully
         result = get_optimal_threshold(labels, probabilities, "accuracy")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Test confusion matrix
@@ -901,6 +904,7 @@ class TestPerformanceProperties:
         # The algorithm should not create data structures that scale quadratically
         # This is mainly tested by ensuring it completes without memory errors
         result = get_optimal_threshold(labels, probabilities, "accuracy")
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Test that confusion matrix computation is also linear
@@ -940,6 +944,7 @@ class TestPerformanceProperties:
                 )
 
                 # Should produce valid result
+                threshold = result.threshold
                 assert 0 <= threshold <= 1
 
             except Exception as e:
@@ -1007,6 +1012,7 @@ class TestPerformanceProperties:
             f"{n_unique} unique values in {size} samples"
         )
 
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
     @given(matched_labels_and_probabilities(min_size=50, max_size=200))
@@ -1039,6 +1045,7 @@ class TestPerformanceProperties:
                     f"Edge case '{case_name}' too slow: {end_time - start_time:.4f}s"
                 )
 
+                threshold = result.threshold
                 assert 0 <= threshold <= 1
 
             except ValueError:

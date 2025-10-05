@@ -88,6 +88,7 @@ def dinkelbach_optimize(
                 "Dinkelbach algorithm terminated early due to zero denominator "
                 f"(numerical instability) at iteration {iteration + 1}",
                 RuntimeWarning,
+                stacklevel=2,
             )
             break
 
@@ -105,6 +106,7 @@ def dinkelbach_optimize(
             f"Dinkelbach algorithm did not converge within {max_iter} iterations. "
             f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
             RuntimeWarning,
+            stacklevel=2,
         )
 
     return float(best_t), float(lam)
@@ -263,6 +265,7 @@ def dinkelbach_expected_fbeta_binary(
                 "Dinkelbach expected F-beta optimization terminated early due to zero denominator "
                 f"(numerical instability) at iteration {iteration + 1}",
                 RuntimeWarning,
+                stacklevel=2,
             )
             break
 
@@ -282,6 +285,7 @@ def dinkelbach_expected_fbeta_binary(
             f"Dinkelbach expected F-beta optimization did not converge within {max_iter} iterations. "
             f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
             RuntimeWarning,
+            stacklevel=2,
         )
 
     best_threshold_float = float(best_threshold)
@@ -463,30 +467,13 @@ def dinkelbach_expected_fbeta_multilabel(
             thresholds[k] = result.threshold
             scores[k] = result.score
 
-        # Compute average score
-        if average == "macro":
-            avg_score = np.mean(scores)
-        else:  # weighted
-            # Weight by true class frequencies
-            if true_labels is None:
-                raise ValueError(
-                    "Weighted averaging requires true_labels to compute class "
-                    "frequencies"
-                )
-
-            # Compute class frequencies from true labels
-            class_counts = np.bincount(true_labels, minlength=n_classes)
-
-            # Handle case where some classes have no samples
-            if np.any(class_counts == 0):
-                # Only weight by classes that have samples
-                mask = class_counts > 0
-                if not np.any(mask):
-                    avg_score = 0.0  # No samples for any class
-                else:
-                    avg_score = np.average(scores[mask], weights=class_counts[mask])
-            else:
-                avg_score = np.average(scores, weights=class_counts)
+        # Note: Previous avg_score calculation removed as it was unused
+        # Validate weighted averaging requirements
+        if average == "weighted" and true_labels is None:
+            raise ValueError(
+                "Weighted averaging requires true_labels to compute class "
+                "frequencies"
+            )
 
         # Create prediction function for macro/weighted averaging (per-class thresholds)
         def predict_multiclass_macro(probs):
@@ -523,7 +510,7 @@ def expected_optimize_multiclass(
     average: Literal["macro", "micro", "weighted"] = "macro",
     weights: np.ndarray[Any, Any] | None = None,
     **metric_params,
-) -> dict[str, Any]:
+) -> OptimizationResult:
     """Expected optimization for multiclass/multilabel.
 
     Parameters
@@ -541,8 +528,8 @@ def expected_optimize_multiclass(
 
     Returns
     -------
-    dict
-        Results with 'thresholds' and 'score' keys
+    OptimizationResult
+        Optimization result with thresholds, scores, and predict function
     """
     P = np.asarray(probabilities, dtype=np.float64)
 
@@ -575,9 +562,38 @@ def expected_optimize_multiclass(
         else:
             w_flat = None
 
-        threshold, score = metric_fn(p_flat, w_flat)
+        result_micro = metric_fn(p_flat, w_flat)
+        if isinstance(result_micro, OptimizationResult):
+            # For F1/Fbeta metrics
+            threshold = result_micro.threshold
+            score = result_micro.score
+        else:
+            # For precision/jaccard metrics that return tuples
+            threshold, score = result_micro
 
-        return {"threshold": threshold, "score": score}
+        # Create prediction function for micro averaging
+        def predict_micro(probs):
+            p = np.asarray(probs)
+            if p.ndim == 2:
+                # Apply same threshold to all classes, predict argmax of those above threshold
+                above_threshold = p > threshold
+                if np.any(above_threshold, axis=1).all():
+                    masked = np.where(above_threshold, p, -np.inf)
+                    return np.argmax(masked, axis=1)
+                else:
+                    # Fallback to argmax for samples with no class above threshold
+                    return np.argmax(p, axis=1)
+            else:
+                # Binary case
+                return (p > threshold).astype(int)
+
+        return OptimizationResult(
+            thresholds=np.full(n_classes, threshold),
+            scores=np.full(n_classes, score),
+            predict=predict_micro,
+            metric=f"expected_{metric}",
+            n_classes=n_classes,
+        )
 
     else:  # macro or weighted
         # Optimize per-class thresholds
@@ -585,7 +601,14 @@ def expected_optimize_multiclass(
         scores = np.zeros(n_classes)
 
         for k in range(n_classes):
-            thresholds[k], scores[k] = metric_fn(P[:, k], weights)
+            result_k = metric_fn(P[:, k], weights)
+            if isinstance(result_k, OptimizationResult):
+                # For F1/Fbeta metrics
+                thresholds[k] = result_k.threshold
+                scores[k] = result_k.score
+            else:
+                # For precision/jaccard metrics that return tuples
+                thresholds[k], scores[k] = result_k
 
         # Compute average score
         if average == "macro":
@@ -600,11 +623,36 @@ def expected_optimize_multiclass(
             class_weights /= class_weights.sum()
             avg_score = np.average(scores, weights=class_weights)
 
-        return {
-            "thresholds": thresholds,
-            "per_class": scores,
-            "score": float(avg_score),
-        }
+        # Create prediction function for macro/weighted averaging
+        def predict_macro(probs):
+            p = np.asarray(probs)
+            if p.ndim == 2:
+                # Apply per-class thresholds, predict argmax of those above threshold
+                above_threshold = p > thresholds[None, :]
+                has_valid = np.any(above_threshold, axis=1)
+                predictions = np.zeros(p.shape[0], dtype=int)
+                
+                # For samples with at least one class above threshold
+                if np.any(has_valid):
+                    masked = np.where(above_threshold, p, -np.inf)
+                    predictions[has_valid] = np.argmax(masked[has_valid], axis=1)
+                
+                # For samples with no class above threshold, use argmax
+                if np.any(~has_valid):
+                    predictions[~has_valid] = np.argmax(p[~has_valid], axis=1)
+                
+                return predictions
+            else:
+                # Binary case - use first threshold
+                return (p > thresholds[0]).astype(int)
+
+        return OptimizationResult(
+            thresholds=thresholds,
+            scores=scores,
+            predict=predict_macro,
+            metric=f"expected_{metric}",
+            n_classes=n_classes,
+        )
 
 
 # ============================================================================
@@ -636,9 +684,10 @@ def optimize_expected_threshold(
     if p.ndim == 1:
         # Binary case
         if metric.lower() in {"f1", "fbeta"}:
-            threshold, _ = dinkelbach_expected_fbeta_binary(
+            result = dinkelbach_expected_fbeta_binary(
                 p, beta=kwargs.get("beta", 1.0)
             )
+            return result.threshold
         elif metric.lower() == "precision":
             threshold, _ = expected_precision(p)
         elif metric.lower() in {"jaccard", "iou"}:
@@ -651,8 +700,4 @@ def optimize_expected_threshold(
     else:
         # Multiclass case
         result = expected_optimize_multiclass(p, metric, **kwargs)
-
-        if "threshold" in result:
-            return result["threshold"]
-        else:
-            return result["thresholds"]
+        return result.thresholds

@@ -443,10 +443,10 @@ def _validate_metric_name(metric_name: str) -> None:
     ValueError
         If metric is not registered
     """
-    from .metrics import METRIC_REGISTRY
+    from .metrics import METRICS
 
-    if metric_name not in METRIC_REGISTRY:
-        available = sorted(METRIC_REGISTRY.keys())
+    if metric_name not in METRICS:
+        available = sorted(METRICS.keys())
         raise ValueError(
             f"Unknown metric '{metric_name}'. Available metrics: {', '.join(available)}"
         )

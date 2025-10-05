@@ -36,7 +36,7 @@ class TestBasicCrossValidation:
 
         # All thresholds and scores should be valid
         for threshold in thresholds:
-            assert_valid_threshold(result.threshold)
+            assert_valid_threshold(threshold)
         for score in scores:
             assert_valid_metric_score(score, "f1")
 
@@ -135,12 +135,12 @@ class TestCrossValidationWithWeights:
 
         # CV with non-uniform weights (should be different)
         non_uniform_weights = np.random.uniform(0.1, 3.0, len(y_true))
-        thresholds_weighted, _ = cv_threshold_optimization(
+        thresholds, _ = cv_threshold_optimization(
             y_true, y_prob, sample_weight=non_uniform_weights, cv=3, random_state=42
         )
 
         # Should be different from uniform case
-        max_diff = np.max(np.abs(thresholds_no_weights - thresholds_weighted))
+        max_diff = np.max(np.abs(thresholds_no_weights - thresholds))
         assert max_diff > 1e-8  # Some difference expected
 
 
@@ -210,7 +210,7 @@ class TestCrossValidationConsistency:
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
         # Single optimization on full data
-        threshold_full = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
 
         # Cross-validation
         thresholds_cv, scores_cv = cv_threshold_optimization(
@@ -233,7 +233,7 @@ class TestCrossValidationConsistency:
 
         # Variance should be reasonable (not too high, not zero)
         score_std = np.std(scores)
-        assert 0.0 <= score_std <= 0.5  # Reasonable range for F1 std
+        assert 0.0 <= threshold <= 0.5  # Reasonable range for F1 std
 
     def test_cv_threshold_variance(self):
         """Test that CV thresholds have reasonable variance."""
@@ -243,7 +243,7 @@ class TestCrossValidationConsistency:
 
         # Threshold variance should be reasonable
         threshold_std = np.std(thresholds)
-        assert 0.0 <= threshold_std <= 0.5  # Reasonable range
+        assert 0.0 <= threshold <= 0.5  # Reasonable range
 
 
 class TestCrossValidationMulticlass:
@@ -265,7 +265,7 @@ class TestCrossValidationMulticlass:
         for threshold_set in thresholds:
             assert len(threshold_set) == 3
             for threshold in threshold_set:
-                assert_valid_threshold(result.threshold)
+                assert_valid_threshold(threshold)
 
     def test_cv_multiclass_different_averaging(self):
         """Test multiclass CV with different averaging methods."""

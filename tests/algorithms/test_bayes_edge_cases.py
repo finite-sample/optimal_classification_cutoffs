@@ -5,7 +5,6 @@ import pytest
 
 from optimal_cutoffs.bayes import (
     BayesOptimal,
-    BayesThresholdResult,
     UtilitySpec,
     bayes_optimal_threshold,
     bayes_thresholds_from_costs,
@@ -17,8 +16,12 @@ class TestBinaryMathematicalCorrectness:
 
     def test_cost_only_threshold(self):
         """Test C_fp = 1, C_fn = 5 -> t = 1/6."""
-        t = bayes_optimal_threshold(1, 5)
-        assert abs(t - (1/6)) < 1e-12
+        result = bayes_optimal_threshold(1, 5)
+        threshold = result.threshold
+        threshold = result.threshold
+        threshold = result.threshold
+        threshold = result.threshold
+        assert abs(threshold - (1/6)) < 1e-12
 
     def test_standard_case_D_positive(self):
         """Test standard case with D > 0."""
@@ -114,33 +117,64 @@ class TestMulticlassApplyFallback:
 
     def test_multiclass_apply_fallback(self):
         """Test fallback when no class meets threshold."""
-        th = BayesThresholdResult(
+        from optimal_cutoffs.types_minimal import OptimizationResult
+        
+        # Create a predict function that mimics the old BayesThresholdResult.apply behavior
+        def predict_func(probs):
+            thresholds = np.array([0.7, 0.8, 0.9])
+            predictions = []
+            for prob_row in probs:
+                # Check which classes pass threshold
+                passes_threshold = prob_row >= thresholds
+                if np.any(passes_threshold):
+                    # Predict class with highest probability among those passing threshold
+                    valid_indices = np.where(passes_threshold)[0]
+                    best_idx = valid_indices[np.argmax(prob_row[valid_indices])]
+                    predictions.append(best_idx)
+                else:
+                    # Fallback to argmax if none pass
+                    predictions.append(np.argmax(prob_row))
+            return np.array(predictions)
+        
+        th = OptimizationResult(
             thresholds=np.array([0.7, 0.8, 0.9]),
-            utility_spec=UtilitySpec()
+            scores=np.array([0.0, 0.0, 0.0]),  # dummy scores
+            predict=predict_func,
+            metric="utility",
+            n_classes=3
         )
         probs = np.array([
             [0.6, 0.6, 0.6],   # none pass -> fallback argmax 0
             [0.95, 0.1, 0.1],  # class 0 passes
             [0.5, 0.85, 0.1]   # class 1 passes
         ])
-        pred = th.apply(probs)
+        pred = th.predict(probs)
         np.testing.assert_array_equal(pred, np.array([0, 0, 1]))
 
     def test_binary_apply_consistency(self):
         """Test binary apply with consistent tie-breaking."""
-        th = BayesThresholdResult(
+        from optimal_cutoffs.types_minimal import OptimizationResult
+        
+        def predict_func(probs):
+            return (probs >= 0.5).astype(int)
+        
+        th = OptimizationResult(
             thresholds=np.array([0.5]),
-            utility_spec=UtilitySpec()
+            scores=np.array([0.0]),  # dummy score
+            predict=predict_func,
+            metric="utility",
+            n_classes=2
         )
         
         # Test 1D probabilities
         probs1d = np.array([0.4, 0.5, 0.6])
-        pred1d = th.apply(probs1d)
+        pred1d = th.predict(probs1d)
         np.testing.assert_array_equal(pred1d, np.array([0, 1, 1]))
         
-        # Test 2D probabilities
+        # Test 2D probabilities - extract positive class probabilities
         probs2d = np.array([[0.6, 0.4], [0.5, 0.5], [0.4, 0.6]])
-        pred2d = th.apply(probs2d)
+        probs2d_pos = probs2d[:, 1]  # Use positive class probabilities
+        pred2d = th.predict(probs2d_pos)
         np.testing.assert_array_equal(pred2d, np.array([0, 1, 1]))
 
 
@@ -179,7 +213,8 @@ class TestVectorizedThresholds:
         fp_costs = np.array([1, 2, 3])
         fn_costs = np.array([5, 4, 3])
         
-        thresholds = bayes_thresholds_from_costs(fp_costs, fn_costs)
+        result = bayes_thresholds_from_costs(fp_costs, fn_costs)
+        thresholds = result.thresholds
         expected = fp_costs / (fp_costs + fn_costs)
         np.testing.assert_array_equal(thresholds, expected)
 

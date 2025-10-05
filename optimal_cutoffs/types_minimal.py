@@ -9,10 +9,10 @@ All complex validated classes have been removed in favor of simple, direct valid
 # ============================================================================
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 
 
 @dataclass
@@ -54,5 +54,3 @@ class OptimizationResult:
         else:
             return f"OptimizationResult(n_classes={self.n_classes}, mean_{self.metric}={self.score:.3f})"
 
-
-# All legacy type aliases and classes removed - using OptimizationResult everywhere now

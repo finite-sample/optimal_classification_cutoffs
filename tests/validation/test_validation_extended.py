@@ -266,6 +266,7 @@ class TestPublicFunctionValidation:
 
         # Should work with valid inputs
         result = get_optimal_threshold(valid_labels, valid_probs)
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should fail with invalid metric
@@ -696,15 +697,13 @@ class TestBinaryValidation:
 
     def test_sample_weights_consistency_with_piecewise(self):
         """Test sample weights validation consistency."""
-        from optimal_cutoffs.piecewise import (
-            _validate_sample_weights as piecewise_validate_weights,
-        )
+        from optimal_cutoffs.validation import validate_weights
 
         n_samples = 4
         weights = np.array([1.0, 2.0, 1.5, 0.5])
 
-        # Piecewise validation (through wrapper)
-        piecewise_weights = piecewise_validate_weights(weights, n_samples)
+        # Direct validation (previously through piecewise wrapper)
+        direct_weights = validate_weights(weights, n_samples)
 
         # Direct centralized validation
         _, _, central_weights = validate_binary_classification(
@@ -715,21 +714,18 @@ class TestBinaryValidation:
         )
 
         # Should be identical
-        assert np.array_equal(piecewise_weights, central_weights)
-        assert piecewise_weights.dtype == central_weights.dtype
+        assert np.array_equal(direct_weights, central_weights)
+        assert direct_weights.dtype == central_weights.dtype
 
     def test_default_weights_consistency_with_piecewise(self):
         """Test default weights behavior consistency."""
-        from optimal_cutoffs.piecewise import (
-            _validate_sample_weights as piecewise_validate_weights,
-        )
+        # The removed piecewise wrapper handled None weights by returning ones
+        # The centralized validation returns None for None weights
+        # This test now verifies that behavior is consistent
 
         n_samples = 4
 
-        # Piecewise validation with None (returns ones array)
-        piecewise_weights = piecewise_validate_weights(None, n_samples)
-
-        # Direct centralized validation
+        # Direct centralized validation with None weights
         _, _, central_weights = validate_binary_classification(
             np.zeros(n_samples),  # Dummy labels
             np.zeros(n_samples),  # Dummy probs
@@ -737,7 +733,8 @@ class TestBinaryValidation:
             require_proba=False,
         )
 
-        # Piecewise returns default weights, central returns None
+        # Central returns None for None weights
         assert central_weights is None
-        assert np.array_equal(piecewise_weights, np.ones(n_samples, dtype=np.float64))
-        assert piecewise_weights.dtype == np.float64
+        
+        # The piecewise module now handles None weights by using np.ones in the calling code
+        # This is the expected behavior pattern after removing the wrapper

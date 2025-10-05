@@ -98,6 +98,7 @@ class TestMethodConsistency:
                         y_true, pred_prob, metric="f1", method=method
                     )
                     # Should produce valid threshold
+                    threshold = result.threshold
                     assert 0.0 <= threshold <= 1.0, f"Invalid threshold from {method}"
 
                     # Should produce valid confusion matrix
@@ -157,6 +158,7 @@ class TestPerformanceCharacteristics:
                 timing_results[method] = end_time - start_time
 
                 # Verify threshold is valid
+                threshold = result.threshold
                 assert 0.0 <= threshold <= 1.0
 
             except Exception as e:
@@ -182,6 +184,7 @@ class TestPerformanceCharacteristics:
         result = get_optimal_threshold(
             y_true, pred_prob, metric="f1", method="unique_scan"
         )
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
         # Test confusion matrix computation
@@ -201,6 +204,7 @@ class TestPerformanceCharacteristics:
         )
         end_time = time.time()
 
+        threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
         assert end_time - start_time < 10.0  # Should complete in reasonable time
 
@@ -246,10 +250,11 @@ class TestMulticlassMethodConsistency:
 
         try:
             # Coordinate ascent should work for F1
-            thresholds = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, pred_prob, metric="f1", method="coord_ascent"
             )
 
+            thresholds = result.threshold
             assert len(thresholds) == 3
             assert all(0.0 <= t <= 1.0 for t in thresholds)
 
@@ -269,16 +274,17 @@ class TestComparisonOperatorConsistency:
 
         for method in methods:
             try:
-                threshold_gt = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, pred_prob, metric="f1", method=method, comparison=">"
                 )
-                threshold_gte = get_optimal_threshold(
+                result = get_optimal_threshold(
                     y_true, pred_prob, metric="f1", method=method, comparison=">="
                 )
 
                 # Both should be valid
-                assert 0.0 <= threshold_gt <= 1.0
-                assert 0.0 <= threshold_gte <= 1.0
+                threshold = result.threshold
+                assert 0.0 <= threshold <= 1.0
+                assert 0.0 <= threshold <= 1.0
 
                 # For tied data, they might be different
                 # But both should produce valid results
@@ -330,9 +336,10 @@ class TestRegressionTests:
             ]
         )
 
-        thresholds = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
 
         # Should return valid per-class thresholds
+        thresholds = result.threshold
         assert len(thresholds) == 3
         assert all(0.0 <= t <= 1.0 for t in thresholds)
 

@@ -606,9 +606,9 @@ def _generic_sort_scan(
         return 0.5, 0.0  # Default threshold and score for empty input
 
     # Import metric function
-    from .metrics import METRIC_REGISTRY
+    from .metrics import METRICS
 
-    metric_fn = METRIC_REGISTRY[metric]
+    metric_fn = METRICS[metric].scalar_fn
 
     # Sort by scores
     order = np.argsort(scores)
@@ -633,7 +633,7 @@ def _generic_sort_scan(
     all_thresholds = np.concatenate([unique_scores, boundary_thresholds])
     all_thresholds = np.unique(all_thresholds)
 
-    for i, score_val in enumerate(all_thresholds):
+    for _i, score_val in enumerate(all_thresholds):
         # Find threshold position
         if operator == ">=":
             predictions = sorted_scores >= score_val
@@ -689,9 +689,9 @@ def optimize_scipy(
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
     # Import metric function
-    from .metrics import METRIC_REGISTRY
+    from .metrics import METRICS
 
-    metric_fn = METRIC_REGISTRY[metric]
+    metric_fn = METRICS[metric].scalar_fn
 
     def objective(threshold: float) -> float:
         """Objective to minimize (negative metric)."""
@@ -777,9 +777,9 @@ def optimize_gradient(
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
     # Import metric function
-    from .metrics import METRIC_REGISTRY
+    from .metrics import METRICS
 
-    metric_fn = METRIC_REGISTRY[metric]
+    metric_fn = METRICS[metric].scalar_fn
 
     # Check if metric is piecewise constant
     from .metrics import is_piecewise_metric

@@ -69,10 +69,15 @@ select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
 ]
+ignore = [
+    "E501",  # line-too-long
+    "W291",  # trailing-whitespace
+    "W292",  # no-newline-at-end-of-file
+    "W293",  # blank-line-with-whitespace
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = [
-    "E501",  # line-too-long (tests can have longer lines for readability)
     "B007",  # unused-loop-control-variable (acceptable in test fixtures)
 ]
 

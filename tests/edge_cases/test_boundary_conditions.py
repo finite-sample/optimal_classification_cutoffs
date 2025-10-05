@@ -30,10 +30,11 @@ class TestLabelDistributionEdgeCases:
 
         # Should find threshold that predicts all positive
         result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
         # Accuracy should be perfect (1.0) with appropriate threshold
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_all_negative_labels(self):
@@ -43,10 +44,11 @@ class TestLabelDistributionEdgeCases:
 
         # Should find threshold that predicts all negative
         result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
         # Accuracy should be perfect (1.0) with appropriate threshold
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_single_positive_sample(self):
@@ -55,9 +57,10 @@ class TestLabelDistributionEdgeCases:
         y_prob = np.array([0.1, 0.3, 0.5, 0.9])
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_extreme_imbalance(self):
@@ -67,9 +70,10 @@ class TestLabelDistributionEdgeCases:
         )
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
 
@@ -82,10 +86,11 @@ class TestProbabilityDistributionEdgeCases:
         y_prob = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
         # Should achieve perfect F1 score
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_all_identical_probabilities(self):
@@ -95,9 +100,10 @@ class TestProbabilityDistributionEdgeCases:
         )
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_extreme_probability_values(self):
@@ -105,9 +111,10 @@ class TestProbabilityDistributionEdgeCases:
         y_true, y_prob = generate_extreme_probabilities(30, random_state=42)
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_boundary_probabilities(self):
@@ -116,10 +123,11 @@ class TestProbabilityDistributionEdgeCases:
         y_prob = np.array([0.0, 0.0, 1.0, 1.0])
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
         # Should achieve perfect separation
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert score == pytest.approx(1.0, abs=1e-10)
 
 
@@ -134,9 +142,10 @@ class TestNumericalEdgeCases:
         y_prob = np.array([0.5, 0.5 + eps, 0.5 + 2 * eps, 0.5 + 3 * eps])
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     def test_very_close_probabilities(self):
@@ -147,9 +156,10 @@ class TestNumericalEdgeCases:
         )
 
         result = get_optimal_threshold(y_true, y_prob, metric="f1")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
 
@@ -163,10 +173,11 @@ class TestDegenrateCaseHandling:
         y_prob = np.array([0.1, 0.2, 0.3, 0.4])
 
         result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
         # Should predict all negative for best accuracy
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_no_negative_predictions_possible(self):
@@ -176,10 +187,11 @@ class TestDegenrateCaseHandling:
         y_prob = np.array([0.6, 0.7, 0.8, 0.9])
 
         result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
         # Should predict all positive for best accuracy
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "accuracy")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "accuracy")
         assert score == pytest.approx(1.0, abs=1e-10)
 
     def test_undefined_metric_cases(self):
@@ -190,9 +202,10 @@ class TestDegenrateCaseHandling:
 
         # Optimization should still work even if some thresholds give undefined metrics
         result = get_optimal_threshold(y_true, y_prob, metric="precision")
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "precision")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "precision")
         assert_valid_metric_score(score, "precision", allow_nan=True)
 
 
@@ -241,9 +254,10 @@ class TestScalingLimits:
         result = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="unique_scan"
         )
-        assert_valid_threshold(result.threshold)
+        threshold = result.threshold
+        assert_valid_threshold(threshold)
 
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
         assert score > 0.1  # Should achieve reasonable performance
 

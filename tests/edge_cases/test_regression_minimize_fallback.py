@@ -226,10 +226,11 @@ class TestMinimizeFallbackRegression:
         result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should achieve perfect or near-perfect score
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert score >= 0.9  # Should get high score with perfect separation
 
     def test_multiple_metrics_fallback_consistency(self):
@@ -304,10 +305,11 @@ class TestFallbackEdgeCases:
         result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should achieve reasonable performance with only two values
-        score = compute_metric_at_threshold(y_true, y_prob, result.threshold, "f1")
+        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert score >= 0.5  # Should achieve reasonable score
 
     def test_fallback_with_extreme_probabilities(self):
@@ -337,6 +339,7 @@ class TestFallbackEdgeCases:
         result = get_optimal_threshold(
             true_labels, pred_probs, "f1", method="minimize"
         )
+        threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should produce valid confusion matrix

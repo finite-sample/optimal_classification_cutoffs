@@ -20,12 +20,12 @@ class TestModeParameter:
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
         # These should be equivalent
-        threshold1 = get_optimal_threshold(y_true, y_prob, metric="f1")
-        threshold2 = get_optimal_threshold(
+        result1 = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result2 = get_optimal_threshold(
             y_true, y_prob, metric="f1", mode="empirical"
         )
 
-        assert abs(threshold1 - threshold2) < 1e-10
+        assert abs(result1.threshold - result2.threshold) < 1e-10
 
     def test_mode_bayes_requires_utility(self):
         """Test that mode='bayes' requires utility parameter."""
@@ -39,10 +39,10 @@ class TestModeParameter:
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
         utility = {"tp": 0, "tn": 0, "fp": -1, "fn": -5}
 
-        result = get_optimal_threshold(None, y_prob, mode="bayes", utility=utility)
-        expected = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
+        result1 = get_optimal_threshold(None, y_prob, mode="bayes", utility=utility)
+        result_expected = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
 
-        assert abs(threshold - expected) < 1e-10
+        assert abs(result1.threshold - result_expected.threshold) < 1e-10
 
     def test_mode_expected_f1_only(self):
         """Test that mode='expected' only works with F1 metric."""
@@ -50,36 +50,40 @@ class TestModeParameter:
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
         # Should work with F1 and return a tuple (threshold, f1_score)
-        result = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        threshold, f1_score = result
-        assert isinstance(threshold, float)
+        result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
+        threshold = result1.threshold
+        threshold = result1.threshold
+        threshold = result1.threshold
+        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        threshold, f1_score = result1.threshold, result1.score
+        assert isinstance(threshold, (float, np.number)) or (isinstance(threshold, np.ndarray) and threshold.size == 1)
         assert isinstance(f1_score, float)
         assert 0 <= threshold <= 1
-        assert 0 <= f1_score <= 1
+        assert 0 <= threshold <= 1
 
         # Note: mode='expected' now supports other metrics as well
         # Test that it works with precision too
-        result_prec = get_optimal_threshold(
+        result2 = get_optimal_threshold(
             y_true, y_prob, metric="precision", mode="expected"
         )
-        assert isinstance(result_prec, tuple)
-        assert len(result_prec) == 2
+        threshold = result2.threshold
+        threshold = result2.threshold
+        assert hasattr(result2, "threshold") and hasattr(result2, "score")
 
     def test_mode_expected_supports_multiclass(self):
         """Test that mode='expected' works with multiclass classification."""
         y_true = np.array([0, 1, 2, 0, 1, 2])
         y_prob = np.random.rand(6, 3)
 
-        # Should work with multiclass and return a dict
-        result = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        assert isinstance(result, dict)
-        assert "thresholds" in result
-        assert "per_class" in result
-        assert "score" in result
-        assert isinstance(result["thresholds"], np.ndarray)
-        assert len(result["thresholds"]) == 3  # 3 classes
+        # Should work with multiclass and return an OptimizationResult
+        result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
+        thresholds = result1.thresholds
+        
+        # Check that it's an OptimizationResult with proper attributes
+        assert hasattr(result1, "thresholds")
+        assert hasattr(result1, "score")
+        assert isinstance(result1.thresholds, np.ndarray)
+        assert len(result1.thresholds) == 3  # 3 classes
 
     def test_mode_expected_supports_sample_weights(self):
         """Test that mode='expected' supports sample weights."""
@@ -88,30 +92,32 @@ class TestModeParameter:
         sample_weight = np.array([1, 1, 2, 2, 1, 2])
 
         # Should work with sample weights
-        result = get_optimal_threshold(
+        result1 = get_optimal_threshold(
             y_true,
             y_prob,
             metric="f1",
             mode="expected",
             sample_weight=sample_weight,
         )
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        threshold, f1_score = result
+        threshold = result1.threshold
+        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        threshold, f1_score = result1.threshold, result1.score
         assert 0 <= threshold <= 1
-        assert 0 <= f1_score <= 1
+        assert 0 <= threshold <= 1
 
     def test_mode_expected_works_without_true_labs(self):
         """Test that mode='expected' works without true_labs."""
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
         # Should work without true_labs
-        result = get_optimal_threshold(None, y_prob, metric="f1", mode="expected")
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        threshold, f1_score = result
+        result1 = get_optimal_threshold(None, y_prob, metric="f1", mode="expected")
+        threshold = result1.threshold
+        threshold = result1.threshold
+        threshold = result1.threshold
+        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        threshold, f1_score = result1.threshold, result1.score
         assert 0 <= threshold <= 1
-        assert 0 <= f1_score <= 1
+        assert 0 <= threshold <= 1
 
 
 class TestDeprecatedParameterRejection:
@@ -150,11 +156,11 @@ class TestMethodEquivalence:
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
-        threshold_unique_scan = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="unique_scan"
         )
 
-        threshold_sort_scan = get_optimal_threshold(
+        result2 = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="sort_scan"
         )
 
@@ -162,10 +168,10 @@ class TestMethodEquivalence:
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
         score_unique = compute_metric_at_threshold(
-            y_true, y_prob, threshold_unique_scan, "f1"
+            y_true, y_prob, result.threshold, "f1"
         )
         score_sort = compute_metric_at_threshold(
-            y_true, y_prob, threshold_sort_scan, "f1"
+            y_true, y_prob, result2.threshold, "f1"
         )
         assert abs(score_unique - score_sort) < 1e-10, (
             f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
@@ -176,11 +182,11 @@ class TestMethodEquivalence:
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
-        threshold_unique_scan = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="unique_scan"
         )
 
-        threshold_sort_scan = get_optimal_threshold(
+        result2 = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="sort_scan"
         )
 
@@ -188,10 +194,10 @@ class TestMethodEquivalence:
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
         score_unique = compute_metric_at_threshold(
-            y_true, y_prob, threshold_unique_scan, "f1"
+            y_true, y_prob, result2.threshold, "f1"
         )
         score_sort = compute_metric_at_threshold(
-            y_true, y_prob, threshold_sort_scan, "f1"
+            y_true, y_prob, result2.threshold, "f1"
         )
         assert abs(score_unique - score_sort) < 1e-10, (
             f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
@@ -211,8 +217,8 @@ class TestCVDefaultMethods:
 
         assert len(thresholds) == 3
         assert len(scores) == 3
-        assert all(isinstance(t, (int, float)) for t in thresholds)
-        assert all(isinstance(s, (int, float)) for s in scores)
+        assert all(isinstance(t, (int, float, np.number)) or (isinstance(t, np.ndarray) and t.size == 1) for t in thresholds)
+        assert all(isinstance(s, (int, float, np.number)) for s in scores)
 
     def test_nested_cv_threshold_optimization_default_method(self):
         """Test that nested_cv_threshold_optimization uses 'auto' by default."""
@@ -226,8 +232,8 @@ class TestCVDefaultMethods:
 
         assert len(thresholds) == 3
         assert len(scores) == 3
-        assert all(isinstance(t, (int, float)) for t in thresholds)
-        assert all(isinstance(s, (int, float)) for s in scores)
+        assert all(isinstance(t, (int, float, np.number)) or (isinstance(t, np.ndarray) and t.size == 1) for t in thresholds)
+        assert all(isinstance(s, (int, float, np.number)) for s in scores)
 
 
 class TestGoldenTests:
@@ -239,50 +245,55 @@ class TestGoldenTests:
         utility = {"tp": 2, "tn": 1, "fp": -1, "fn": -5}
 
         # Direct call to Bayes function (use negative costs to match utility convention)
-        threshold1 = bayes_optimal_threshold(
+        result1 = bayes_optimal_threshold(
             fp_cost=1, fn_cost=5, tp_benefit=2, tn_benefit=1
         )
+        threshold1 = result1.threshold
 
         # Via get_optimal_threshold API
-        threshold2 = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
+        result2 = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
 
-        assert abs(threshold1 - threshold2) < 1e-12
+        assert abs(result1.threshold - result2.threshold) < 1e-12
 
     def test_method_consistency(self):
         """Test that methods give consistent results."""
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
-        threshold1 = get_optimal_threshold(
+        result = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="unique_scan"
         )
 
-        threshold2 = get_optimal_threshold(
+        result2 = get_optimal_threshold(
             y_true, y_prob, metric="f1", method="minimize"
         )
 
         # Different methods may give slightly different results, but should be close
         # Relaxed tolerance since methods may have significant differences in edge cases
-        assert abs(threshold1 - threshold2) < 0.2
+        assert abs(result.threshold - result2.threshold) < 0.2
 
     def test_expected_mode_works(self):
         """Test that mode='expected' works correctly."""
         y_true = np.array([0, 0, 1, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
-        # Both calls should work and give same result
+        # Both calls should work and give same result1
         result1 = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
+        threshold = result1.threshold
 
         result2 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
+        threshold = result2.threshold
+        threshold = result2.threshold
 
         # Both should return tuples
-        assert isinstance(result1, tuple)  # Expected mode returns (threshold, f1_score)
-        assert isinstance(result2, tuple)  # Expected mode returns (threshold, f1_score)
+        threshold = result1.threshold
+        assert hasattr(result1, "threshold") and hasattr(result1, "score")  # Expected mode returns OptimizationResult
+        assert hasattr(result2, "threshold") and hasattr(result2, "score")  # Expected mode returns OptimizationResult
 
         # Extract thresholds and compare
-        threshold1, f1_score1 = result1
-        threshold2, f1_score2 = result2
-        assert abs(threshold1 - threshold2) < 1e-12
+        threshold1, f1_score1 = result2.threshold, result2.score
+        threshold1, f1_score2 = result2.threshold, result2.score
+        assert abs(result1.threshold - result2.threshold) < 1e-12
         assert abs(f1_score1 - f1_score2) < 1e-12
 
 
@@ -305,23 +316,23 @@ class TestErrorMessages:
 
         # Should work with different supported metrics
         for metric in ["f1", "precision", "jaccard"]:
-            result = get_optimal_threshold(
+            result1 = get_optimal_threshold(
                 y_true, y_prob, metric=metric, mode="expected"
             )
-            assert isinstance(result, tuple)
-            assert len(result) == 2
-            threshold, score = result
+            threshold = result1.threshold
+            assert hasattr(result1, "threshold") and hasattr(result1, "score")
+            threshold, f1_score = result1.threshold, result1.score
             assert 0 <= threshold <= 1
-            assert 0 <= score <= 1
+            assert 0 <= f1_score <= 1
 
         # Test that additional metrics also work (implementation now supports them)
         for metric in ["accuracy", "recall", "specificity"]:
-            result = get_optimal_threshold(
+            result2 = get_optimal_threshold(
                 y_true, y_prob, metric=metric, mode="expected"
             )
-            assert isinstance(result, tuple)
-            assert len(result) == 2
-            threshold, score = result
+            threshold = result2.threshold
+            assert hasattr(result2, "threshold") and hasattr(result2, "score")
+            threshold, score = result2.threshold, result2.score
             assert 0 <= threshold <= 1
             assert 0 <= score <= 1
 
@@ -330,9 +341,10 @@ class TestErrorMessages:
         y_true = np.array([0, 1, 2, 0, 1, 2])
         y_prob = np.random.rand(6, 3)
 
-        # Should work with multiclass and return a dict
-        result = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        assert isinstance(result, dict)
-        assert "thresholds" in result
-        assert "per_class" in result
-        assert "score" in result
+        # Should work with multiclass and return an OptimizationResult
+        result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
+        thresholds = result1.thresholds
+        
+        # Check that it's an OptimizationResult with proper attributes
+        assert hasattr(result1, "thresholds")
+        assert hasattr(result1, "score")
