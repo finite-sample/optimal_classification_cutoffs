@@ -18,6 +18,12 @@ from .validation import (
     validate_inputs,
 )
 
+from .expected import (
+    dinkelbach_expected_fbeta_binary,
+    dinkelbach_expected_fbeta_multilabel,
+)
+
+
 
 def get_optimal_threshold(
     true_labs: ArrayLike | None,
@@ -34,6 +40,7 @@ def get_optimal_threshold(
     beta: float = 1.0,
     class_weight: ArrayLike | None = None,
     average: str = "macro",
+    tolerance: float = 1e-10,
 ) -> OptimizationResult:
     """Find the optimal classification threshold(s) for a given metric.
 
@@ -140,6 +147,7 @@ def get_optimal_threshold(
             utility,
             minimize_cost,
             average,
+            tolerance,
         )
     elif mode == "expected":
         result = _optimize_expected(
@@ -152,10 +160,15 @@ def get_optimal_threshold(
             beta,
             class_weight,
             average,
+            tolerance,
         )
     elif mode == "bayes":
-        result = _optimize_bayes(
-            true_labs, pred_prob, utility, utility_matrix, minimize_cost, comparison
+        from .bayes import optimize_bayes_thresholds
+        result = optimize_bayes_thresholds(
+            true_labs,
+            pred_prob,
+            utility,
+            sample_weight,
         )
     else:
         raise ValueError(f"Unknown mode: {mode}")
@@ -200,6 +213,7 @@ def _optimize_empirical(
     utility: dict[str, float] | None,
     minimize_cost: bool | None,
     average: str,
+    tolerance: float,
 ) -> OptimizationResult:
     """Empirical threshold optimization."""
     from .optimize import find_optimal_threshold, find_optimal_threshold_multiclass
@@ -213,9 +227,9 @@ def _optimize_empirical(
     is_multiclass = pred_prob.ndim == 2 and pred_prob.shape[1] > 1
 
     if is_multiclass:
-        # Multiclass optimization
+        # Multiclass optimization  
         return find_optimal_threshold_multiclass(
-            true_labs, pred_prob, metric, method, average, sample_weight, comparison
+            true_labs, pred_prob, metric, method, average, sample_weight, comparison, tolerance
         )
     else:
         # Binary optimization
@@ -280,6 +294,7 @@ def _optimize_empirical(
             strategy,
             operator,
             require_probability=True,  # Default to requiring probabilities
+            tolerance=tolerance,
         )
 
 
@@ -293,96 +308,92 @@ def _optimize_expected(
     beta: float,
     class_weight: ArrayLike | None,
     average: str,
-) -> OptimizationResult:
-    """Expected metric optimization using Dinkelbach method."""
-    from .expected import (
-        dinkelbach_expected_fbeta_binary,
-        dinkelbach_expected_fbeta_multilabel,
-    )
+    tolerance: float,
+):
+    P = np.asarray(pred_prob, dtype=np.float64)
+    is_multiclass = (P.ndim == 2 and P.shape[1] > 1)
+    sw = None if sample_weight is None else np.asarray(sample_weight, dtype=np.float64)
 
-    # Expected mode doesn't actually need true_labs since it works with
-    # calibrated probabilities
+    # We currently support expected F-beta only in this façade
+    if metric.lower() not in {"f1", "fbeta"}:
+        raise ValueError("mode='expected' currently supports F-beta only")
 
-    pred_prob = np.asarray(pred_prob)
-    is_multiclass = pred_prob.ndim == 2 and pred_prob.shape[1] > 1
+    if not is_multiclass:
+        if P.ndim == 2 and P.shape[1] == 1:
+            P = P.ravel()
+        result = dinkelbach_expected_fbeta_binary(P, beta=beta, sample_weight=sw, comparison=comparison, tol=tolerance)
+        thr, score = result.threshold, result.score
 
-    if is_multiclass:
-        # Ensure average is compatible with expected function
-        avg_method = average if average in {"macro", "weighted", "micro"} else "macro"
-        sw = np.asarray(sample_weight) if sample_weight is not None else None
-        return dinkelbach_expected_fbeta_multilabel(
-            pred_prob,
-            beta,
-            sw,  # sample_weight
-            avg_method,  # average
-            true_labels=true_labs,  # true_labels
-            comparison=comparison,
+        def predict_binary(probs: ArrayLike) -> np.ndarray:
+            q = np.asarray(probs, dtype=np.float64)
+            if q.ndim == 2:
+                if q.shape[1] == 2:
+                    q = q[:, 1]
+                elif q.shape[1] == 1:
+                    q = q.ravel()
+                else:
+                    raise ValueError("binary probabilities must be (n,) or (n,2)")
+            return (q > thr if comparison == ">" else q >= thr).astype(np.int32)
+
+        return OptimizationResult(
+            thresholds=np.array([thr], dtype=np.float64),
+            scores=np.array([score], dtype=np.float64),
+            predict=predict_binary,
+            metric=f"expected_fbeta(beta={beta})",
+            n_classes=2,
         )
-    else:
-        if pred_prob.ndim == 2 and pred_prob.shape[1] == 1:
-            pred_prob = pred_prob.ravel()
-        sw_array = np.asarray(sample_weight) if sample_weight is not None else None
-        return dinkelbach_expected_fbeta_binary(pred_prob, beta, sw_array, comparison)
 
-
-def _optimize_bayes(
-    true_labs: ArrayLike | None,
-    pred_prob: ArrayLike,
-    utility: dict[str, float] | None,
-    utility_matrix: np.ndarray[Any, Any] | None,
-    minimize_cost: bool | None,
-    comparison: str,
-) -> OptimizationResult:
-    """Bayes-optimal threshold optimization."""
-    from .bayes import (
-        bayes_optimal_decisions,
-        bayes_optimal_threshold,
-        bayes_thresholds_from_costs,
+    # Multilabel/multiclass: micro returns a single threshold; macro/weighted return per-class thresholds
+    avg = average if average in {"macro", "micro", "weighted"} else "macro"
+    out = dinkelbach_expected_fbeta_multilabel(
+        P,
+        beta=beta,
+        sample_weight=sw,
+        average=avg,
+        true_labels=(None if true_labs is None else np.asarray(true_labs, dtype=int)),
+        comparison=comparison,
+        tol=tolerance,
     )
 
-    pred_prob = np.asarray(pred_prob)
-    is_multiclass = pred_prob.ndim == 2 and pred_prob.shape[1] > 1
+    if "threshold" in out:  # micro averaging
+        thr = float(out["threshold"])
+        score = float(out["score"])
 
-    if utility_matrix is not None:
-        # Use utility matrix for Bayes decisions
-        if not is_multiclass:
-            raise ValueError("utility_matrix requires multiclass probabilities")
-        return bayes_optimal_decisions(pred_prob, utility_matrix)
+        def predict_micro(probs: ArrayLike) -> np.ndarray:
+            q = np.asarray(probs, dtype=np.float64).ravel()
+            return (q > thr if comparison == ">" else q >= thr).astype(np.int32)
 
-    elif utility is not None:
-        # Use utility dict for threshold computation
+        return OptimizationResult(
+            thresholds=np.array([thr], dtype=np.float64),
+            scores=np.array([score], dtype=np.float64),
+            predict=predict_micro,
+            metric=f"expected_fbeta(beta={beta},average=micro)",
+            n_classes=P.shape[1],
+        )
 
-        # For multiclass, require both fp and fn to be specified
-        if is_multiclass:
-            if "fp" not in utility or "fn" not in utility:
-                raise ValueError("Multiclass Bayes requires 'fp' and 'fn' as arrays")
+    # macro / weighted
+    thrs = np.asarray(out["thresholds"], dtype=np.float64)
+    score = float(out["score"])
 
-        # Extract costs and benefits
-        fp_cost = utility.get("fp", 0)
-        fn_cost = utility.get("fn", 0)
-        tp_benefit = utility.get("tp", 0)
-        tn_benefit = utility.get("tn", 0)
+    def predict_perclass(probs: ArrayLike) -> np.ndarray:
+        q = np.asarray(probs, dtype=np.float64)
+        if q.ndim != 2 or q.shape[1] != thrs.shape[0]:
+            raise ValueError("Multiclass probabilities must be (n_samples, n_classes)")
+        mask = (q > thrs if comparison == ">" else q >= thrs)
+        masked = np.where(mask, q, -np.inf)
+        pred = np.argmax(masked, axis=1)
+        none = ~np.any(mask, axis=1)
+        if np.any(none):
+            pred[none] = np.argmax(q[none], axis=1)
+        return pred.astype(np.int32)
 
-        # Handle minimize_cost flag
-        if minimize_cost:
-            # Negate costs to convert to utilities
-            fp_cost = -abs(fp_cost) if fp_cost >= 0 else fp_cost
-            fn_cost = -abs(fn_cost) if fn_cost >= 0 else fn_cost
-
-        if is_multiclass:
-            # Per-class thresholds using vectorized function
-            fp_costs = np.asarray(fp_cost) if not np.isscalar(fp_cost) else [fp_cost]
-            fn_costs = np.asarray(fn_cost) if not np.isscalar(fn_cost) else [fn_cost]
-
-            return bayes_thresholds_from_costs(fp_costs, fn_costs)
-        else:
-            # Single threshold
-            return bayes_optimal_threshold(
-                float(fp_cost), float(fn_cost), float(tp_benefit), float(tn_benefit)
-            )
-
-    else:
-        raise ValueError("mode='bayes' requires utility parameter or utility_matrix")
+    return OptimizationResult(
+        thresholds=thrs,
+        scores=np.array([score], dtype=np.float64),
+        predict=predict_perclass,
+        metric=f"expected_fbeta(beta={beta},average={avg})",
+        n_classes=P.shape[1],
+    )
 
 
 __all__ = [

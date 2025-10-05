@@ -623,4 +623,5 @@ def compute_bayes_threshold(
     tp_benefit = benefits.get("tp", 0.0) if benefits else 0.0
     tn_benefit = benefits.get("tn", 0.0) if benefits else 0.0
 
-    return bayes_optimal_threshold(fp_cost, fn_cost, tp_benefit, tn_benefit)
+    result = bayes_optimal_threshold(fp_cost, fn_cost, tp_benefit, tn_benefit)
+    return result.threshold

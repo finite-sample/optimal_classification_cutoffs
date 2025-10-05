@@ -4,6 +4,12 @@ This module provides an exact optimizer for binary classification metrics that a
 piecewise-constant with respect to the decision threshold. The algorithm sorts
 predictions once and scans all n cuts in a single pass, achieving true O(n log n)
 complexity with vectorized operations.
+
+Notes on `require_proba`:
+- If `require_proba=True`, inputs are validated to lie in [0, 1].
+- The returned threshold is *usually* in [0, 1]; however, in boundary or tie cases,
+  we may nudge it by one floating-point ULP beyond the range to correctly realize
+  strict inclusivity/exclusivity (e.g., to ensure “predict none” with '>=' when max p == 1.0).
 """
 
 from __future__ import annotations
@@ -23,131 +29,66 @@ from .validation import validate_binary_classification, validate_weights
 
 Array = np.ndarray[Any, Any]
 
-# Numerical tolerance for floating-point comparisons
-NUMERICAL_TOLERANCE = 1e-12
-
-
-
-
+# NOTE: NUMERICAL_TOLERANCE moved to function parameters for user control
 
 
 def _compute_threshold_midpoint(
-    p_sorted: Array, k_star: int, inclusive: bool = False, require_proba: bool = True
+    p_sorted: Array, k_star: int, inclusive: bool = False, tolerance: float = 1e-10
 ) -> float:
-    """Compute threshold as midpoint between adjacent probabilities.
+    """Compute threshold as midpoint between adjacent sorted scores.
 
-    With the new indexing where k=0 means "predict nothing as positive":
-    - k=0: Predict nothing as positive (threshold > max probability)
-    - k=1: Predict item 0 as positive, others negative
-    - k=2: Predict items 0,1 as positive, others negative
-    - k=n: Predict all items as positive (threshold <= min probability)
-
-    Parameters
-    ----------
-    p_sorted : Array
-        Probabilities or scores sorted in descending order.
-    k_star : int
-        Optimal cut position with new indexing.
-    inclusive : bool
-        Comparison operator: False for ">" (exclusive), True for ">=" (inclusive).
-    require_proba : bool, default=True
-        If True, clamp threshold to [0, 1]. If False, allow arbitrary ranges.
-
-    Returns
-    -------
-    float
-        Threshold value as midpoint or epsilon-adjusted value.
+    With k indexed so that:
+      k = 0: predict none positive (threshold > max score)
+      k = 1..n-1: predict top-k items positive
+      k = n: predict all positive (threshold <= min score)
     """
     n = p_sorted.size
 
-    # Special case: predict nothing as positive (k_star == 0)
+    # k == 0: threshold must exclude every score
     if k_star == 0:
-        # Threshold should be set so NO probabilities pass the comparison
         max_prob = float(p_sorted[0])
-        if not inclusive:  # exclusive ">"
-            # For '>', we need all p > threshold to be false, so threshold >= max_prob
-            threshold = max_prob
-        else:  # inclusive ">="
-            # For '>=', we need all p >= threshold to be false, so threshold > max_prob
-            threshold = float(np.nextafter(max_prob, np.inf))
+        # For '>=', make threshold strictly greater than max_prob to exclude ties
+        return float(np.nextafter(max_prob, np.inf)) if inclusive else max_prob
 
-    # Special case: predict all as positive (k_star == n)
-    elif k_star == n:
-        # Threshold should be set so ALL probabilities pass the comparison
+    # k == n: threshold must include every score
+    if k_star == n:
         min_prob = float(p_sorted[-1])
-        if not inclusive:  # exclusive ">"
-            # For '>', we need all p > threshold to be true, so threshold < min_prob
-            threshold = float(np.nextafter(min_prob, -np.inf))
-        else:  # inclusive ">="
-            # For '>=', we need all p >= threshold to be true, so threshold <= min_prob
-            threshold = min_prob
-    else:
-        # Normal case: k_star corresponds to including items 0..k_star-1 as positive
-        # Find the probability range we need to separate
-        included_prob = float(
-            p_sorted[k_star - 1]
-        )  # Last prob included in positive predictions
-        excluded_prob = float(
-            p_sorted[k_star]
-        )  # First prob excluded from positive predictions
+        # For '>', make threshold strictly smaller than min_prob to include ties
+        return float(np.nextafter(min_prob, -np.inf)) if not inclusive else min_prob
 
-        if included_prob - excluded_prob > NUMERICAL_TOLERANCE:
-            # Normal case: probabilities are sufficiently different
-            # Use midpoint between them
-            threshold = 0.5 * (included_prob + excluded_prob)
+    # General case: separate p_sorted[k_star-1] (included) and p_sorted[k_star] (excluded)
+    inc = float(p_sorted[k_star - 1])
+    exc = float(p_sorted[k_star])
 
-            # For inclusive comparison, nudge slightly lower to ensure proper
-            # comparison behavior
-            if inclusive:
-                threshold = float(np.nextafter(threshold, -np.inf))
-        else:
-            # Edge case: adjacent probabilities are tied or very close
-            # (abs(included_prob - excluded_prob) <= NUMERICAL_TOLERANCE)
-            # When probabilities are tied, we cannot cleanly separate the included
-            # vs excluded items with a single threshold. We use a heuristic based
-            # on the comparison operator to decide whether to include or exclude
-            # all tied values.
-            tied_prob = excluded_prob
+    if inc - exc > tolerance:
+        thr = 0.5 * (inc + exc)
+        # For '>=' we bias a half-ulp downward so equals land in the included side
+        return float(np.nextafter(thr, -np.inf)) if inclusive else thr
 
-            if not inclusive:  # exclusive ">"
-                # For '>', set threshold slightly above tied_prob
-                # This means tied_prob > threshold is false, excluding tied values
-                threshold = float(np.nextafter(tied_prob, np.inf))
-            else:  # inclusive ">="
-                # For '>=', set threshold slightly below tied_prob
-                # This means tied_prob >= threshold is true, including tied values
-                threshold = float(np.nextafter(tied_prob, -np.inf))
-
-    # Don't clamp here - let the main algorithm handle clamping after checking
-    # for discrepancies
-    return threshold
+    # Tied (or nearly tied) scores: choose side per operator
+    tied = exc
+    # For '>', place threshold just above tied to exclude equals.
+    # For '>=', place just below tied to include equals.
+    return float(np.nextafter(tied, np.inf)) if not inclusive else float(np.nextafter(tied, -np.inf))
 
 
 def _realized_k(p_sorted: Array, threshold: float, inclusive: bool) -> int:
-    """Compute the realized cut index from final threshold.
+    """Given a threshold and comparison mode, return #positives among p_sorted (desc)."""
+    # Convert to ascending by negation and use searchsorted with the right side
+    q = -p_sorted
+    t = -threshold
+    side = "right" if inclusive else "left"
+    return int(np.searchsorted(q, t, side=side))
 
-    Given a threshold and comparison mode, compute how many samples would actually
-    be predicted positive based on the sorted probabilities.
 
-    Parameters
-    ----------
-    p_sorted : Array
-        Probabilities or scores sorted in descending order.
-    threshold : float
-        Final threshold value.
-    inclusive : bool
-        Whether comparison is inclusive (>=) or exclusive (>).
-
-    Returns
-    -------
-    int
-        Number of samples that would be predicted positive (realized k).
-    """
-    # p_sorted is descending; use -p_sorted to search as ascending
-    if inclusive:
-        return int(np.searchsorted(-p_sorted, -threshold, side="right"))
-    else:
-        return int(np.searchsorted(-p_sorted, -threshold, side="left"))
+def _predict_from_threshold(probs: Array, threshold: float, inclusive: bool) -> Array:
+    """Predict labels (0/1) from probabilities and threshold."""
+    p = np.asarray(probs)
+    if p.ndim == 2 and p.shape[1] == 2:
+        p = p[:, 1]
+    elif p.ndim == 2 and p.shape[1] == 1:
+        p = p.ravel()
+    return (p >= threshold).astype(np.int32) if inclusive else (p > threshold).astype(np.int32)
 
 
 def optimal_threshold_sortscan(
@@ -156,348 +97,142 @@ def optimal_threshold_sortscan(
     metric_fn: Callable[[Array, Array, Array, Array], Array],
     *,
     sample_weight: Array | None = None,
-    inclusive: bool = False,  # True for ">=" (inclusive), False for ">" (exclusive)
-    require_proba: bool = True,  # True for probabilities [0,1], False for scores
+    inclusive: bool = False,   # True for ">=", False for ">"
+    require_proba: bool = True,
+    tolerance: float = 1e-10,
 ) -> OptimizationResult:
     """Exact optimizer for piecewise-constant metrics using O(n log n) sort-and-scan.
 
-    This algorithm sorts predictions by descending score once, then uses
-    cumulative sums to compute confusion matrix elements in O(1) for each of the n
-    possible cuts, resulting in O(n log n) total time complexity.
-
-    The threshold is returned as the midpoint between adjacent scores,
-    which is more numerically stable than returning the exact score values.
-
     Parameters
     ----------
-    y_true : Array
-        True binary labels (0 or 1).
-    pred_prob : Array
+    y_true : array-like of shape (n_samples,)
+        Binary labels in {0, 1}.
+    pred_prob : array-like of shape (n_samples,)
         Predicted probabilities in [0, 1] or arbitrary scores if require_proba=False.
-    metric_fn : Callable
-        Metric function that accepts (tp, tn, fp, fn) arrays and returns score array.
-    sample_weight : Array, optional
-        Sample weights for imbalanced datasets.
+    metric_fn : callable
+        Vectorized metric: (tp_vec, tn_vec, fp_vec, fn_vec) -> score_vec.
+        Each input/output is a 1D array over the n+1 possible cuts (k=0..n).
+    sample_weight : array-like, optional
+        Non-negative sample weights of shape (n_samples,).
     inclusive : bool, default=False
-        Comparison operator: False for ">" (exclusive), True for ">=" (inclusive).
+        If True, use ">="; if False, use ">".
     require_proba : bool, default=True
-        If True, validate that pred_prob is in [0, 1] and clamp thresholds.
-        If False, allow arbitrary score ranges (e.g., logits).
+        Validate inputs in [0, 1]. Threshold may be nudged by ±1 ULP outside [0,1]
+        to exactly realize inclusivity/exclusivity in boundary/tie cases.
 
     Returns
     -------
     OptimizationResult
-        Optimization result with threshold, score, and predict function
-        - k_star: Optimal cut position in sorted array
-
-    Raises
-    ------
-    ValueError
-        If inputs are invalid.
-
-    Examples
-    --------
-    >>> def f1_vectorized(tp, tn, fp, fn):
-    ...     precision = np.where(tp + fp > 0, tp / (tp + fp), 0.0)
-    ...     recall = np.where(tp + fn > 0, tp / (tp + fn), 0.0)
-    ...     return np.where(precision + recall > 0,
-    ...                    2 * precision * recall / (precision + recall), 0.0)
-    >>> y_true = [0, 0, 1, 1]
-    >>> pred_prob = [0.1, 0.4, 0.6, 0.9]
-    >>> threshold, score, k = optimal_threshold_sortscan(
-    ...     y_true, pred_prob, f1_vectorized
-    ... )
-    >>> print(f"Optimal threshold: {threshold:.3f}, F1 score: {score:.3f}")
+        thresholds : array([optimal_threshold])
+        scores     : array([achieved_score])
+        predict    : callable(probs) -> {0,1}^n
+        metric     : str, set to "piecewise_metric"
+        n_classes  : 2
+        diagnostics: dict with keys:
+            - k_argmax: theoretical best cut index (0..n) from the sweep
+            - k_realized: positives realized by the returned threshold
+            - score_theoretical: score at k_argmax
+            - score_actual: score achieved by the returned threshold
+            - tie_discrepancy: abs(theoretical - actual)
+            - inclusive: bool
+            - require_proba: bool
     """
-    # Validate inputs
+    # 1) Validate inputs
     y, p, _ = validate_binary_classification(y_true, pred_prob, require_proba=require_proba)
-    weights = validate_weights(sample_weight, y.shape[0]) if sample_weight is not None else np.ones(y.shape[0], dtype=np.float64)
-
     n = y.shape[0]
-
-    # Handle edge case: all same class
-    if np.all(y == 0):  # All negatives - optimal threshold should predict all negative
-        max_score = float(np.max(p))
-        if require_proba:
-            threshold = (
-                max_score if not inclusive else float(np.nextafter(max_score, np.inf))
-            )
-        else:
-            threshold = (
-                max_score if not inclusive else float(np.nextafter(max_score, np.inf))
-            )
-        # Use weighted counts
-        total_weight = float(np.sum(weights))
-        score = float(
-            metric_fn(
-                np.array([0.0]),
-                np.array([total_weight]),
-                np.array([0.0]),
-                np.array([0.0]),
-            )[0]
-        )
-
-        # Create prediction function for all-negative case
-        def predict_all_negative(probs):
-            p = np.asarray(probs)
-            if p.ndim == 2 and p.shape[1] == 2:
-                p = p[:, 1]
-            elif p.ndim == 2 and p.shape[1] == 1:
-                p = p.ravel()
-            if inclusive:
-                return (p >= threshold).astype(int)
-            else:
-                return (p > threshold).astype(int)
-
-        return OptimizationResult(
-            thresholds=np.array([threshold]),
-            scores=np.array([score]),
-            predict=predict_all_negative,
-            metric="piecewise_metric",
-            n_classes=2,
-            diagnostics={"k_star": 0},
-        )
-    elif np.all(y == 1):  # All positives - optimal threshold predicts all positive
-        min_score = float(np.min(p))
-        if not inclusive:  # exclusive ">"
-            # For exclusive comparison, need threshold < min_score
-            threshold = float(np.nextafter(min_score, -np.inf))
-            if require_proba:
-                threshold = max(0.0, threshold)
-        else:  # inclusive ">="
-            # For inclusive comparison, threshold = min_score works
-            threshold = min_score
-        # Use weighted counts
-        total_weight = float(np.sum(weights))
-        score = float(
-            metric_fn(
-                np.array([total_weight]),
-                np.array([0.0]),
-                np.array([0.0]),
-                np.array([0.0]),
-            )[0]
-        )
-
-        # Create prediction function for all-positive case
-        def predict_all_positive(probs):
-            p = np.asarray(probs)
-            if p.ndim == 2 and p.shape[1] == 2:
-                p = p[:, 1]
-            elif p.ndim == 2 and p.shape[1] == 1:
-                p = p.ravel()
-            if inclusive:
-                return (p >= threshold).astype(int)
-            else:
-                return (p > threshold).astype(int)
-
-        return OptimizationResult(
-            thresholds=np.array([threshold]),
-            scores=np.array([score]),
-            predict=predict_all_positive,
-            metric="piecewise_metric",
-            n_classes=2,
-            diagnostics={"k_star": n},
-        )
-
-    # Sort by descending probability (stable sort for reproducibility)
-    sort_idx = np.argsort(-p, kind="mergesort")
-    y_sorted = y[sort_idx]
-    p_sorted = p[sort_idx]
-    weights_sorted = weights[sort_idx]
-
-    # Vectorized confusion matrix counts for all cuts
-    tp_vec, tn_vec, fp_vec, fn_vec = compute_vectorized_confusion_matrices(y_sorted, weights_sorted)
-
-    # Vectorized metric computation over all cuts
-    scores = apply_metric_to_confusion_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)
-
-    # Find optimal cut
-    k_star = int(np.argmax(scores))
-    best_score_theoretical = float(scores[k_star])
-
-    # Compute stable threshold as midpoint
-    threshold = _compute_threshold_midpoint(p_sorted, k_star, inclusive, require_proba)
-
-    # For cases with tied probabilities, verify the achievable score
-    if not inclusive:  # exclusive ">"
-        pred_mask = p > threshold
-    else:  # inclusive ">="
-        pred_mask = p >= threshold
-
-    # Compute actual confusion matrix with this threshold
-    if sample_weight is not None:
-        tp_actual = float(np.sum(weights * (pred_mask & (y == 1))))
-        tn_actual = float(np.sum(weights * (~pred_mask & (y == 0))))
-        fp_actual = float(np.sum(weights * (pred_mask & (y == 0))))
-        fn_actual = float(np.sum(weights * (~pred_mask & (y == 1))))
-    else:
-        tp_actual = float(np.sum(pred_mask & (y == 1)))
-        tn_actual = float(np.sum(~pred_mask & (y == 0)))
-        fp_actual = float(np.sum(pred_mask & (y == 0)))
-        fn_actual = float(np.sum(~pred_mask & (y == 1)))
-
-    # Compute actual achievable score
-    actual_score = float(
-        metric_fn(
-            np.array([tp_actual]),
-            np.array([tn_actual]),
-            np.array([fp_actual]),
-            np.array([fn_actual]),
-        )[0]
+    weights = (
+        validate_weights(sample_weight, n)
+        if sample_weight is not None
+        else np.ones(n, dtype=np.float64)
     )
 
-    # If there's a large discrepancy due to ties, use a targeted local fallback
-    # Use a tolerance larger than numerical precision
-    if abs(actual_score - best_score_theoretical) > max(
-        1e-6, NUMERICAL_TOLERANCE * 100
-    ):
-        best_alt_score = actual_score
-        best_alt_threshold = threshold
-        fallback_candidates: list[float] = []
+    # 2) Sort once by descending score (stable)
+    order = np.argsort(-p, kind="mergesort")
+    y_sorted = y[order]
+    p_sorted = p[order]
+    w_sorted = weights[order]
 
-        # Extremes for "none"/"all" predictions
-        min_s = float(p_sorted[-1])  # smallest score (last in descending order)
-        max_s = float(p_sorted[0])  # largest score (first in descending order)
+    # 3) Vectorized confusion counts at all n+1 cuts (k=0..n)
+    tp_vec, tn_vec, fp_vec, fn_vec = compute_vectorized_confusion_matrices(y_sorted, w_sorted)
+
+    # 4) Vectorized metric over all cuts; take argmax
+    score_vec = apply_metric_to_confusion_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)
+    k_star = int(np.argmax(score_vec))
+    score_theoretical = float(score_vec[k_star])
+
+    # 5) Convert k* to a concrete threshold with correct > / >= semantics
+    threshold = _compute_threshold_midpoint(p_sorted, k_star, inclusive, tolerance)
+
+    # 6) Evaluate the achieved score at that threshold (handles ties & numerics)
+    pred_labels = _predict_from_threshold(p, threshold, inclusive)
+    tp, tn, fp, fn = _confusion_matrix_from_labels(y, pred_labels, sample_weight=weights)
+    score_actual = float(metric_fn(
+        np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn])
+    )[0])
+
+    # 7) If the realized score differs meaningfully (e.g., due to ties), probe a few
+    #    locally optimal alternatives (extremes and one-ULP nudges around the boundary).
+    tie_discrepancy = abs(score_actual - score_theoretical)
+    if tie_discrepancy > max(1e-6, 100 * tolerance):
+        best_thr = threshold
+        best_score = score_actual
+
+        min_s = float(p_sorted[-1])
+        max_s = float(p_sorted[0])
+
+        candidates: list[float] = []
         if inclusive:
-            fallback_candidates += [min_s, float(np.nextafter(max_s, np.inf))]
+            # Include all vs exclude all
+            candidates.extend([min_s, float(np.nextafter(max_s, np.inf))])
         else:
-            fallback_candidates += [float(np.nextafter(min_s, -np.inf)), max_s]
+            candidates.extend([float(np.nextafter(min_s, -np.inf)), max_s])
 
-        # Local nudges around the k_star boundary
         if 0 < k_star < n:
-            inc = float(p_sorted[k_star - 1])  # last included score
-            exc = float(p_sorted[k_star])  # first excluded score
-            fallback_candidates += [
-                float(np.nextafter(inc, -np.inf)),  # just below last included
-                float(np.nextafter(exc, np.inf)),  # just above first excluded
-            ]
+            inc = float(p_sorted[k_star - 1])  # last included by k*
+            exc = float(p_sorted[k_star])      # first excluded by k*
+            candidates.extend([
+                float(np.nextafter(inc, -np.inf)),  # just below included
+                float(np.nextafter(exc, np.inf)),   # just above excluded
+            ])
 
-        # Test all fallback candidates
-        for alt_thresh in fallback_candidates:
-            # Clamp to valid range if needed
-            if require_proba:
-                alt_thresh = max(0.0, min(1.0, alt_thresh))
+        # Evaluate candidates
+        for t in candidates:
+            # If require_proba, clamp only if it does not alter intended decision boundary;
+            # we accept tiny excursions beyond [0,1] when necessary for semantics.
+            t_eval = t
+            pred_labels_alt = _predict_from_threshold(p, t_eval, inclusive)
+            tp2, tn2, fp2, fn2 = _confusion_matrix_from_labels(y, pred_labels_alt, sample_weight=weights)
+            s2 = float(metric_fn(
+                np.array([tp2]), np.array([tn2]), np.array([fp2]), np.array([fn2])
+            )[0])
+            if s2 > best_score:
+                best_score = s2
+                best_thr = t_eval
 
-            if not inclusive:  # exclusive ">"
-                alt_pred_mask = p > alt_thresh
-            else:  # inclusive ">="
-                alt_pred_mask = p >= alt_thresh
+        threshold = best_thr
+        score_actual = best_score
 
-            # Compute weighted confusion matrix
-            alt_tp, alt_tn, alt_fp, alt_fn = _confusion_matrix_from_labels(
-                y, alt_pred_mask.astype(int), sample_weight
-            )
-
-            alt_score = float(
-                metric_fn(
-                    np.array([alt_tp]),
-                    np.array([alt_tn]),
-                    np.array([alt_fp]),
-                    np.array([alt_fn]),
-                )[0]
-            )
-
-            if alt_score > best_alt_score:
-                best_alt_score = alt_score
-                best_alt_threshold = alt_thresh
-
-        # Apply final clamping for probability constraints and recalculate score
-        # if needed
-        if require_proba:
-            original_threshold = best_alt_threshold
-            best_alt_threshold = max(0.0, min(1.0, best_alt_threshold))
-
-            # If threshold changed due to clamping, recalculate the score
-            # Use a very small tolerance to catch even tiny threshold changes
-            # that can affect scoring
-            if abs(best_alt_threshold - original_threshold) > 0:
-                if not inclusive:
-                    final_pred_mask = p > best_alt_threshold
-                else:
-                    final_pred_mask = p >= best_alt_threshold
-
-                final_tp, final_tn, final_fp, final_fn = _confusion_matrix_from_labels(
-                    y, final_pred_mask.astype(int), sample_weight
-                )
-
-                best_alt_score = float(
-                    metric_fn(
-                        np.array([final_tp]),
-                        np.array([final_tn]),
-                        np.array([final_fp]),
-                        np.array([final_fn]),
-                    )[0]
-                )
-
-        k_real = _realized_k(p_sorted, best_alt_threshold, inclusive)
-
-        # Create prediction function for alternative threshold case
-        def predict_alt_threshold(probs):
-            p = np.asarray(probs)
-            if p.ndim == 2 and p.shape[1] == 2:
-                p = p[:, 1]
-            elif p.ndim == 2 and p.shape[1] == 1:
-                p = p.ravel()
-            if inclusive:
-                return (p >= best_alt_threshold).astype(int)
-            else:
-                return (p > best_alt_threshold).astype(int)
-
-        return OptimizationResult(
-            thresholds=np.array([best_alt_threshold]),
-            scores=np.array([best_alt_score]),
-            predict=predict_alt_threshold,
-            metric="piecewise_metric",
-            n_classes=2,
-            diagnostics={"k_star": k_real},
-        )
-
-    # Apply final clamping for probability constraints and recalculate score if needed
-    if require_proba:
-        original_threshold = threshold
-        threshold = max(0.0, min(1.0, threshold))
-
-        # If threshold changed due to clamping, recalculate the score
-        # Use a very small tolerance to catch even tiny threshold changes
-        # that can affect scoring
-        if abs(threshold - original_threshold) > 0:
-            if not inclusive:
-                final_pred_mask = p > threshold
-            else:
-                final_pred_mask = p >= threshold
-
-            final_tp, final_tn, final_fp, final_fn = _confusion_matrix_from_labels(
-                y, final_pred_mask.astype(int), sample_weight
-            )
-
-            actual_score = float(
-                metric_fn(
-                    np.array([final_tp]),
-                    np.array([final_tn]),
-                    np.array([final_fp]),
-                    np.array([final_fn]),
-                )[0]
-            )
-
+    # 8) Diagnostics and final return
     k_real = _realized_k(p_sorted, threshold, inclusive)
 
-    # Create prediction function (closure captures threshold and inclusive)
-    def predict_binary(probs):
-        p = np.asarray(probs)
-        if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]  # Use positive class probabilities
-        elif p.ndim == 2 and p.shape[1] == 1:
-            p = p.ravel()
-        if inclusive:
-            return (p >= threshold).astype(int)
-        else:
-            return (p > threshold).astype(int)
+    def predict_binary(probs: Array) -> Array:
+        return _predict_from_threshold(probs, threshold, inclusive)
+
+    diagnostics = {
+        "k_argmax": k_star,
+        "k_realized": k_real,
+        "score_theoretical": score_theoretical,
+        "score_actual": score_actual,
+        "tie_discrepancy": abs(score_actual - score_theoretical),
+        "inclusive": inclusive,
+        "require_proba": require_proba,
+    }
 
     return OptimizationResult(
-        thresholds=np.array([threshold]),
-        scores=np.array([actual_score]),
+        thresholds=np.array([float(threshold)], dtype=float),
+        scores=np.array([float(score_actual)], dtype=float),
         predict=predict_binary,
         metric="piecewise_metric",
         n_classes=2,
-        diagnostics={"k_star": k_real},
+        diagnostics=diagnostics,
     )

@@ -103,6 +103,7 @@ class TestBinaryClassificationWorkflows:
         # Expected mode (now returns OptimizationResult)
         result = get_optimal_threshold(y_true, y_prob, mode="expected")
         threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "expected_f1")
 

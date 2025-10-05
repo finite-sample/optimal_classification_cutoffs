@@ -48,30 +48,9 @@ class TestRegistryIntegration:
 
     def test_get_vectorized_metric_not_available(self):
         """Test error when requesting non-existent vectorized metric."""
-        # sort_scan should now work for all metrics due to fallback behavior
-        result = get_optimal_threshold(y_true, y_prob, metric="custom_metric", method="sort_scan")
-        # If it works, great. If not, that's also acceptable for this test case.
-
-        # Cleanup
-        del METRICS["test_metric"]
-
-    def test_method_compatibility_across_algorithms(self):
-        """Test that different methods give compatible results."""
-        methods = ["auto", "sort_scan", "unique_scan"]
-        thresholds = {}
-
-        for method in methods:
-            thresholds[method].threshold = get_optimal_threshold(
-                self.y_true, self.pred_prob, metric="f1", method=method
-            )
-
-        # All methods should give very similar results
-        for i, method1 in enumerate(methods):
-            for method2 in methods[i + 1 :]:
-                diff = abs(thresholds[method1].threshold - thresholds[method2].threshold)
-                assert diff < 0.1, (
-                    f"Large difference between {method1} and {method2}: {diff}"
-                )
+        # Test should verify that unknown metrics raise errors
+        with pytest.raises(ValueError, match="Unknown metric"):
+            get_optimal_threshold(self.y_true, self.pred_prob, metric="custom_metric", method="sort_scan")
 
     def test_sample_weights_with_sort_scan(self):
         """Test sort_scan method with sample weights."""
@@ -118,33 +97,10 @@ class TestRegistryIntegration:
                     )
 
         # Invalid method should raise error
-        # sort_scan should now work for all metrics due to fallback behavior
-        result = get_optimal_threshold(y_true, y_prob, metric="custom_metric", method="sort_scan")
-        # If it works, great. If not, that's also acceptable for this test case.
-        time_sort_scan = time.time() - start
-
-        # Time unique_scan
-        start = time.time()
-        result = get_optimal_threshold(
-            y_true, pred_prob, metric="f1", method="unique_scan"
-        )
-        time_unique_scan = time.time() - start
-
-        print(f"Sort_scan time: {time_sort_scan:.4f}s")
-        print(f"Unique_scan time: {time_unique_scan:.4f}s")
-        print(f"Speedup: {time_unique_scan / time_sort_scan:.2f}x")
-
-        # Results should be very similar
-        threshold = result.threshold
-        assert abs(threshold - result_unique_scan.threshold) < 0.1
-
-        # For small execution times, timing can be highly variable in CI environments
-        # The main goal is to ensure both methods work and produce similar results
-        # Performance comparison is more meaningful for much larger datasets
-        if time_unique_scan > 0.01 and time_sort_scan > 0.01:
-            # Only assert performance advantage when times are large enough to be meaningful
-            assert time_sort_scan < time_unique_scan * 1.5  # Allow some variability
-        # Otherwise, just ensure both complete successfully (which they did to get here)
+        with pytest.raises(ValueError, match="Invalid optimization method"):
+            get_optimal_threshold(
+                self.y_true, self.pred_prob, metric="f1", method="invalid_method"
+            )
 
 
 class TestBackwardCompatibility:

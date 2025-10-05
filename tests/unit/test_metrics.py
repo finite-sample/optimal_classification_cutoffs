@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs.core import TOLERANCE
 from optimal_cutoffs.metrics import METRICS, register_metric, register_metrics
 
 
@@ -40,4 +41,4 @@ def test_metric_registry_and_custom_registration():
     y_prob = np.array([0.1, 0.4, 0.6, 0.9])
     result = get_optimal_threshold(y_true, y_prob, metric="tpr")
     threshold = result.threshold
-    assert 0.0 <= threshold <= 1.0
+    assert -TOLERANCE <= threshold <= 1.0

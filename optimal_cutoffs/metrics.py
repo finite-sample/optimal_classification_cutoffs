@@ -603,34 +603,20 @@ def multiclass_metric_single_label(
 
         per_class = []
         for c in labels:
-            true_pos = true_labs == c
-            pred_pos = pred_labels == c
-            tp = (
-                float(np.sum(sw[true_pos & pred_pos]))
-                if sw is not None
-                else int(np.sum(true_pos & pred_pos))
-            )
-            fp = (
-                float(np.sum(sw[~true_pos & pred_pos]))
-                if sw is not None
-                else int(np.sum(~true_pos & pred_pos))
-            )
-            fn = (
-                float(np.sum(sw[true_pos & ~pred_pos]))
-                if sw is not None
-                else int(np.sum(true_pos & ~pred_pos))
-            )
-            # tn not needed for these macro metrics
-            if metric_name == "precision":
-                per_class.append(precision_score(tp, 0, fp, 0))
-            elif metric_name == "recall":
-                per_class.append(recall_score(tp, 0, 0, fn))
-            elif metric_name == "f1":
-                per_class.append(f1_score(tp, 0, fp, fn))
-            else:
-                raise ValueError(
-                    f"Metric '{metric_name}' not supported for exclusive mode"
-                )
+            # Create binary labels for this class vs all others
+            true_binary = (true_labs == c).astype(int)
+            pred_binary = (pred_labels == c).astype(int)
+            
+            # Use centralized confusion matrix calculation
+            tp, tn, fp, fn = _confusion_matrix_from_labels(true_binary, pred_binary, sw)
+            
+            # Get metric function from registry
+            if metric_name not in METRICS:
+                raise ValueError(f"Unknown metric '{metric_name}'. Available metrics: {list(METRICS.keys())}")
+            
+            metric_func = METRICS[metric_name].scalar_fn
+            # For single-label metrics, we pass tn=0 since it's not meaningful in this context
+            per_class.append(metric_func(tp, 0, fp, fn))
         return float(np.mean(per_class) if per_class else 0.0)
 
 
@@ -828,22 +814,37 @@ def _confusion_matrix_from_labels(
 ) -> tuple[float, float, float, float]:
     """Compute confusion matrix components from predicted labels.
 
-    This is a generic function that computes (tp, tn, fp, fn) from true and
-    predicted labels, supporting sample weights.
+    This is the canonical function for computing confusion matrix components
+    used throughout the codebase. All other confusion matrix calculations
+    should use this function to ensure consistency.
 
     Parameters
     ----------
     true_labels : ArrayLike
         True binary labels (0 or 1)
-    pred_labels : ArrayLike
+    pred_labels : ArrayLike  
         Predicted binary labels (0 or 1)
     sample_weight : ArrayLike, optional
-        Sample weights
+        Sample weights. If None, uniform weights are used.
 
     Returns
     -------
     tuple[float, float, float, float]
         True positives, true negatives, false positives, false negatives
+
+    Examples
+    --------
+    >>> true_labs = [0, 1, 0, 1, 1]
+    >>> pred_labs = [0, 1, 1, 1, 0]
+    >>> tp, tn, fp, fn = _confusion_matrix_from_labels(true_labs, pred_labs)
+    >>> (tp, tn, fp, fn)
+    (2.0, 1.0, 1.0, 1.0)
+    
+    With sample weights:
+    >>> weights = [1.0, 2.0, 1.0, 1.0, 0.5]
+    >>> tp, tn, fp, fn = _confusion_matrix_from_labels(true_labs, pred_labs, weights)
+    >>> (tp, tn, fp, fn)
+    (3.0, 1.0, 1.0, 0.5)
     """
     import numpy as np
 
@@ -1036,15 +1037,12 @@ def compute_multiclass_metrics_from_labels(
         correct = (true_labels == pred_labels).astype(float)
         return float(np.average(correct, weights=weights))
 
-    # Build OvR confusion matrices once
+    # Build OvR confusion matrices once using centralized function
     cms: list[tuple[float, float, float, float]] = []
     for k in range(n_classes):
         true_bin = (true_labels == k).astype(int)
         pred_bin = (pred_labels == k).astype(int)
-        tp = float(np.sum(weights * (true_bin == 1) * (pred_bin == 1)))
-        tn = float(np.sum(weights * (true_bin == 0) * (pred_bin == 0)))
-        fp = float(np.sum(weights * (true_bin == 0) * (pred_bin == 1)))
-        fn = float(np.sum(weights * (true_bin == 1) * (pred_bin == 0)))
+        tp, tn, fp, fn = _confusion_matrix_from_labels(true_bin, pred_bin, weights)
         cms.append((tp, tn, fp, fn))
 
     # Route through multiclass_metric_ovr for all other metrics

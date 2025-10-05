@@ -26,6 +26,10 @@ def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
     ValueError
         If labels are not binary
     """
+    # Handle None labels (allowed in Bayes mode)
+    if labels is None:
+        return None
+    
     arr = np.asarray(labels, dtype=np.int8)
 
     if arr.ndim != 1:
@@ -67,6 +71,12 @@ def validate_multiclass_labels(
     ValueError
         If labels are invalid
     """
+    # Handle None labels (allowed in Bayes mode)
+    if labels is None:
+        if n_classes is None:
+            raise ValueError("n_classes must be provided when labels is None")
+        return None
+    
     arr = np.asarray(labels, dtype=np.int32)
 
     if arr.ndim != 1:
@@ -233,20 +243,26 @@ def validate_multiclass_classification(
     # Validate labels with n_classes constraint
     labels = validate_multiclass_labels(labels, n_classes)
 
-    # Check shapes match
-    n_samples = len(labels)
-    if probs.ndim == 2 and probs.shape[0] != n_samples:
-        raise ValueError(
-            f"Shape mismatch: {n_samples} labels vs {probs.shape[0]} probability rows"
-        )
-    elif probs.ndim == 1 and len(probs) != n_samples:
-        raise ValueError(
-            f"Length mismatch: {n_samples} labels vs {len(probs)} probabilities"
+    # Check shapes match (only if labels is not None)
+    if labels is not None:
+        n_samples = len(labels)
+        if probs.ndim == 2 and probs.shape[0] != n_samples:
+            raise ValueError(
+                f"Shape mismatch: {n_samples} labels vs {probs.shape[0]} probability rows"
+            )
+        elif probs.ndim == 1 and len(probs) != n_samples:
+            raise ValueError(
+                f"Length mismatch: {n_samples} labels vs {len(probs)} probabilities"
         )
 
-    # Validate weights if provided
+    # Validate weights if provided (only if labels is not None)
     if weights is not None:
-        weights = validate_weights(weights, n_samples)
+        if labels is not None:
+            weights = validate_weights(weights, n_samples)
+        else:
+            # For None labels, use probability shape for weight validation
+            n_samples = probs.shape[0]
+            weights = validate_weights(weights, n_samples)
 
     return labels, probs, weights
 
@@ -376,15 +392,20 @@ def validate_binary_classification(
     labels = validate_binary_labels(labels)
     scores = validate_probabilities(scores, binary=True, require_proba=require_proba)
 
-    # Check shapes match
-    if len(labels) != len(scores):
-        raise ValueError(
-            f"Length mismatch: {len(labels)} labels vs {len(scores)} scores"
-        )
+    # Check shapes match (only if labels is not None)
+    if labels is not None:
+        if len(labels) != len(scores):
+            raise ValueError(
+                f"Length mismatch: {len(labels)} labels vs {len(scores)} scores"
+            )
 
     # Validate weights if provided
     if weights is not None:
-        weights = validate_weights(weights, len(labels))
+        if labels is not None:
+            weights = validate_weights(weights, len(labels))
+        else:
+            # For None labels, use scores shape for weight validation
+            weights = validate_weights(weights, len(scores))
 
     return labels, scores, weights
 
@@ -440,9 +461,14 @@ def _validate_metric_name(metric_name: str) -> None:
 
     Raises
     ------
+    TypeError
+        If metric_name is not a string
     ValueError
         If metric is not registered
     """
+    if not isinstance(metric_name, str):
+        raise TypeError("metric must be a string")
+    
     from .metrics import METRICS
 
     if metric_name not in METRICS:

@@ -8,19 +8,19 @@ Key features:
 - Fast Numba kernels with Python fallbacks
 - Binary and multiclass threshold optimization
 - Multiple algorithms: sort-scan, scipy, gradient, coordinate ascent
-- Sample weight support
+- Sample weight support (including in coordinate ascent)
 - Direct functional API without over-engineered abstractions
 """
 
 from __future__ import annotations
 
 import warnings
-from typing import Any
+from typing import Any, Tuple
 
 import numpy as np
 from scipy import optimize
 
-from .numba_utils import NUMBA_AVAILABLE, float64, int32, jit, prange
+from .numba_utils import NUMBA_AVAILABLE, jit  # only import what we truly use
 from .types_minimal import OptimizationResult
 
 # ============================================================================
@@ -31,23 +31,7 @@ from .types_minimal import OptimizationResult
 def validate_binary_data(
     labels: np.ndarray, scores: np.ndarray, weights: np.ndarray | None = None
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """Validate and normalize binary classification data.
-
-    Parameters
-    ----------
-    labels : array-like
-        Binary labels (0 or 1)
-    scores : array-like
-        Prediction scores
-    weights : array-like, optional
-        Sample weights
-
-    Returns
-    -------
-    tuple
-        (validated_labels, validated_scores, validated_weights)
-    """
-    # Convert and validate labels/scores
+    """Validate and normalize binary classification data."""
     labels = np.asarray(labels, dtype=np.int8)
     scores = np.asarray(scores, dtype=np.float64)
 
@@ -59,12 +43,11 @@ def validate_binary_data(
         raise ValueError("Scores cannot be empty")
     if len(labels) != len(scores):
         raise ValueError(f"Length mismatch: {len(labels)} vs {len(scores)}")
-    if not np.all(np.isin(labels, [0, 1])):
+    if not np.all((labels == 0) | (labels == 1)):
         raise ValueError("Labels must be binary (0 or 1)")
     if not np.all(np.isfinite(scores)):
         raise ValueError("Scores must be finite")
 
-    # Handle weights
     if weights is not None:
         weights = np.asarray(weights, dtype=np.float64)
         if weights.ndim != 1:
@@ -79,7 +62,7 @@ def validate_binary_data(
             if np.any(np.isinf(weights)):
                 raise ValueError("Sample weights contains infinite values")
             raise ValueError("Sample weights must be finite")
-        if not np.all(weights >= 0):
+        if np.any(weights < 0):
             raise ValueError("Sample weights must be non-negative")
         if np.sum(weights) == 0:
             raise ValueError("Sample weights sum to zero")
@@ -88,32 +71,36 @@ def validate_binary_data(
 
 
 # ============================================================================
-# Fast Numba Kernels
+# Fast Kernels (Numba where available)
 # ============================================================================
 
 if NUMBA_AVAILABLE:
 
-    @jit(nopython=True, parallel=True, cache=True)
+    @jit(nopython=True, cache=True)
     def compute_confusion_matrix_weighted(
         labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
-    ) -> tuple[float64, float64, float64, float64]:
-        """Compute weighted confusion matrix elements."""
-        tp = tn = fp = fn = 0.0
+    ) -> Tuple[float, float, float, float]:
+        """Compute weighted confusion matrix elements (serial, race-free)."""
+        tp = 0.0
+        tn = 0.0
+        fp = 0.0
+        fn = 0.0
+        n = labels.shape[0]
 
         if weights is None:
-            for i in prange(len(labels)):
+            for i in range(n):
                 if labels[i] == 1:
                     if predictions[i]:
-                        tp += 1
+                        tp += 1.0
                     else:
-                        fn += 1
+                        fn += 1.0
                 else:
                     if predictions[i]:
-                        fp += 1
+                        fp += 1.0
                     else:
-                        tn += 1
+                        tn += 1.0
         else:
-            for i in prange(len(labels)):
+            for i in range(n):
                 w = weights[i]
                 if labels[i] == 1:
                     if predictions[i]:
@@ -129,151 +116,239 @@ if NUMBA_AVAILABLE:
         return tp, tn, fp, fn
 
     @jit(nopython=True, fastmath=True, cache=True)
-    def fast_f1_score(tp: float64, tn: float64, fp: float64, fn: float64) -> float64:
+    def fast_f1_score(tp: float, tn: float, fp: float, fn: float) -> float:
         """Compute F1 score from confusion matrix."""
-        denom = 2 * tp + fp + fn
-        return 2 * tp / denom if denom > 0 else 0.0
+        denom = 2.0 * tp + fp + fn
+        return 2.0 * tp / denom if denom > 0.0 else 0.0
 
-    @jit(nopython=True, parallel=True, cache=True)
+    @jit(nopython=True, fastmath=True, cache=True)
     def sort_scan_kernel(
         labels: np.ndarray,
         scores: np.ndarray,
         weights: np.ndarray | None,
         inclusive: bool,
-    ) -> tuple[float64, float64]:
-        """Pure Numba sort-and-scan implementation for binary optimization."""
-        n = len(labels)
-
-        # Sort by scores (descending for easier logic)
+    ) -> Tuple[float, float]:
+        """Numba sort-and-scan for F1. Honors inclusive operator at boundaries."""
+        n = labels.shape[0]
         order = np.argsort(-scores)
         sorted_labels = labels[order]
         sorted_scores = scores[order]
         sorted_weights = weights[order] if weights is not None else None
 
-        # Initial state: all negative (threshold > max score)
         tp = 0.0
         fn = 0.0
         fp = 0.0
         tn = 0.0
 
-        # Count initial state
         for i in range(n):
             if sorted_labels[i] == 1:
-                fn += sorted_weights[i] if sorted_weights is not None else 1.0
+                fn += (sorted_weights[i] if sorted_weights is not None else 1.0)
             else:
-                tn += sorted_weights[i] if sorted_weights is not None else 1.0
+                tn += (sorted_weights[i] if sorted_weights is not None else 1.0)
 
-        best_threshold = sorted_scores[0] + 1e-10
+        eps = 1e-10  # default tolerance for boundary conditions
+        # threshold "just above" the max score => predict all negative
+        best_threshold = sorted_scores[0] + (eps if inclusive else 0.0)
         best_score = fast_f1_score(tp, tn, fp, fn)
 
-        # Scan through thresholds (decreasing scores)
         for i in range(n):
-            # Update confusion matrix by moving threshold to include this sample
+            w = (sorted_weights[i] if sorted_weights is not None else 1.0)
             if sorted_labels[i] == 1:
-                tp += sorted_weights[i] if sorted_weights is not None else 1.0
-                fn -= sorted_weights[i] if sorted_weights is not None else 1.0
+                tp += w
+                fn -= w
             else:
-                fp += sorted_weights[i] if sorted_weights is not None else 1.0
-                tn -= sorted_weights[i] if sorted_weights is not None else 1.0
+                fp += w
+                tn -= w
 
-            # Compute score
             score = fast_f1_score(tp, tn, fp, fn)
-
-            # Update best
             if score > best_score:
                 best_score = score
                 if i < n - 1:
-                    # Midpoint between current and next
                     best_threshold = 0.5 * (sorted_scores[i] + sorted_scores[i + 1])
                 else:
-                    # After last score
-                    best_threshold = max(0.0, sorted_scores[i] - 1e-10)
+                    # "Just below" the last score; inclusive decides side
+                    best_threshold = sorted_scores[i] - (eps if inclusive else 0.0)
 
         return best_threshold, best_score
 
-    @jit(nopython=True, fastmath=True, parallel=True, cache=True)
+    @jit(nopython=True, fastmath=True, cache=True)
+    def _compute_macro_f1_numba(
+        tp: np.ndarray, fp: np.ndarray, support: np.ndarray
+    ) -> float:
+        """Compute macro F1 from per-class TP/FP and per-class support (FN = support - TP)."""
+        f1_sum = 0.0
+        k = tp.shape[0]
+        for c in range(k):
+            fn = support[c] - tp[c]
+            denom = 2.0 * tp[c] + fp[c] + fn
+            if denom > 0.0:
+                f1_sum += 2.0 * tp[c] / denom
+        return f1_sum / float(k)
+
+    @jit(nopython=True, fastmath=True, cache=True)
     def coordinate_ascent_kernel(
-        y_true: np.ndarray,  # (n,) int32
-        probs: np.ndarray,  # (n, k) float64
+        y_true: np.ndarray,        # (n,) int32
+        probs: np.ndarray,         # (n, k) float64 (C-contig)
+        weights: np.ndarray | None,  # (n,) float64 or None
         max_iter: int,
-        tol: float64,
-    ) -> tuple[np.ndarray, float64, np.ndarray]:
-        """Pure Numba implementation of coordinate ascent for multiclass."""
+        tol: float,
+    ) -> Tuple[np.ndarray, float, np.ndarray]:
+        """Numba coordinate ascent for multiclass macro-F1 with optional sample weights.
+
+        Predict via argmax over (p - tau). We iteratively adjust one class's
+        threshold at a time by scanning the implied breakpoints for that class.
+        """
         n, k = probs.shape
-        thresholds = np.zeros(k, dtype=float64)
-        history = np.zeros(max_iter, dtype=float64)
+        thresholds = np.zeros(k, dtype=np.float64)
+        history = np.zeros(max_iter, dtype=np.float64)
 
-        # Precompute class counts for efficiency
-        class_counts = np.zeros(k, dtype=int32)
-        for i in range(n):
-            class_counts[y_true[i]] += 1
+        # Per-class weighted supports (sum of weights for true label == c)
+        support = np.zeros(k, dtype=np.float64)
+        if weights is None:
+            for i in range(n):
+                support[y_true[i]] += 1.0
+        else:
+            for i in range(n):
+                support[y_true[i]] += weights[i]
 
-        best_score = -1.0
-        no_improve = 0
+        # Initialize by assigning every sample to its current best class
+        # (which uses thresholds=0 initially)
+        tp = np.zeros(k, dtype=np.float64)
+        fp = np.zeros(k, dtype=np.float64)
+        if weights is None:
+            for i in range(n):
+                pred = 0
+                best = probs[i, 0] - thresholds[0]
+                for j in range(1, k):
+                    val = probs[i, j] - thresholds[j]
+                    if val > best:
+                        best = val
+                        pred = j
+                if y_true[i] == pred:
+                    tp[pred] += 1.0
+                else:
+                    fp[pred] += 1.0
+        else:
+            for i in range(n):
+                w = weights[i]
+                pred = 0
+                best = probs[i, 0] - thresholds[0]
+                for j in range(1, k):
+                    val = probs[i, j] - thresholds[j]
+                    if val > best:
+                        best = val
+                        pred = j
+                if y_true[i] == pred:
+                    tp[pred] += w
+                else:
+                    fp[pred] += w
 
-        for iteration in range(max_iter):
-            improved = False
+        best_score = _compute_macro_f1_numba(tp, fp, support)
+        no_improve_rounds = 0
+
+        for it in range(max_iter):
+            improved_any = False
 
             for c in range(k):
-                # Find breakpoints for class c
-                breakpoints = np.zeros(n, dtype=float64)
-                alternatives = np.zeros(n, dtype=int32)
+                # For every i, compute breakpoint b_i = p_ic - max_{j!=c}(p_ij - tau_j)
+                breakpoints = np.empty(n, dtype=np.float64)
+                alternatives = np.empty(n, dtype=np.int32)
 
-                for i in prange(n):
-                    max_other = -np.inf
+                for i in range(n):
+                    max_other = -1e308
                     max_other_idx = -1
-
                     for j in range(k):
                         if j != c:
-                            score = probs[i, j] - thresholds[j]
-                            if score > max_other:
-                                max_other = score
+                            v = probs[i, j] - thresholds[j]
+                            if v > max_other:
+                                max_other = v
                                 max_other_idx = j
-
                     breakpoints[i] = probs[i, c] - max_other
                     alternatives[i] = max_other_idx
 
-                # Sort breakpoints
-                order = np.argsort(-breakpoints)
+                order = np.argsort(-breakpoints)  # descending
 
-                # Scan for optimal threshold
-                tp = np.zeros(k, dtype=int32)
-                fp = np.zeros(k, dtype=int32)
+                # Baseline: everyone currently assigned to alternatives
+                # We'll simulate moving the threshold to pass each breakpoint in turn.
+                # Work on *copies* of tp/fp to evaluate this coordinate change.
+                tp_cand = tp.copy()
+                fp_cand = fp.copy()
 
-                # Initial state: all assigned to alternatives
-                for i in range(n):
-                    pred = alternatives[i]
-                    if y_true[i] == pred:
-                        tp[pred] += 1
-                    else:
-                        fp[pred] += 1
+                if weights is None:
+                    # revert all current assignments to alternatives baseline
+                    # Start from a state where all samples are assigned to alternatives:
+                    # we need to recompute baseline for this coordinate:
+                    # First, remove current contributions:
+                    # We'll reconstruct baseline by reassigning all i to alternatives.
+                    # More efficient: rebuild from scratch for this coordinate.
+                    tp_cand[:] = 0.0
+                    fp_cand[:] = 0.0
+                    for i in range(n):
+                        pred = alternatives[i]
+                        if y_true[i] == pred:
+                            tp_cand[pred] += 1.0
+                        else:
+                            fp_cand[pred] += 1.0
+                else:
+                    tp_cand[:] = 0.0
+                    fp_cand[:] = 0.0
+                    for i in range(n):
+                        w = weights[i]
+                        pred = alternatives[i]
+                        if y_true[i] == pred:
+                            tp_cand[pred] += w
+                        else:
+                            fp_cand[pred] += w
 
-                current_best = _compute_macro_f1_numba(tp, fp, class_counts)
+                baseline = _compute_macro_f1_numba(tp_cand, fp_cand, support)
+                current_best = baseline
                 best_idx = -1
 
-                # Scan through breakpoints
-                for rank in range(n):
-                    idx = order[rank]
-                    old_pred = alternatives[idx]
+                # Simulate crossing each breakpoint in order
+                if weights is None:
+                    for rank in range(n):
+                        idx = order[rank]
+                        old_pred = alternatives[idx]
 
-                    # Update counts
-                    if y_true[idx] == old_pred:
-                        tp[old_pred] -= 1
-                    else:
-                        fp[old_pred] -= 1
+                        # Remove from old_pred bucket
+                        if y_true[idx] == old_pred:
+                            tp_cand[old_pred] -= 1.0
+                        else:
+                            fp_cand[old_pred] -= 1.0
 
-                    if y_true[idx] == c:
-                        tp[c] += 1
-                    else:
-                        fp[c] += 1
+                        # Add to class c
+                        if y_true[idx] == c:
+                            tp_cand[c] += 1.0
+                        else:
+                            fp_cand[c] += 1.0
 
-                    score = _compute_macro_f1_numba(tp, fp, class_counts)
-                    if score > current_best:
-                        current_best = score
-                        best_idx = rank
+                        score = _compute_macro_f1_numba(tp_cand, fp_cand, support)
+                        if score > current_best:
+                            current_best = score
+                            best_idx = rank
+                else:
+                    for rank in range(n):
+                        idx = order[rank]
+                        w = weights[idx]
+                        old_pred = alternatives[idx]
 
-                # Update threshold
-                if best_idx >= 0:
+                        if y_true[idx] == old_pred:
+                            tp_cand[old_pred] -= w
+                        else:
+                            fp_cand[old_pred] -= w
+
+                        if y_true[idx] == c:
+                            tp_cand[c] += w
+                        else:
+                            fp_cand[c] += w
+
+                        score = _compute_macro_f1_numba(tp_cand, fp_cand, support)
+                        if score > current_best:
+                            current_best = score
+                            best_idx = rank
+
+                # If we found an improvement for this coordinate, commit it
+                if best_idx >= 0 and current_best > baseline + tol:
                     sorted_breaks = breakpoints[order]
                     if best_idx + 1 < n:
                         new_threshold = 0.5 * (
@@ -282,60 +357,80 @@ if NUMBA_AVAILABLE:
                     else:
                         new_threshold = sorted_breaks[best_idx] - 1e-6
 
-                    if current_best > best_score + tol:
-                        thresholds[c] = new_threshold
-                        best_score = current_best
-                        improved = True
+                    thresholds[c] = new_threshold
+                    # Commit the best tp/fp we already have in tp_cand/fp_cand at best_idx
+                    # Rebuild committed tp/fp to match current thresholds
+                    # (simple and safe: recompute assignments under updated thresholds)
+                    tp[:] = 0.0
+                    fp[:] = 0.0
+                    if weights is None:
+                        for i in range(n):
+                            # argmax over shifted scores
+                            pred = 0
+                            best = probs[i, 0] - thresholds[0]
+                            for j in range(1, k):
+                                val = probs[i, j] - thresholds[j]
+                                if val > best:
+                                    best = val
+                                    pred = j
+                            if y_true[i] == pred:
+                                tp[pred] += 1.0
+                            else:
+                                fp[pred] += 1.0
+                    else:
+                        for i in range(n):
+                            w = weights[i]
+                            pred = 0
+                            best = probs[i, 0] - thresholds[0]
+                            for j in range(1, k):
+                                val = probs[i, j] - thresholds[j]
+                                if val > best:
+                                    best = val
+                                    pred = j
+                            if y_true[i] == pred:
+                                tp[pred] += w
+                            else:
+                                fp[pred] += w
 
-            history[iteration] = best_score
+                    new_global = _compute_macro_f1_numba(tp, fp, support)
+                    if new_global > best_score + tol:
+                        best_score = new_global
+                    improved_any = True
 
-            if not improved:
-                no_improve += 1
-                if no_improve >= 2:
-                    return thresholds, best_score, history[: iteration + 1]
+            history[it] = best_score
+
+            if not improved_any:
+                no_improve_rounds += 1
+                if no_improve_rounds >= 2:
+                    return thresholds, best_score, history[: it + 1]
             else:
-                no_improve = 0
+                no_improve_rounds = 0
 
         return thresholds, best_score, history
 
-    @jit(nopython=True, fastmath=True, inline="always")
-    def _compute_macro_f1_numba(
-        tp: np.ndarray, fp: np.ndarray, support: np.ndarray
-    ) -> float64:
-        """Compute macro F1 score in Numba."""
-        f1_sum = 0.0
-        n_classes = len(tp)
-
-        for c in range(n_classes):
-            fn = support[c] - tp[c]
-            denom = 2 * tp[c] + fp[c] + fn
-            if denom > 0:
-                f1_sum += 2.0 * tp[c] / denom
-
-        return f1_sum / n_classes
-
 else:
-    # Pure Python fallbacks when Numba is not available
+    # ------------------------- Python fallbacks -------------------------
+
     def compute_confusion_matrix_weighted(
         labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
-    ) -> tuple[float, float, float, float]:
-        """Compute weighted confusion matrix elements (Python fallback)."""
+    ) -> Tuple[float, float, float, float]:
         tp = tn = fp = fn = 0.0
+        n = len(labels)
 
         if weights is None:
-            for i in range(len(labels)):
+            for i in range(n):
                 if labels[i] == 1:
                     if predictions[i]:
-                        tp += 1
+                        tp += 1.0
                     else:
-                        fn += 1
+                        fn += 1.0
                 else:
                     if predictions[i]:
-                        fp += 1
+                        fp += 1.0
                     else:
-                        tn += 1
+                        tn += 1.0
         else:
-            for i in range(len(labels)):
+            for i in range(n):
                 w = weights[i]
                 if labels[i] == 1:
                     if predictions[i]:
@@ -347,34 +442,27 @@ else:
                         fp += w
                     else:
                         tn += w
-
         return tp, tn, fp, fn
 
     def fast_f1_score(tp: float, tn: float, fp: float, fn: float) -> float:
-        """Compute F1 score from confusion matrix (Python fallback)."""
-        denom = 2 * tp + fp + fn
-        return 2 * tp / denom if denom > 0 else 0.0
+        denom = 2.0 * tp + fp + fn
+        return 2.0 * tp / denom if denom > 0.0 else 0.0
 
     def sort_scan_kernel(
         labels: np.ndarray,
         scores: np.ndarray,
         weights: np.ndarray | None,
         inclusive: bool,
-    ) -> tuple[float, float]:
-        """Pure Python sort-and-scan implementation."""
+    ) -> Tuple[float, float]:
         n = len(labels)
-
-        # Handle empty array case
         if n == 0:
-            return 0.5, 0.0  # Default threshold and score for empty input
+            return 0.5, 0.0
 
-        # Sort by scores (descending for easier logic)
         order = np.argsort(-scores)
         sorted_labels = labels[order]
         sorted_scores = scores[order]
         sorted_weights = weights[order] if weights is not None else None
 
-        # Initial state: all negative (threshold > max score)
         tp = 0.0
         fn = float(
             np.sum(sorted_weights[sorted_labels == 1])
@@ -388,12 +476,11 @@ else:
             else np.sum(1 - sorted_labels)
         )
 
-        best_threshold = float(sorted_scores[0] + 1e-10)
+        eps = 1e-10  # default tolerance for boundary conditions
+        best_threshold = float(sorted_scores[0] + (eps if inclusive else 0.0))
         best_score = fast_f1_score(tp, tn, fp, fn)
 
-        # Scan through thresholds (decreasing scores)
         for i in range(n):
-            # Update confusion matrix by moving threshold to include this sample
             w = sorted_weights[i] if sorted_weights is not None else 1.0
             if sorted_labels[i] == 1:
                 tp += w
@@ -402,131 +489,169 @@ else:
                 fp += w
                 tn -= w
 
-            # Compute score
             score = fast_f1_score(tp, tn, fp, fn)
-
-            # Update best
             if score > best_score:
                 best_score = score
                 if i < n - 1:
-                    # Midpoint between current and next
                     best_threshold = 0.5 * (sorted_scores[i] + sorted_scores[i + 1])
                 else:
-                    # After last score
-                    best_threshold = max(0.0, float(sorted_scores[i] - 1e-10))
+                    best_threshold = float(sorted_scores[i] - (eps if inclusive else 0.0))
 
         return best_threshold, best_score
 
+    def _compute_macro_f1_python(
+        tp: np.ndarray, fp: np.ndarray, support: np.ndarray
+    ) -> float:
+        f1_sum = 0.0
+        k = len(tp)
+        for c in range(k):
+            fn = support[c] - tp[c]
+            denom = 2.0 * tp[c] + fp[c] + fn
+            if denom > 0.0:
+                f1_sum += 2.0 * tp[c] / denom
+        return f1_sum / float(k)
+
     def coordinate_ascent_kernel(
-        y_true: np.ndarray, probs: np.ndarray, max_iter: int, tol: float
-    ) -> tuple[np.ndarray, float, np.ndarray]:
-        """Pure Python fallback implementation for coordinate ascent."""
+        y_true: np.ndarray,
+        probs: np.ndarray,
+        weights: np.ndarray | None,
+        max_iter: int,
+        tol: float,
+    ) -> Tuple[np.ndarray, float, np.ndarray]:
         n, k = probs.shape
         thresholds = np.zeros(k, dtype=np.float64)
-        history = []
+        history: list[float] = []
 
-        # Precompute class counts
-        class_counts = np.bincount(y_true, minlength=k)
+        # supports
+        if weights is None:
+            support = np.bincount(y_true, minlength=k).astype(float)
+        else:
+            support = np.zeros(k, dtype=float)
+            for i in range(n):
+                support[y_true[i]] += weights[i]
 
-        best_score = -1.0
+        # initialize tp/fp under thresholds=0
+        def assign_and_counts(tau: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+            tp = np.zeros(k, dtype=float)
+            fp = np.zeros(k, dtype=float)
+            if weights is None:
+                for i in range(n):
+                    pred = int(np.argmax(probs[i] - tau))
+                    if y_true[i] == pred:
+                        tp[pred] += 1.0
+                    else:
+                        fp[pred] += 1.0
+            else:
+                for i in range(n):
+                    w = weights[i]
+                    pred = int(np.argmax(probs[i] - tau))
+                    if y_true[i] == pred:
+                        tp[pred] += w
+                    else:
+                        fp[pred] += w
+            return tp, fp
+
+        tp, fp = assign_and_counts(thresholds)
+        best_score = (
+            _compute_macro_f1_python(tp, fp, support)
+            if not NUMBA_AVAILABLE
+            else _compute_macro_f1_python(tp, fp, support)
+        )
         no_improve = 0
 
-        for _iteration in range(max_iter):
-            improved = False
-
+        for _it in range(max_iter):
+            improved_any = False
             for c in range(k):
-                # Find breakpoints for class c
-                breakpoints = np.zeros(n)
-                alternatives = np.zeros(n, dtype=int)
+                # compute breakpoints and alternatives
+                max_other = probs - thresholds  # (n,k)
+                max_other[:, c] = -np.inf
+                alternatives = np.argmax(max_other, axis=1)
+                b = probs[:, c] - max_other[np.arange(n), alternatives]
+                order = np.argsort(-b)
 
-                for i in range(n):
-                    other_scores = probs[i] - thresholds
-                    other_scores[c] = -np.inf
-                    max_other_idx = np.argmax(other_scores)
-                    max_other = other_scores[max_other_idx]
+                # build baseline counts (all assigned to alternatives)
+                tp_cand = np.zeros(k, dtype=float)
+                fp_cand = np.zeros(k, dtype=float)
+                if weights is None:
+                    for i in range(n):
+                        pred = alternatives[i]
+                        if y_true[i] == pred:
+                            tp_cand[pred] += 1.0
+                        else:
+                            fp_cand[pred] += 1.0
+                else:
+                    for i in range(n):
+                        w = weights[i]
+                        pred = alternatives[i]
+                        if y_true[i] == pred:
+                            tp_cand[pred] += w
+                        else:
+                            fp_cand[pred] += w
 
-                    breakpoints[i] = probs[i, c] - max_other
-                    alternatives[i] = max_other_idx
-
-                # Sort breakpoints
-                order = np.argsort(-breakpoints)
-
-                # Scan for optimal threshold
-                tp = np.zeros(k, dtype=int)
-                fp = np.zeros(k, dtype=int)
-
-                # Initial state: all assigned to alternatives
-                for i in range(n):
-                    pred = alternatives[i]
-                    if y_true[i] == pred:
-                        tp[pred] += 1
-                    else:
-                        fp[pred] += 1
-
-                current_best = _compute_macro_f1_python(tp, fp, class_counts)
+                baseline = _compute_macro_f1_python(tp_cand, fp_cand, support)
+                current_best = baseline
                 best_idx = -1
 
-                # Scan through breakpoints
-                for rank in range(n):
-                    idx = order[rank]
-                    old_pred = alternatives[idx]
+                if weights is None:
+                    for rank in range(n):
+                        idx = order[rank]
+                        old_pred = alternatives[idx]
+                        if y_true[idx] == old_pred:
+                            tp_cand[old_pred] -= 1.0
+                        else:
+                            fp_cand[old_pred] -= 1.0
+                        if y_true[idx] == c:
+                            tp_cand[c] += 1.0
+                        else:
+                            fp_cand[c] += 1.0
 
-                    # Update counts
-                    if y_true[idx] == old_pred:
-                        tp[old_pred] -= 1
-                    else:
-                        fp[old_pred] -= 1
+                        s = _compute_macro_f1_python(tp_cand, fp_cand, support)
+                        if s > current_best:
+                            current_best = s
+                            best_idx = rank
+                else:
+                    for rank in range(n):
+                        idx = order[rank]
+                        w = weights[idx]
+                        old_pred = alternatives[idx]
+                        if y_true[idx] == old_pred:
+                            tp_cand[old_pred] -= w
+                        else:
+                            fp_cand[old_pred] -= w
+                        if y_true[idx] == c:
+                            tp_cand[c] += w
+                        else:
+                            fp_cand[c] += w
 
-                    if y_true[idx] == c:
-                        tp[c] += 1
-                    else:
-                        fp[c] += 1
+                        s = _compute_macro_f1_python(tp_cand, fp_cand, support)
+                        if s > current_best:
+                            current_best = s
+                            best_idx = rank
 
-                    score = _compute_macro_f1_python(tp, fp, class_counts)
-                    if score > current_best:
-                        current_best = score
-                        best_idx = rank
+                if best_idx >= 0 and current_best > baseline + tol:
+                    sb = b[order]
+                    new_tau = (
+                        0.5 * (sb[best_idx] + sb[best_idx + 1])
+                        if best_idx + 1 < n
+                        else sb[best_idx] - 1e-6
+                    )
+                    thresholds[c] = new_tau
 
-                # Update threshold
-                if best_idx >= 0:
-                    sorted_breaks = breakpoints[order]
-                    if best_idx + 1 < n:
-                        new_threshold = 0.5 * (
-                            sorted_breaks[best_idx] + sorted_breaks[best_idx + 1]
-                        )
-                    else:
-                        new_threshold = sorted_breaks[best_idx] - 1e-6
-
-                    if current_best > best_score + tol:
-                        thresholds[c] = new_threshold
-                        best_score = current_best
-                        improved = True
+                    tp, fp = assign_and_counts(thresholds)
+                    new_global = _compute_macro_f1_python(tp, fp, support)
+                    if new_global > best_score + tol:
+                        best_score = new_global
+                    improved_any = True
 
             history.append(best_score)
-
-            if not improved:
+            if not improved_any:
                 no_improve += 1
                 if no_improve >= 2:
                     break
             else:
                 no_improve = 0
 
-        return thresholds, best_score, np.array(history)
-
-    def _compute_macro_f1_python(
-        tp: np.ndarray, fp: np.ndarray, support: np.ndarray
-    ) -> float:
-        """Compute macro F1 score in pure Python."""
-        f1_sum = 0.0
-        n_classes = len(tp)
-
-        for c in range(n_classes):
-            fn = support[c] - tp[c]
-            denom = 2 * tp[c] + fp[c] + fn
-            if denom > 0:
-                f1_sum += 2.0 * tp[c] / denom
-
-        return f1_sum / n_classes
+        return thresholds, best_score, np.asarray(history)
 
 
 # ============================================================================
@@ -541,52 +666,27 @@ def optimize_sort_scan(
     weights: np.ndarray | None = None,
     operator: str = ">=",
 ) -> OptimizationResult:
-    """Sort-and-scan optimization for piecewise constant metrics.
-
-    Parameters
-    ----------
-    labels : array-like
-        Binary labels (0 or 1)
-    scores : array-like
-        Prediction scores
-    metric : str
-        Metric to optimize (currently optimized for F1)
-    weights : array-like, optional
-        Sample weights
-    operator : str
-        Comparison operator (">=" or ">")
-
-    Returns
-    -------
-    OptimizationResult
-        Optimization result with threshold, score, and predict function
-    """
+    """Sort-and-scan optimization for piecewise-constant metrics."""
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
-    # Use fast Numba kernel for F1
     if metric.lower() in ("f1", "f1_score"):
         threshold, score = sort_scan_kernel(
             labels, scores, weights, inclusive=(operator == ">=")
         )
     else:
-        # Generic implementation for other metrics
         threshold, score = _generic_sort_scan(labels, scores, metric, weights, operator)
 
-    # Create prediction function (closure captures threshold and operator)
     def predict_binary(probs):
         p = np.asarray(probs)
         if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]  # Use positive class probabilities
+            p = p[:, 1]
         elif p.ndim == 2 and p.shape[1] == 1:
             p = p.ravel()
-        if operator == ">=":
-            return (p >= threshold).astype(np.int32)
-        else:
-            return (p > threshold).astype(np.int32)
+        return (p >= threshold).astype(np.int32) if operator == ">=" else (p > threshold).astype(np.int32)
 
     return OptimizationResult(
-        thresholds=np.array([threshold]),
-        scores=np.array([score]),
+        thresholds=np.array([threshold], dtype=float),
+        scores=np.array([score], dtype=float),
         predict=predict_binary,
         metric=metric,
         n_classes=2,
@@ -601,54 +701,32 @@ def _generic_sort_scan(
     operator: str,
 ) -> tuple[float, float]:
     """Generic sort-and-scan implementation for any metric."""
-    # Handle empty array case
     if len(labels) == 0:
-        return 0.5, 0.0  # Default threshold and score for empty input
+        return 0.5, 0.0
 
-    # Import metric function
     from .metrics import METRICS
 
     metric_fn = METRICS[metric].scalar_fn
 
-    # Sort by scores
-    order = np.argsort(scores)
-    sorted_labels = labels[order]
+    order = np.argsort(scores)  # ascending
     sorted_scores = scores[order]
 
-    best_threshold = max(0.0, float(sorted_scores[0] - 1e-10))
+    eps = 1e-10  # default tolerance for boundary conditions
+    boundary_thresholds = np.array(
+        [sorted_scores[0] - eps, sorted_scores[-1] + eps], dtype=float
+    )
+    all_thresholds = np.unique(np.concatenate([np.unique(sorted_scores), boundary_thresholds]))
+
+    best_threshold = float(all_thresholds[0])
     best_score = -np.inf
 
-    # Scan through unique thresholds + boundary values
-    unique_scores = np.unique(sorted_scores)
-
-    # Add boundary thresholds for edge cases
-    # - Threshold just above max score (predicts all negative)
-    # - Threshold just below min score (predicts all positive)
-    boundary_thresholds = [
-        sorted_scores[0] - 1e-10,  # Below min (predict all positive)
-        sorted_scores[-1] + 1e-10,  # Above max (predict all negative)
-    ]
-
-    # Combine and sort all candidate thresholds
-    all_thresholds = np.concatenate([unique_scores, boundary_thresholds])
-    all_thresholds = np.unique(all_thresholds)
-
-    for _i, score_val in enumerate(all_thresholds):
-        # Find threshold position
-        if operator == ">=":
-            predictions = sorted_scores >= score_val
-        else:
-            predictions = sorted_scores > score_val
-
-        # Compute metric
-        tp, tn, fp, fn = compute_confusion_matrix_weighted(
-            sorted_labels, predictions, weights
-        )
-        score = metric_fn(int(tp), int(tn), int(fp), int(fn))
-
-        if score > best_score:
-            best_score = score
-            best_threshold = float(score_val)
+    for thr in all_thresholds:
+        preds = (scores >= thr) if operator == ">=" else (scores > thr)
+        tp, tn, fp, fn = compute_confusion_matrix_weighted(labels, preds, weights)
+        s = metric_fn(tp, tn, fp, fn)
+        if s > best_score:
+            best_score = s
+            best_threshold = float(thr)
 
     return best_threshold, best_score
 
@@ -662,76 +740,46 @@ def optimize_scipy(
     method: str = "bounded",
     tol: float = 1e-6,
 ) -> OptimizationResult:
-    """Scipy-based optimization for smooth metrics.
-
-    Parameters
-    ----------
-    labels : array-like
-        Binary labels (0 or 1)
-    scores : array-like
-        Prediction scores
-    metric : str
-        Metric to optimize
-    weights : array-like, optional
-        Sample weights
-    operator : str
-        Comparison operator (">=" or ">")
-    method : str
-        Scipy optimization method
-    tol : float
-        Tolerance for convergence
-
-    Returns
-    -------
-    OptimizationResult
-        Optimization result with threshold, score, and predict function
-    """
+    """Scipy-based optimization for smooth metrics."""
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
-    # Import metric function
     from .metrics import METRICS
 
     metric_fn = METRICS[metric].scalar_fn
 
     def objective(threshold: float) -> float:
-        """Objective to minimize (negative metric)."""
-        predictions = scores >= threshold if operator == ">=" else scores > threshold
-        tp, tn, fp, fn = compute_confusion_matrix_weighted(labels, predictions, weights)
-        score = metric_fn(int(tp), int(tn), int(fp), int(fn))
-        return -score  # Minimize negative for maximization
+        preds = (scores >= threshold) if operator == ">=" else (scores > threshold)
+        tp, tn, fp, fn = compute_confusion_matrix_weighted(labels, preds, weights)
+        score = metric_fn(tp, tn, fp, fn)
+        return -score
 
-    # Determine score bounds
+    eps = 1e-10  # default tolerance for boundary conditions  
     score_min, score_max = float(np.min(scores)), float(np.max(scores))
-    bounds = (max(0.0, score_min - 1e-10), min(1.0, score_max + 1e-10))
+    bounds = (score_min - eps, score_max + eps)
 
     try:
         result = optimize.minimize_scalar(
-            objective, bounds=bounds, method="bounded", options={"xatol": tol}
+            objective, bounds=bounds, method=method, options={"xatol": tol}
         )
         optimal_threshold = float(result.x)
         optimal_score = -float(result.fun)
     except Exception:
-        # Fallback to sort_scan
         warnings.warn(
             "Scipy optimization failed, falling back to sort_scan", stacklevel=2
         )
         return optimize_sort_scan(labels, scores, metric, weights, operator)
 
-    # Create prediction function (closure captures threshold and operator)
     def predict_binary(probs):
         p = np.asarray(probs)
         if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]  # Use positive class probabilities
+            p = p[:, 1]
         elif p.ndim == 2 and p.shape[1] == 1:
             p = p.ravel()
-        if operator == ">=":
-            return (p >= optimal_threshold).astype(np.int32)
-        else:
-            return (p > optimal_threshold).astype(np.int32)
+        return (p >= optimal_threshold).astype(np.int32) if operator == ">=" else (p > optimal_threshold).astype(np.int32)
 
     return OptimizationResult(
-        thresholds=np.array([optimal_threshold]),
-        scores=np.array([optimal_score]),
+        thresholds=np.array([optimal_threshold], dtype=float),
+        scores=np.array([optimal_score], dtype=float),
         predict=predict_binary,
         metric=metric,
         n_classes=2,
@@ -748,41 +796,12 @@ def optimize_gradient(
     max_iter: int = 100,
     tol: float = 1e-6,
 ) -> OptimizationResult:
-    """Simple gradient ascent optimization.
-
-    Parameters
-    ----------
-    labels : array-like
-        Binary labels (0 or 1)
-    scores : array-like
-        Prediction scores
-    metric : str
-        Metric to optimize
-    weights : array-like, optional
-        Sample weights
-    operator : str
-        Comparison operator (">=" or ">")
-    learning_rate : float
-        Learning rate for gradient ascent
-    max_iter : int
-        Maximum iterations
-    tol : float
-        Tolerance for convergence
-
-    Returns
-    -------
-    OptimizationResult
-        Optimization result with threshold, score, and predict function
-    """
+    """Simple gradient ascent optimization (use for smooth metrics)."""
     labels, scores, weights = validate_binary_data(labels, scores, weights)
 
-    # Import metric function
-    from .metrics import METRICS
+    from .metrics import METRICS, is_piecewise_metric
 
     metric_fn = METRICS[metric].scalar_fn
-
-    # Check if metric is piecewise constant
-    from .metrics import is_piecewise_metric
 
     if is_piecewise_metric(metric):
         warnings.warn(
@@ -791,48 +810,38 @@ def optimize_gradient(
             stacklevel=2,
         )
 
-    # Start with median score
     threshold = float(np.median(scores))
 
     def evaluate_metric(t: float) -> float:
-        predictions = scores >= t if operator == ">=" else scores > t
-        tp, tn, fp, fn = compute_confusion_matrix_weighted(labels, predictions, weights)
-        return metric_fn(int(tp), int(tn), int(fp), int(fn))
+        preds = (scores >= t) if operator == ">=" else (scores > t)
+        tp, tn, fp, fn = compute_confusion_matrix_weighted(labels, preds, weights)
+        return metric_fn(tp, tn, fp, fn)
+
+    # Natural bounds from the score distribution
+    lo = float(np.min(scores)) - 1e-10
+    hi = float(np.max(scores)) + 1e-10
 
     for _ in range(max_iter):
-        # Simple finite difference gradient
         h = 1e-8
-        grad = (evaluate_metric(threshold + h) - evaluate_metric(threshold - h)) / (
-            2 * h
-        )
-
+        grad = (evaluate_metric(threshold + h) - evaluate_metric(threshold - h)) / (2.0 * h)
         if abs(grad) < tol:
             break
-
         threshold += learning_rate * grad
-
-        # Keep threshold in reasonable bounds
-        min_bound = max(0.0, np.min(scores) - 1e-10)
-        max_bound = min(1.0, np.max(scores) + 1e-10)
-        threshold = np.clip(threshold, min_bound, max_bound)
+        threshold = float(np.clip(threshold, lo, hi))
 
     final_score = evaluate_metric(threshold)
 
-    # Create prediction function (closure captures threshold and operator)
     def predict_binary(probs):
         p = np.asarray(probs)
         if p.ndim == 2 and p.shape[1] == 2:
-            p = p[:, 1]  # Use positive class probabilities
+            p = p[:, 1]
         elif p.ndim == 2 and p.shape[1] == 1:
             p = p.ravel()
-        if operator == ">=":
-            return (p >= threshold).astype(np.int32)
-        else:
-            return (p > threshold).astype(np.int32)
+        return (p >= threshold).astype(np.int32) if operator == ">=" else (p > threshold).astype(np.int32)
 
     return OptimizationResult(
-        thresholds=np.array([threshold]),
-        scores=np.array([final_score]),
+        thresholds=np.array([threshold], dtype=float),
+        scores=np.array([final_score], dtype=float),
         predict=predict_binary,
         metric=metric,
         n_classes=2,
@@ -845,20 +854,7 @@ def optimize_gradient(
 
 
 def _assign_labels_shifted(P: np.ndarray, tau: np.ndarray) -> np.ndarray:
-    """Assign labels using argmax of shifted scores.
-
-    Parameters
-    ----------
-    P : array-like of shape (n_samples, n_classes)
-        Probability matrix
-    tau : array-like of shape (n_classes,)
-        Per-class thresholds
-
-    Returns
-    -------
-    np.ndarray of shape (n_samples,)
-        Predicted class labels
-    """
+    """Assign labels using argmax of shifted scores."""
     return np.argmax(P - tau[None, :], axis=1)
 
 
@@ -870,34 +866,9 @@ def find_optimal_threshold_multiclass(
     average: str = "macro",
     sample_weight: np.ndarray | None = None,
     comparison: str = ">",
+    tolerance: float = 1e-10,
 ) -> OptimizationResult:
-    """Find optimal per-class thresholds for multiclass classification.
-
-    Uses One-vs-Rest (OvR) strategy where each class is treated as a separate
-    binary classification problem, or coordinate ascent for coupled optimization.
-
-    Parameters
-    ----------
-    true_labs : array-like of shape (n_samples,)
-        True class labels (0, 1, ..., n_classes-1)
-    pred_prob : array-like of shape (n_samples, n_classes)
-        Predicted class probabilities
-    metric : str, default="f1"
-        Metric to optimize
-    method : str, default="auto"
-        Optimization method ("auto", "sort_scan", "scipy", "gradient", "coord_ascent")
-    average : str, default="macro"
-        Averaging strategy ("macro", "micro", "weighted", "none")
-    sample_weight : array-like, optional
-        Sample weights
-    comparison : str, default=">"
-        Comparison operator (">" or ">=")
-
-    Returns
-    -------
-    OptimizationResult
-        Optimization result with per-class thresholds, scores, and predict function
-    """
+    """Find optimal per-class thresholds for multiclass classification."""
     from .validation import validate_multiclass_classification
 
     true_labs, pred_prob, _ = validate_multiclass_classification(true_labs, pred_prob)
@@ -909,52 +880,32 @@ def find_optimal_threshold_multiclass(
 
     n_samples, n_classes = pred_prob.shape
 
-    # Handle coordinate ascent method
     if method == "coord_ascent":
-        # Additional validation for coordinate ascent - requires consecutive labels
-        from .validation import validate_multiclass_labels
-
-        # This will raise ValueError if validation fails
-        validate_multiclass_labels(true_labs, n_classes=n_classes)
-
-        # Coordinate ascent limitations
-        if sample_weight is not None:
-            raise NotImplementedError(
-                "Coordinate ascent does not support sample weights. "
-                "This limitation could be lifted in future versions."
-            )
-        if comparison != ">":
-            raise NotImplementedError(
-                "Coordinate ascent only supports '>' comparison. "
-                "Support for '>=' could be added in future versions."
-            )
+        # Coordinate ascent supports weights now. Metric fixed to macro-F1.
         if metric != "f1":
-            raise NotImplementedError(
-                "Coordinate ascent only supports 'f1' metric. "
-                "Support for other piecewise metrics could be added in future versions."
-            )
+            raise NotImplementedError("Coordinate ascent currently supports 'f1' metric only.")
+        if comparison != ">":
+            # Argmax over shifted scores doesn't meaningfully support '>=' semantics
+            raise NotImplementedError("Coordinate ascent uses argmax(P - tau); '>' is required.")
 
-        # Convert inputs to proper types for Numba
+        # Convert types for Numba (or Python fallback)
         true_labs_int32 = np.asarray(true_labs, dtype=np.int32)
         pred_prob_float64 = np.asarray(pred_prob, dtype=np.float64, order="C")
+        weights = None if sample_weight is None else np.asarray(sample_weight, dtype=np.float64)
 
-        # Call the optimized kernel directly
         thresholds, best_score, _ = coordinate_ascent_kernel(
-            true_labs_int32, pred_prob_float64, max_iter=20, tol=1e-12
+            true_labs_int32, pred_prob_float64, weights, max_iter=30, tol=1e-12
         )
 
-        # Create prediction function for coordinate ascent (uses argmax of shifted scores)
         def predict_multiclass_coord(probs):
             p = np.asarray(probs)
             if p.ndim != 2:
                 raise ValueError("Multiclass requires 2D probabilities")
             return _assign_labels_shifted(p, thresholds)
 
-        # Create scores array (coordinate ascent optimizes overall score, so repeat for all classes)
-        scores = np.full(n_classes, best_score)
-
+        scores = np.full(n_classes, best_score, dtype=float)
         return OptimizationResult(
-            thresholds=thresholds,
+            thresholds=thresholds.astype(float),
             scores=scores,
             predict=predict_multiclass_coord,
             metric=metric,
@@ -963,13 +914,9 @@ def find_optimal_threshold_multiclass(
 
     # Map method to binary optimization function
     if method == "auto":
-        # Choose best method based on metric
         from .metrics import is_piecewise_metric
 
-        if is_piecewise_metric(metric):
-            optimize_fn = optimize_sort_scan
-        else:
-            optimize_fn = optimize_scipy
+        optimize_fn = optimize_sort_scan if is_piecewise_metric(metric) else optimize_scipy
     elif method == "sort_scan":
         optimize_fn = optimize_sort_scan
     elif method == "scipy":
@@ -977,51 +924,43 @@ def find_optimal_threshold_multiclass(
     elif method == "gradient":
         optimize_fn = optimize_gradient
     else:
-        optimize_fn = optimize_sort_scan  # Default fallback
+        optimize_fn = optimize_sort_scan
 
     operator = ">=" if comparison == ">=" else ">"
 
     if average == "micro":
-        # Micro averaging: use single global threshold
-        # Flatten all class probabilities and create binary labels
-        true_binary_flat = np.zeros((n_samples * n_classes,), dtype=int)
+        # Build flat labels by vectorization
+        classes = np.arange(n_classes)
+        true_binary_flat = (np.repeat(true_labs, n_classes) == np.tile(classes, n_samples)).astype(np.int8)
         pred_prob_flat = pred_prob.ravel()
 
-        # Create binary labels for micro averaging
-        for i in range(n_samples):
-            for j in range(n_classes):
-                idx = i * n_classes + j
-                true_binary_flat[idx] = 1 if true_labs[i] == j else 0
+        # Flattened weights if provided
+        sample_weight_flat = None if sample_weight is None else np.repeat(sample_weight, n_classes)
 
-        # Sample weights for micro averaging
-        if sample_weight is not None:
-            sample_weight_flat = np.repeat(sample_weight, n_classes)
+        # Create wrapper to pass tolerance for supported functions
+        if optimize_fn in (optimize_scipy, optimize_gradient):
+            result = optimize_fn(true_binary_flat, pred_prob_flat, metric, sample_weight_flat, operator, tol=tolerance)
         else:
-            sample_weight_flat = None
+            result = optimize_fn(true_binary_flat, pred_prob_flat, metric, sample_weight_flat, operator)
+        optimal_threshold = result.thresholds[0]
 
-        # Find single optimal threshold
-        result = optimize_fn(
-            true_binary_flat, pred_prob_flat, metric, sample_weight_flat, operator
-        )
-        optimal_threshold = result.threshold
-
-        # Create prediction function for micro averaging (uses same threshold for all classes)
         def predict_multiclass_micro(probs):
             p = np.asarray(probs)
             if p.ndim != 2:
                 raise ValueError("Multiclass requires 2D probabilities")
-            # Apply same threshold to all classes and predict highest valid probability
-            thresholds = np.full(n_classes, optimal_threshold)
-            if operator == ">=":
-                valid = p >= thresholds[None, :]
-            else:
-                valid = p > thresholds[None, :]
+            thr = np.full(n_classes, optimal_threshold)
+            valid = p >= thr[None, :] if operator == ">=" else p > thr[None, :]
             masked = np.where(valid, p, -np.inf)
-            return np.argmax(masked, axis=1).astype(np.int32)
+            preds = np.argmax(masked, axis=1).astype(np.int32)
+            # Fallback when all classes are invalid for a row
+            row_max = np.max(masked, axis=1)
+            no_valid = ~np.isfinite(row_max)
+            if np.any(no_valid):
+                preds[no_valid] = np.argmax(p[no_valid], axis=1)
+            return preds
 
-        # Return same threshold for all classes
         thresholds = np.full(n_classes, optimal_threshold, dtype=float)
-        scores = np.full(n_classes, result.score, dtype=float)
+        scores = np.full(n_classes, result.scores[0], dtype=float)
 
         return OptimizationResult(
             thresholds=thresholds,
@@ -1031,55 +970,55 @@ def find_optimal_threshold_multiclass(
             n_classes=n_classes,
         )
 
-    else:
-        # Macro/weighted/none averaging: optimize per-class thresholds independently
-        optimal_thresholds = np.zeros(n_classes, dtype=float)
-        optimal_scores = np.zeros(n_classes, dtype=float)
+    # Macro/weighted/none: independent per-class thresholds (OvR)
+    optimal_thresholds = np.zeros(n_classes, dtype=float)
+    optimal_scores = np.zeros(n_classes, dtype=float)
 
-        # Create binary labels for each class (One-vs-Rest)
-        true_binary_all = np.zeros((n_samples, n_classes), dtype=int)
-        for class_idx in range(n_classes):
-            true_binary_all[:, class_idx] = (true_labs == class_idx).astype(int)
+    true_binary_all = np.zeros((n_samples, n_classes), dtype=np.int8)
+    for c in range(n_classes):
+        true_binary_all[:, c] = (true_labs == c).astype(np.int8)
 
-        # Optimize each class independently
-        for class_idx in range(n_classes):
+    for c in range(n_classes):
+        # Create wrapper to pass tolerance for supported functions
+        if optimize_fn in (optimize_scipy, optimize_gradient):
             result = optimize_fn(
-                true_binary_all[:, class_idx],
-                pred_prob[:, class_idx],
+                true_binary_all[:, c],
+                pred_prob[:, c],
+                metric,
+                sample_weight,
+                operator,
+                tol=tolerance,
+            )
+        else:
+            result = optimize_fn(
+                true_binary_all[:, c],
+                pred_prob[:, c],
                 metric,
                 sample_weight,
                 operator,
             )
-            optimal_thresholds[class_idx] = result.threshold
-            optimal_scores[class_idx] = result.score
+        optimal_thresholds[c] = result.thresholds[0]
+        optimal_scores[c] = result.scores[0]
 
-        # Create prediction function for One-vs-Rest strategy
-        def predict_multiclass_ovr(probs):
-            p = np.asarray(probs)
-            if p.ndim != 2:
-                raise ValueError("Multiclass requires 2D probabilities")
-            # Apply per-class thresholds and predict highest valid probability
-            if operator == ">=":
-                valid = p >= optimal_thresholds[None, :]
-            else:
-                valid = p > optimal_thresholds[None, :]
-            masked = np.where(valid, p, -np.inf)
-            predictions = np.argmax(masked, axis=1).astype(np.int32)
+    def predict_multiclass_ovr(probs):
+        p = np.asarray(probs)
+        if p.ndim != 2:
+            raise ValueError("Multiclass requires 2D probabilities")
+        valid = p >= optimal_thresholds[None, :] if operator == ">=" else p > optimal_thresholds[None, :]
+        masked = np.where(valid, p, -np.inf)
+        preds = np.argmax(masked, axis=1).astype(np.int32)
+        no_valid = ~np.isfinite(np.max(masked, axis=1))
+        if np.any(no_valid):
+            preds[no_valid] = np.argmax(p[no_valid], axis=1)
+        return preds
 
-            # For samples where no class is above threshold, predict highest probability
-            no_valid = np.all(~valid, axis=1)
-            if np.any(no_valid):
-                predictions[no_valid] = np.argmax(p[no_valid], axis=1)
-
-            return predictions
-
-        return OptimizationResult(
-            thresholds=optimal_thresholds,
-            scores=optimal_scores,
-            predict=predict_multiclass_ovr,
-            metric=metric,
-            n_classes=n_classes,
-        )
+    return OptimizationResult(
+        thresholds=optimal_thresholds,
+        scores=optimal_scores,
+        predict=predict_multiclass_ovr,
+        metric=metric,
+        n_classes=n_classes,
+    )
 
 
 # ============================================================================
@@ -1095,56 +1034,29 @@ def find_optimal_threshold(
     strategy: str = "auto",
     operator: str = ">=",
     require_probability: bool = True,
+    tolerance: float = 1e-10,
 ) -> OptimizationResult:
-    """Simple functional interface for binary threshold optimization.
-
-    Parameters
-    ----------
-    labels : array-like
-        Binary labels (0 or 1)
-    scores : array-like
-        Prediction scores
-    metric : str, default="f1"
-        Metric to optimize
-    weights : array-like, optional
-        Sample weights
-    strategy : str, default="auto"
-        Optimization strategy ("auto", "sort_scan", "scipy", "gradient")
-    operator : str, default=">="
-        Comparison operator (">=" or ">")
-    require_probability : bool, default=True
-        Whether to require scores in [0, 1]
-
-    Returns
-    -------
-    OptimizationResult
-        Optimization result with threshold, score, and predict function
-    """
-    # Validate probability requirement
+    """Simple functional interface for binary threshold optimization."""
     if require_probability:
-        scores = np.asarray(scores)
-        if np.any((scores < 0) | (scores > 1)):
+        s = np.asarray(scores)
+        if np.any((s < 0) | (s > 1)):
             raise ValueError("Scores must be in [0, 1] when require_probability=True")
 
-    # Select optimization function
     if strategy == "auto":
-        # Choose best method based on metric
         from .metrics import is_piecewise_metric
 
         if is_piecewise_metric(metric):
-            optimize_fn = optimize_sort_scan
+            return optimize_sort_scan(labels, scores, metric, weights, operator)
         else:
-            optimize_fn = optimize_scipy
+            return optimize_scipy(labels, scores, metric, weights, operator, tol=tolerance)
     elif strategy == "sort_scan":
-        optimize_fn = optimize_sort_scan
+        return optimize_sort_scan(labels, scores, metric, weights, operator)
     elif strategy == "scipy":
-        optimize_fn = optimize_scipy
+        return optimize_scipy(labels, scores, metric, weights, operator, tol=tolerance)
     elif strategy == "gradient":
-        optimize_fn = optimize_gradient
+        return optimize_gradient(labels, scores, metric, weights, operator, tol=tolerance)
     else:
-        optimize_fn = optimize_sort_scan  # Default fallback
-
-    return optimize_fn(labels, scores, metric, weights, operator)
+        return optimize_sort_scan(labels, scores, metric, weights, operator)
 
 
 # ============================================================================
@@ -1162,6 +1074,6 @@ def get_performance_info() -> dict[str, Any]:
             else getattr(__import__("numba"), "__version__", "unknown")
         ),
         "expected_speedup": "10-100x" if NUMBA_AVAILABLE else "1x (Python fallback)",
-        "parallel_processing": NUMBA_AVAILABLE,
+        "parallel_processing": False,          # explicit: no prange in reductions
         "fastmath_enabled": NUMBA_AVAILABLE,
     }
