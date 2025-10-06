@@ -7,6 +7,7 @@ from optimal_cutoffs import get_optimal_multiclass_thresholds
 from optimal_cutoffs.metrics import (
     compute_multiclass_metrics_from_labels,
 )
+from optimal_cutoffs.numba_utils import NUMBA_AVAILABLE
 from optimal_cutoffs.optimize import (
     _assign_labels_shifted,
     coordinate_ascent_kernel,
@@ -157,14 +158,26 @@ class TestCoordinateAscentCore:
             assert 0.0 <= best_macro <= 1.0
 
         # Test invalid tolerance (replacing init validation)
-        with pytest.raises((ValueError, TypeError)):
-            coordinate_ascent_kernel(
-                y_true_int32,
-                P_float64,
-                weights=None,
-                max_iter=5,
-                tol="invalid_tol",  # Should be numeric
-            )
+        if NUMBA_AVAILABLE:
+            # When Numba is available, invalid types cause compilation errors
+            with pytest.raises((ValueError, TypeError, Exception)):  # Include compilation errors
+                coordinate_ascent_kernel(
+                    y_true_int32,
+                    P_float64,
+                    weights=None,
+                    max_iter=5,
+                    tol="invalid_tol",  # Should be numeric
+                )
+        else:
+            # Without Numba, we get regular Python type errors
+            with pytest.raises((ValueError, TypeError)):
+                coordinate_ascent_kernel(
+                    y_true_int32,
+                    P_float64,
+                    weights=None,
+                    max_iter=5,
+                    tol="invalid_tol",  # Should be numeric
+                )
 
 
 class TestCoordinateAscentIntegration:

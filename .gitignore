@@ -36,3 +36,4 @@ Thumbs.db
 test_results.txt
 *_results.txt
 test_*.txt
+/optimal_cutoffs/__pycache__

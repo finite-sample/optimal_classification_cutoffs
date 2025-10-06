@@ -69,6 +69,21 @@ This repository includes **cross‑validation** utilities to estimate thresholds
 pip install optimal-classification-cutoffs
 ```
 
+**Optional dependencies** for enhanced performance and testing:
+```bash
+# For performance optimization (recommended)
+pip install optimal-classification-cutoffs[performance]
+
+# For running examples
+pip install optimal-classification-cutoffs[examples]  
+
+# For development and testing
+pip install optimal-classification-cutoffs[dev]
+
+# All optional dependencies
+pip install optimal-classification-cutoffs[all]
+```
+
 ### Binary
 
 ```python

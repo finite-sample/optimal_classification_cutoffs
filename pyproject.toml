@@ -12,7 +12,6 @@ dependencies = [
     "numpy>=1.20.0",
     "scipy",
     "scikit-learn",
-    "numba>=0.57.0"
 ]
 authors = [
     {name = "Gaurav Sood", email = "contact@gsood.com"}
@@ -30,18 +29,47 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+# For examples and visualizations
 examples = ["matplotlib", "pandas"]
+
+# For performance optimization
+performance = ["numba>=0.57.0"]
+
+# For adaptive optimization methods
 adaptive = ["scikit-optimize>=0.9.0"]
+
+# For documentation generation
 docs = [
     "sphinx>=5.0",
     "sphinx-rtd-theme>=1.0",
     "sphinx-autodoc-typehints>=1.0"
 ]
+
+# For development and testing
 dev = [
     "pytest>=6.0",
     "pytest-cov",
     "ruff",
-    "hypothesis>=6.0"
+    "hypothesis>=6.0",
+    "psutil>=5.0",  # For memory monitoring in tests
+]
+
+# For running all tests with full coverage
+test = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "hypothesis>=6.0",
+    "psutil>=5.0",
+    "numba>=0.57.0",  # For performance optimization tests
+]
+
+# All optional dependencies
+all = [
+    "matplotlib",
+    "pandas",
+    "numba>=0.57.0",
+    "scikit-optimize>=0.9.0",
+    "psutil>=5.0",
 ]
 
 [tool.setuptools]
