@@ -147,9 +147,10 @@ class TestMicroAccuracyFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # This should work without error
-        thresholds = find_optimal_threshold_multiclass(
+        result = find_optimal_threshold_multiclass(
             y_true, pred_prob, metric="accuracy", average="micro", method="minimize"
         )
+        thresholds = result.thresholds
 
         assert len(thresholds) == n_classes
         assert all(0 <= t <= 1 for t in thresholds)
@@ -164,12 +165,14 @@ class TestDinkelbachComparisonSupport:
         pred_prob = [0.2, 0.4, 0.4, 0.6, 0.6, 0.3, 0.7, 0.1]
 
         # Both should work without error
-        thresh_excl, _ = dinkelbach_expected_fbeta_binary(
+        result_excl = dinkelbach_expected_fbeta_binary(
             pred_prob, 1.0, comparison=">"
         )
-        thresh_incl, _ = dinkelbach_expected_fbeta_binary(
+        thresh_excl = result_excl.threshold
+        result_incl = dinkelbach_expected_fbeta_binary(
             pred_prob, 1.0, comparison=">="
         )
+        thresh_incl = result_incl.threshold
 
         assert 0 <= thresh_excl <= 1
         assert 0 <= thresh_incl <= 1
@@ -182,9 +185,9 @@ class TestDinkelbachComparisonSupport:
             y_true, pred_prob, mode="expected", metric="f1", comparison=">="
         )
 
-        # Extract thresholds from tuples
-        thresh_main_excl, _ = result_main_excl.threshold, result_main_excl.score
-        thresh_main_incl, _ = result_main_incl.threshold, result_main_incl.score
+        # Extract thresholds from results
+        thresh_main_excl = result_main_excl.threshold
+        thresh_main_incl = result_main_incl.threshold
         # Allow some tolerance for numerical differences between internal and main API
         assert abs(thresh_main_excl - thresh_excl) < 0.05, (
             f"Thresholds should be close: {thresh_main_excl} vs {thresh_excl}"
@@ -204,12 +207,11 @@ class TestDinkelbachComparisonSupport:
                 y_true, pred_prob, mode="expected", metric="f1", comparison=comparison
             )
 
-            # Extract threshold from tuple
-            threshold, expected_f1 = result.threshold, result.score
+            # Extract threshold from result
+            threshold = result.threshold
+            expected_f1 = result.score
 
             # Should produce valid threshold
-            threshold = result.threshold
-            assert 0 <= threshold <= 1
             assert 0 <= threshold <= 1
 
             # Should produce valid predictions
@@ -227,7 +229,7 @@ class TestDinkelbachComparisonSupport:
                 y_true, pred_prob, threshold, comparison=comparison
             )
             f1 = f1_score(tp, tn, fp, fn)
-            assert 0 <= threshold <= 1
+            assert 0 <= f1 <= 1
 
 
 class TestLabelValidationFix:
@@ -722,7 +724,7 @@ class TestRegressionPrevention:
                         metric_val = (
                             f1_score(tp, tn, fp, fn) if tp + fp + fn > 0 else 1.0
                         )
-                        assert 0 <= threshold <= 1, f"Invalid F1 {metric_val}"
+                        assert 0 <= metric_val <= 1, f"Invalid F1 {metric_val}"
 
                     except Exception as e:
                         pytest.fail(

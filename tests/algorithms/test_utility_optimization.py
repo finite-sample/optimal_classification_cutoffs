@@ -159,12 +159,13 @@ class TestUtilityOptimization:
         p = np.random.uniform(0, 1, size=n)
         y = (np.random.uniform(0, 1, size=n) < p).astype(int)  # Calibrated
 
-        # Cost case: FP=1, FN=5
+        # Cost case: FP=1, FN=5 (with neutral tp=0, tn=0)
+        utility_dict = {"tp": 0.0, "tn": 0.0, "fp": -1.0, "fn": -5.0}
         result1 = get_optimal_threshold(
-            y, p, utility={"fp": -1.0, "fn": -5.0}, comparison=">="
+            y, p, utility=utility_dict, comparison=">="
         )
         result2 = get_optimal_threshold(
-            None, p, utility={"fp": -1.0, "fn": -5.0}, mode="bayes", comparison=">="
+            None, p, utility=utility_dict, mode="bayes", comparison=">="
         )
 
         # Should be reasonably close on well-calibrated data (increased tolerance)
@@ -299,7 +300,7 @@ class TestEdgeCases:
 
         # This should work (no true_labs needed)
         result1 = get_optimal_threshold(
-            None, p, utility={"fp": -1, "fn": -5}, mode="bayes"
+            None, p, utility={"tp": 0, "tn": 0, "fp": -1, "fn": -5}, mode="bayes"
         )
         threshold = result1.threshold
         assert 0 <= threshold <= 1

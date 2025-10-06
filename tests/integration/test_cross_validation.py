@@ -484,7 +484,8 @@ class TestCrossValidationEdgeCases:
 
     def test_cv_imbalanced_data(self):
         """Test CV with highly imbalanced data."""
-        y_true, y_prob = generate_binary_data(100, imbalance_ratio=0.05, random_state=42)
+        # Use 0.1 ratio (10%) to ensure at least 10 samples per class for 3-fold CV
+        y_true, y_prob = generate_binary_data(100, imbalance_ratio=0.1, random_state=42)
 
         thresholds, scores = cv_threshold_optimization(
             y_true, y_prob, cv=3, random_state=42

@@ -218,12 +218,14 @@ class TestComparisonOperatorEdgeCases:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])  # All tied
 
         # Both operators should work
-        threshold_gt = get_optimal_threshold(
+        result_gt = get_optimal_threshold(
             y_true, y_prob, metric="f1", comparison=">"
         )
-        threshold_gte = get_optimal_threshold(
+        result_gte = get_optimal_threshold(
             y_true, y_prob, metric="f1", comparison=">="
         )
+        threshold_gt = result_gt.threshold
+        threshold_gte = result_gte.threshold
 
         assert_valid_threshold(threshold_gt)
         assert_valid_threshold(threshold_gte)

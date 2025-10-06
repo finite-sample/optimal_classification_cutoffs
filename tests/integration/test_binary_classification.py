@@ -318,7 +318,7 @@ class TestCrossValidation:
             y_true, y_prob, method="unique_scan", cv=5, random_state=42
         )
 
-        assert thresholds.shape == (5,)
+        assert thresholds.shape == (5, 1)
         assert scores.shape == (5,)
         assert np.all((thresholds >= 0) & (thresholds <= 1))
         assert np.all((scores >= 0) & (scores <= 1))
@@ -334,9 +334,9 @@ class TestCrossValidation:
                 y_true, y_prob, method=method, cv=3, random_state=42
             )
 
-            assert len(thresholds) == 3
+            assert thresholds.shape[0] == 3
             assert len(scores) == 3
-            for threshold in thresholds:
+            for threshold in thresholds.ravel():
                 assert_valid_threshold(threshold)
             for score in scores:
                 assert_valid_metric_score(score, "f1")
