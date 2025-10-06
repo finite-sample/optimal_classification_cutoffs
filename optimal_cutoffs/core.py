@@ -9,6 +9,10 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from .expected import (
+    dinkelbach_expected_fbeta_binary,
+    dinkelbach_expected_fbeta_multilabel,
+)
 from .metrics import is_piecewise_metric
 from .types_minimal import OptimizationResult
 from .validation import (
@@ -17,12 +21,6 @@ from .validation import (
     _validate_optimization_method,
     validate_inputs,
 )
-
-from .expected import (
-    dinkelbach_expected_fbeta_binary,
-    dinkelbach_expected_fbeta_multilabel,
-)
-
 
 
 def get_optimal_threshold(

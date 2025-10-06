@@ -15,7 +15,7 @@ Key features:
 from __future__ import annotations
 
 import warnings
-from typing import Any, Tuple
+from typing import Any
 
 import numpy as np
 from scipy import optimize
@@ -41,7 +41,7 @@ if NUMBA_AVAILABLE:
     @jit(nopython=True, cache=True)
     def compute_confusion_matrix_weighted(
         labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
-    ) -> Tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float]:
         """Compute weighted confusion matrix elements (serial, race-free)."""
         tp = 0.0
         tn = 0.0
@@ -89,7 +89,7 @@ if NUMBA_AVAILABLE:
         scores: np.ndarray,
         weights: np.ndarray | None,
         inclusive: bool,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Numba sort-and-scan for F1. Honors inclusive operator at boundaries."""
         n = labels.shape[0]
         order = np.argsort(-scores)
@@ -154,7 +154,7 @@ if NUMBA_AVAILABLE:
         weights: np.ndarray | None,  # (n,) float64 or None
         max_iter: int,
         tol: float,
-    ) -> Tuple[np.ndarray, float, np.ndarray]:
+    ) -> tuple[np.ndarray, float, np.ndarray]:
         """Numba coordinate ascent for multiclass macro-F1 with optional sample weights.
 
         Predict via argmax over (p - tau). We iteratively adjust one class's
@@ -375,7 +375,7 @@ else:
 
     def compute_confusion_matrix_weighted(
         labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
-    ) -> Tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float]:
         tp = tn = fp = fn = 0.0
         n = len(labels)
 
@@ -415,7 +415,7 @@ else:
         scores: np.ndarray,
         weights: np.ndarray | None,
         inclusive: bool,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         n = len(labels)
         if n == 0:
             return 0.5, 0.0
@@ -479,7 +479,7 @@ else:
         weights: np.ndarray | None,
         max_iter: int,
         tol: float,
-    ) -> Tuple[np.ndarray, float, np.ndarray]:
+    ) -> tuple[np.ndarray, float, np.ndarray]:
         n, k = probs.shape
         thresholds = np.zeros(k, dtype=np.float64)
         history: list[float] = []
@@ -493,7 +493,7 @@ else:
                 support[y_true[i]] += weights[i]
 
         # initialize tp/fp under thresholds=0
-        def assign_and_counts(tau: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        def assign_and_counts(tau: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
             tp = np.zeros(k, dtype=float)
             fp = np.zeros(k, dtype=float)
             if weights is None:

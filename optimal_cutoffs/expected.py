@@ -610,10 +610,8 @@ def expected_optimize_multiclass(
                 # For precision/jaccard metrics that return tuples
                 thresholds[k], scores[k] = result_k
 
-        # Compute average score
-        if average == "macro":
-            avg_score = np.mean(scores)
-        else:  # weighted
+        # Weight by class frequency for weighted average
+        if average == "weighted":
             # Weight by class frequency
             if weights is not None:
                 class_weights = np.sum(P * weights[:, None], axis=0)
@@ -621,7 +619,6 @@ def expected_optimize_multiclass(
                 class_weights = np.sum(P, axis=0)
 
             class_weights /= class_weights.sum()
-            avg_score = np.average(scores, weights=class_weights)
 
         # Create prediction function for macro/weighted averaging
         def predict_macro(probs):

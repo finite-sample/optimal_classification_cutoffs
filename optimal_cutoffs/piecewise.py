@@ -19,12 +19,12 @@ from typing import Any
 
 import numpy as np
 
-from .types_minimal import OptimizationResult
 from .metrics import (
     _confusion_matrix_from_labels,
     apply_metric_to_confusion_counts,
     compute_vectorized_confusion_matrices,
 )
+from .types_minimal import OptimizationResult
 from .validation import validate_binary_classification, validate_weights
 
 Array = np.ndarray[Any, Any]
