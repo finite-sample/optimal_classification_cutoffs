@@ -8,7 +8,7 @@ from sklearn.linear_model import LogisticRegression
 from optimal_cutoffs import (
     get_multiclass_confusion_matrix,
     get_optimal_multiclass_thresholds,
-    multiclass_metric,
+    multiclass_metric_ovr,
 )
 
 

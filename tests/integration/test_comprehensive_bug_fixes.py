@@ -209,7 +209,6 @@ class TestDinkelbachComparisonSupport:
 
             # Extract threshold from result
             threshold = result.threshold
-            expected_f1 = result.score
 
             # Should produce valid threshold
             assert 0 <= threshold <= 1

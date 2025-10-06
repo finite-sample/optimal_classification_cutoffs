@@ -173,7 +173,6 @@ class TestUtilityOptimization:
 
         # Bayes should be exactly 1/(1+5) = 1/6
         expected_bayes = 1.0 / 6.0
-        threshold = result1.threshold
         assert abs(result2.threshold - expected_bayes) < 1e-10
 
     def test_minimize_cost_flag(self):
@@ -210,6 +209,7 @@ class TestUtilityOptimization:
         """Test that multiclass utility optimization works or handles gracefully."""
         n = 100
         p = np.random.uniform(0, 1, size=(n, 3))  # 3 classes
+        p = p / p.sum(axis=1, keepdims=True)  # Normalize to proper probabilities
         y = np.random.randint(0, 3, size=n)
 
         # Should either work or raise some kind of error without crashing

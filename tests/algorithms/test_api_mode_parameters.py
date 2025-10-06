@@ -71,10 +71,10 @@ class TestModeParameter:
         """Test that mode='expected' works with multiclass classification."""
         y_true = np.array([0, 1, 2, 0, 1, 2])
         y_prob = np.random.rand(6, 3)
+        y_prob = y_prob / y_prob.sum(axis=1, keepdims=True)  # Normalize probabilities
 
         # Should work with multiclass and return an OptimizationResult
         result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        thresholds = result1.thresholds
         
         # Check that it's an OptimizationResult with proper attributes
         assert hasattr(result1, "thresholds")
@@ -98,7 +98,7 @@ class TestModeParameter:
         )
         threshold = result1.threshold
         assert hasattr(result1, "threshold") and hasattr(result1, "score")
-        threshold, f1_score = result1.threshold, result1.score
+        threshold, _f1_score = result1.threshold, result1.score
         assert 0 <= threshold <= 1
         assert 0 <= threshold <= 1
 
@@ -112,7 +112,7 @@ class TestModeParameter:
         threshold = result1.threshold
         threshold = result1.threshold
         assert hasattr(result1, "threshold") and hasattr(result1, "score")
-        threshold, f1_score = result1.threshold, result1.score
+        threshold, _f1_score = result1.threshold, result1.score
         assert 0 <= threshold <= 1
         assert 0 <= threshold <= 1
 
@@ -179,7 +179,7 @@ class TestMethodEquivalence:
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
-        result = get_optimal_threshold(
+        get_optimal_threshold(
             y_true, y_prob, metric="f1", method="unique_scan"
         )
 
@@ -245,7 +245,6 @@ class TestGoldenTests:
         result1 = bayes_optimal_threshold(
             fp_cost=1, fn_cost=5, tp_benefit=2, tn_benefit=1
         )
-        threshold1 = result1.threshold
 
         # Via get_optimal_threshold API
         result2 = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
@@ -276,20 +275,16 @@ class TestGoldenTests:
 
         # Both calls should work and give same result1
         result1 = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
-        threshold = result1.threshold
 
         result2 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        threshold = result2.threshold
-        threshold = result2.threshold
 
         # Both should return tuples
-        threshold = result1.threshold
         assert hasattr(result1, "threshold") and hasattr(result1, "score")  # Expected mode returns OptimizationResult
         assert hasattr(result2, "threshold") and hasattr(result2, "score")  # Expected mode returns OptimizationResult
 
         # Extract thresholds and compare
-        threshold1, f1_score1 = result2.threshold, result2.score
-        threshold1, f1_score2 = result2.threshold, result2.score
+        _threshold1, f1_score1 = result2.threshold, result2.score
+        _threshold1, f1_score2 = result2.threshold, result2.score
         assert abs(result1.threshold - result2.threshold) < 1e-12
         assert abs(f1_score1 - f1_score2) < 1e-12
 
@@ -332,10 +327,10 @@ class TestErrorMessages:
         """Test that mode='expected' supports multiclass classification."""
         y_true = np.array([0, 1, 2, 0, 1, 2])
         y_prob = np.random.rand(6, 3)
+        y_prob = y_prob / y_prob.sum(axis=1, keepdims=True)  # Normalize probabilities
 
         # Should work with multiclass and return an OptimizationResult
         result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        thresholds = result1.thresholds
         
         # Check that it's an OptimizationResult with proper attributes
         assert hasattr(result1, "thresholds")

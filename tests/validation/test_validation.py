@@ -13,12 +13,12 @@ from optimal_cutoffs import (
 from optimal_cutoffs.validation import (
     _validate_averaging_method,
     _validate_comparison_operator,
-    validate_inputs,
     _validate_metric_name,
     _validate_optimization_method,
-    validate_threshold,
     validate_binary_classification,
+    validate_inputs,
     validate_multiclass_classification,
+    validate_threshold,
 )
 
 
@@ -69,8 +69,12 @@ class TestBasicInputValidation:
         with pytest.raises(ValueError, match="Length mismatch"):
             validate_inputs([0, 1], [0.5])
 
-        with pytest.raises(ValueError, match="Shape mismatch"):
-            validate_inputs([0, 1, 2], np.random.rand(2, 3))  # 3 labels vs 2 rows
+        # Suppress probability sum warning for this error condition test
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            with pytest.raises(ValueError, match="Shape mismatch"):
+                validate_inputs([0, 1, 2], np.random.rand(2, 3))  # 3 labels vs 2 rows
 
     def test_validate_inputs_wrong_dimensions(self):
         """Test validation with wrong array dimensions."""
@@ -95,20 +99,30 @@ class TestBasicInputValidation:
         # Valid consecutive labels starting from 0
         true_labels = [0, 1, 2, 0, 1, 2]
         pred_probs = np.random.rand(6, 3)
+        pred_probs = pred_probs / pred_probs.sum(axis=1, keepdims=True)  # Normalize
         validate_inputs(true_labels, pred_probs)
 
         # Labels outside valid range (has label 3 for 3-class problem)
-        with pytest.raises(ValueError, match="Found label 3 but n_classes=3"):
-            validate_inputs([0, 2, 3], np.random.rand(3, 3))
+        # Suppress probability sum warning for this error condition test
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            with pytest.raises(ValueError, match="Found label 3 but n_classes=3"):
+                validate_inputs([0, 2, 3], np.random.rand(3, 3))
 
         # Negative labels
-        with pytest.raises(ValueError, match="Labels must be non-negative"):
-            validate_inputs([-1, 0, 1], np.random.rand(3, 2))
+        # Suppress probability sum warning for this error condition test
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            with pytest.raises(ValueError, match="Labels must be non-negative"):
+                validate_inputs([-1, 0, 1], np.random.rand(3, 2))
 
         # Non-integer labels are now auto-converted, so no error expected
         # The API changed to be more permissive
-        result = validate_inputs([0.0, 1.0, 2.0], np.random.rand(3, 3))
-        assert result is not None
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = validate_inputs([0.0, 1.0, 2.0], np.random.rand(3, 3))
+            assert result is not None
 
     def test_validate_inputs_probability_range(self):
         """Test probability range validation with require_proba=True."""
@@ -296,10 +310,13 @@ class TestMulticlassValidation:
         """Test validation with dimension mismatches."""
         # Wrong label dimensions
         labels = np.array([[0, 1], [1, 2]])  # 2D instead of 1D
-        probs = np.random.rand(2, 3)
-
-        with pytest.raises(ValueError, match="Labels must be 1D"):
-            validate_multiclass_classification(labels, probs)
+        # Suppress probability sum warning for this error condition test
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            probs = np.random.rand(2, 3)
+            with pytest.raises(ValueError, match="Labels must be 1D"):
+                validate_multiclass_classification(labels, probs)
 
         # Wrong probability dimensions - API now accepts 1D probs for binary case
         # Let's test something that actually fails
@@ -312,10 +329,13 @@ class TestMulticlassValidation:
 
         # Length mismatch
         labels = np.array([0, 1, 2])
-        probs = np.random.rand(5, 3)  # 5 samples vs 3 labels
-
-        with pytest.raises(ValueError, match="Shape mismatch"):
-            validate_multiclass_classification(labels, probs)
+        # Suppress probability sum warning for this error condition test
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            probs = np.random.rand(5, 3)  # 5 samples vs 3 labels
+            with pytest.raises(ValueError, match="Shape mismatch"):
+                validate_multiclass_classification(labels, probs)
 
     def test_validate_multiclass_classification_insufficient_classes(self):
         """Test validation with insufficient number of classes."""
@@ -586,6 +606,7 @@ class TestEdgeCasesAndRobustness:
         n_classes = 10
         true_labels = np.random.randint(0, n_classes, n_samples)
         pred_probs = np.random.rand(n_samples, n_classes)
+        pred_probs = pred_probs / pred_probs.sum(axis=1, keepdims=True)  # Normalize
         result = validate_inputs(true_labels, pred_probs)
         assert result is not None
 

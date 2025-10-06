@@ -89,9 +89,14 @@ class TestExclusiveVsOvRDistinction:
         )
 
         # Use OvR optimization (method='auto' typically uses OvR for multiclass)
-        result = get_optimal_threshold(
-            labels, probs, metric="f1", method="auto", comparison=">"
-        )
+        # Suppress probability sum warning - this test intentionally uses non-normalized
+        # probabilities to test multi-label behavior
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = get_optimal_threshold(
+                labels, probs, metric="f1", method="auto", comparison=">"
+            )
 
         # Extract thresholds from result
         thresholds = result.thresholds

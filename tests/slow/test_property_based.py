@@ -267,7 +267,7 @@ class TestCoreInvariants:
         labels, probabilities = data
 
         result = get_optimal_threshold(labels, probabilities, "f1")
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, result.threshold)
 
         total = tp + tn + fp + fn
         assert total == len(labels), (
@@ -332,7 +332,7 @@ class TestStatisticalProperties:
         # Check if original separation is already very good
         original_result = get_optimal_threshold(labels, probabilities, "f1")
         original_f1 = compute_metric_at_threshold(
-            labels, probabilities, original_threshold, "f1"
+            labels, probabilities, original_result.threshold, "f1"
         )
 
         # If original F1 is already very high (>=0.9), skip the test
@@ -371,10 +371,10 @@ class TestStatisticalProperties:
             perfect_result = get_optimal_threshold(labels, perfect_probs, metric)
 
             original_score = compute_metric_at_threshold(
-                labels, probabilities, original_threshold, metric
+                labels, probabilities, original_result.threshold, metric
             )
             perfect_score = compute_metric_at_threshold(
-                labels, perfect_probs, perfect_threshold, metric
+                labels, perfect_probs, perfect_result.threshold, metric
             )
 
             # Perfect separation should generally be better or at least reasonable
@@ -411,7 +411,7 @@ class TestStatisticalProperties:
         # Test all registered metrics
         for metric_name in ["f1", "accuracy", "precision", "recall"]:
             score = compute_metric_at_threshold(
-                labels, probabilities, threshold, metric_name
+                labels, probabilities, result.threshold, metric_name
             )
 
             # All these metrics should be in [0, 1] range
@@ -615,8 +615,8 @@ class TestMulticlassPropertyBased:
 
                 # Skip if this class has no positive examples
                 if np.sum(binary_labels) > 0 and np.sum(1 - binary_labels) > 0:
-                    result = get_optimal_threshold(binary_labels, binary_probs, "f1")
-                    manual_thresholds.append(threshold)
+                    binary_result = get_optimal_threshold(binary_labels, binary_probs, "f1")
+                    manual_thresholds.append(binary_result.threshold)
                 else:
                     manual_thresholds.append(0.5)  # Default for degenerate case
             else:
@@ -943,7 +943,7 @@ class TestPerformanceProperties:
                 end_time = time.time()
 
                 times[method] = end_time - start_time
-                results[method] = threshold
+                results[method] = result.threshold
 
                 # Should complete in reasonable time
                 assert times[method] < 5.0, (

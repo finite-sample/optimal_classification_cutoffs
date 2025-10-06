@@ -252,7 +252,7 @@ class TestLongRunningScenarios:
                 assert_valid_threshold(threshold)
 
                 # Evaluate on validation set
-                y_val, p_val = y_true[val_idx], pred_prob[val_idx]
+                _y_val, _p_val = y_true[val_idx], pred_prob[val_idx]
                 score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
 
                 fold_thresholds.append(threshold)

@@ -544,7 +544,7 @@ class TestCoordinateAscentEdgeCases:
 
             # Single sample should be predicted correctly if possible
             scores = probs - thresholds.reshape(1, -1)
-            pred = np.argmax(scores, axis=1)[0]
+            np.argmax(scores, axis=1)[0]
 
             # Optimal prediction should match the true label if reasonable
             f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")

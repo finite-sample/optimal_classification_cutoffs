@@ -127,9 +127,8 @@ class TestConcurrentStressTesting:
             y_true, pred_prob = generate_binary_data(n_samples, random_state=seed)
 
             result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
-            score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
-
             threshold = result.threshold
+            score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
             assert_valid_threshold(threshold)
             assert_valid_metric_score(score, "f1")
 
@@ -492,6 +491,7 @@ class TestLongRunningReliability:
         reference_result = get_optimal_threshold(
             y_true, pred_prob, method="unique_scan"
         )
+        reference_threshold = reference_result.threshold
 
         # Test determinism over many operations
         non_deterministic_count = 0
@@ -506,6 +506,7 @@ class TestLongRunningReliability:
             current_result = get_optimal_threshold(
                 y_true, pred_prob, method="unique_scan"
             )
+            current_threshold = current_result.threshold
 
             if abs(current_threshold - reference_threshold) > 1e-12:
                 non_deterministic_count += 1

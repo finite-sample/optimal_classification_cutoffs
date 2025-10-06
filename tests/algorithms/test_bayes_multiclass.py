@@ -215,8 +215,8 @@ class TestIntegrationWithRouter:
 
     def test_multiclass_bayes_with_utility_matrix(self):
         """Test mode='bayes' with utility_matrix."""
-        y_prob = np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]])
-        U = np.eye(3)
+        np.array([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]])
+        np.eye(3)
 
         # Skip test - utility_matrix not yet implemented for Bayes mode
         pytest.skip("utility_matrix not yet implemented for Bayes mode")

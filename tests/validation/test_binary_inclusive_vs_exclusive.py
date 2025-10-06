@@ -277,7 +277,7 @@ class TestComparisonThreading:
 
             # Verify the threshold works correctly with the specified comparison
             pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
-            accuracy = np.mean(pred == labels)
+            np.mean(pred == labels)
 
             assert 0 <= threshold <= 1
 
@@ -425,7 +425,7 @@ class TestEdgeCasesWithComparison:
     def test_single_probability_tied(self):
         """Test with a single probability exactly equal to potential threshold."""
         probs = np.array([0.2, 0.4, 0.6, 0.8])
-        labels = np.array([0, 0, 1, 1])
+        np.array([0, 0, 1, 1])
 
         # Force consideration of 0.6 as threshold by making it optimal
         test_threshold = 0.6

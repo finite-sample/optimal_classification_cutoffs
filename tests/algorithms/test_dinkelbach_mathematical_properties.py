@@ -67,7 +67,6 @@ class TestDinkelbachLabelIndependence:
             threshold_anticorrelated = result_anticorrelated.threshold
 
             # All thresholds should be identical (Dinkelbach ignores labels)
-            threshold = result_calibrated.threshold
             assert abs(threshold_calibrated - threshold_random) < 1e-10, (
                 f"Calibrated vs random labels gave different thresholds: "
                 f"{threshold_calibrated:.10f} vs {threshold_random:.10f}"

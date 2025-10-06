@@ -16,7 +16,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from sklearn.model_selection import KFold, StratifiedKFold
 
-from optimal_cutoffs import cv_threshold_optimization, get_optimal_threshold
+from optimal_cutoffs import cv_threshold_optimization
 from optimal_cutoffs.cv import (
     _average_threshold_dicts,
     nested_cv_threshold_optimization,
@@ -343,7 +343,7 @@ class TestStatisticalSoundness:
         )
 
         # Results should be identical with same random state
-        for s1, s2 in zip(scores1, scores2):
+        for s1, s2 in zip(scores1, scores2, strict=False):
             assert abs(s1 - s2) < 1e-10
 
 

@@ -148,7 +148,7 @@ class TestAlgorithmicComplexity:
             # Time sort_scan method
             try:
                 start_time = time.time()
-                result = get_optimal_threshold(
+                get_optimal_threshold(
                     y_true, pred_prob, metric="f1", method="sort_scan"
                 )
                 end_time = time.time()
@@ -158,7 +158,7 @@ class TestAlgorithmicComplexity:
 
             # Time unique_scan method
             start_time = time.time()
-            result = get_optimal_threshold(
+            get_optimal_threshold(
                 y_true, pred_prob, metric="f1", method="unique_scan"
             )
             end_time = time.time()

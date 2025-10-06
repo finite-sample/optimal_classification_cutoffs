@@ -2,9 +2,10 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs.metrics import METRICS, register_metric, register_metrics
+
 # Local tolerance for test precision
 TOLERANCE = 1e-10
-from optimal_cutoffs.metrics import METRICS, register_metric, register_metrics
 
 
 def test_confusion_matrix_and_metrics():

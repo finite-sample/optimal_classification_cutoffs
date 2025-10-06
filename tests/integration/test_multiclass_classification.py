@@ -245,8 +245,8 @@ class TestMulticlassMetrics:
         assert_valid_metric_score(macro_f1, "macro_f1")
 
         # Compute micro precision and recall for completeness
-        micro_precision = multiclass_metric_ovr(cms, "precision", "micro")
-        micro_recall = multiclass_metric_ovr(cms, "recall", "micro")
+        multiclass_metric_ovr(cms, "precision", "micro")
+        multiclass_metric_ovr(cms, "recall", "micro")
 
         # In OvR, micro_precision ≠ micro_recall since each class has independent
         # binary classifiers, breaking the FP/FN symmetry required for equality.

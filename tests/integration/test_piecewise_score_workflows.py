@@ -44,7 +44,7 @@ class TestScoreBasedWorkflows:
         )
         threshold = result.threshold
         score = result.score
-        k = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
 
         # Should achieve perfect F1 = 1.0
         assert abs(score - 1.0) < 1e-10
@@ -132,7 +132,7 @@ class TestScoreBasedWorkflows:
         )
         threshold = result.threshold
         score = result.score
-        k = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
 
         # Should be valid threshold and score
         assert -1.0 <= threshold <= 2.8
@@ -279,7 +279,7 @@ class TestTieHandlingImprovements:
         )
         threshold = result.threshold
         score = result.score
-        k = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
 
         # Should achieve reasonable performance
         assert score > 0.5  # Better than random
@@ -298,7 +298,7 @@ class TestTieHandlingImprovements:
         )
         threshold = result.threshold
         score = result.score
-        k = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
         end_time = time.time()
 
         duration = end_time - start_time

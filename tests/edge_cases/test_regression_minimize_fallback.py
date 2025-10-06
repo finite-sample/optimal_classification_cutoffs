@@ -290,10 +290,13 @@ class TestMinimizeFallbackRegression:
         true_labels = np.array([0, 1, 0, 1, 0, 1])
         pred_probs = np.array([0.2, 0.4, 0.5, 0.6, 0.7, 0.8])
 
-        # Gradient method should work without errors
-        result_gradient = get_optimal_threshold(
-            true_labels, pred_probs, "f1", method="gradient"
-        )
+        # Gradient method should work without errors (suppress expected warning)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result_gradient = get_optimal_threshold(
+                true_labels, pred_probs, "f1", method="gradient"
+            )
         threshold_gradient = result_gradient.threshold
 
         # Should produce valid threshold

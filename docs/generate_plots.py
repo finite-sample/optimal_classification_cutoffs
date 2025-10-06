@@ -15,7 +15,7 @@ from scipy import optimize
 # Add the parent directory to sys.path to import optimal_cutoffs
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from optimal_cutoffs.metrics import get_confusion_matrix, METRIC_REGISTRY
+from optimal_cutoffs.metrics import METRIC_REGISTRY, get_confusion_matrix
 
 
 def compute_metric_at_threshold(y_true, y_prob, threshold, metric="f1"):

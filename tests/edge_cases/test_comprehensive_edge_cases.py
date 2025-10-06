@@ -49,7 +49,6 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
-from optimal_cutoffs.optimize import find_optimal_threshold
 
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 

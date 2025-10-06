@@ -6,10 +6,8 @@ probabilities, not on realized labels.
 """
 
 import warnings
+
 import numpy as np
-import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
@@ -18,8 +16,6 @@ from tests.fixtures.assertions import (
     assert_valid_metric_score,
     assert_valid_threshold,
 )
-from tests.fixtures.data_generators import generate_calibrated_probabilities
-from tests.fixtures.hypothesis_strategies import beta_bernoulli_calibrated
 
 
 class TestDinkelbachBasic:
@@ -101,7 +97,6 @@ class TestDinkelbachAPI:
         threshold = result.threshold
         assert hasattr(result, "threshold") and hasattr(result, "score")
         threshold_expected = result.threshold
-        expected_f1 = result.score
         # Both should be valid
         assert_valid_threshold(threshold)
         assert_valid_threshold(threshold_expected)
@@ -156,7 +151,6 @@ class TestDinkelbachConvergenceWarnings:
             warnings.simplefilter("always")
             result = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
             threshold = result.threshold
-            score = result.score
             
             # Should not have any warnings for normal convergent cases
             assert len(w) == 0
@@ -173,11 +167,10 @@ class TestDinkelbachConvergenceWarnings:
         ]
         
         for y_prob in edge_cases:
-            with warnings.catch_warnings(record=True) as w:
+            with warnings.catch_warnings(record=True):
                 warnings.simplefilter("always")
                 result = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
                 threshold = result.threshold
-                score = result.score
                 
                 # Edge cases should generally converge without warnings
                 assert_valid_threshold(threshold)

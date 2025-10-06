@@ -8,16 +8,19 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-# Local tolerance for test precision
-TOLERANCE = 1e-10
-from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.metrics import (
+    compute_vectorized_confusion_matrices,
+    get_vectorized_metric,
+)
 from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
     optimal_threshold_sortscan,
 )
-from optimal_cutoffs.metrics import compute_vectorized_confusion_matrices
 from optimal_cutoffs.validation import validate_binary_classification, validate_weights
+
+# Local tolerance for test precision
+TOLERANCE = 1e-10
 
 
 class TestInputValidation:
@@ -299,7 +302,7 @@ class TestOptimalThresholdSortScan:
         result = optimal_threshold_sortscan(
             y_true, pred_prob, get_vectorized_metric("f1")
         )
-        threshold, score, k = result.threshold, result.score, getattr(result, 'k', None)
+        threshold, score, _k = result.threshold, result.score, getattr(result, 'k', None)
 
         # Should achieve perfect F1 = 1.0
         assert abs(score - 1.0) < 1e-10
@@ -314,12 +317,12 @@ class TestOptimalThresholdSortScan:
         result1 = optimal_threshold_sortscan(
             y_true, pred_prob, get_vectorized_metric("f1")
         )
-        threshold1, score1 = result1.threshold, result1.score
+        threshold1, _score1 = result1.threshold, result1.score
 
         result2 = optimal_threshold_sortscan(
             y_true, pred_prob, get_vectorized_metric("f1"), sample_weight=weights
         )
-        threshold2, score2 = result2.threshold, result2.score
+        threshold2, _score2 = result2.threshold, result2.score
 
         # Weighted version might choose different threshold
         # Both should be valid thresholds
@@ -358,7 +361,7 @@ class TestOptimalThresholdSortScan:
         result = optimal_threshold_sortscan(
             [1], [0.7], get_vectorized_metric("f1")
         )
-        threshold, score = result.threshold, result.score
+        threshold, _score = result.threshold, result.score
         assert abs(threshold - 0.7) < 1e-10  # Should be very close to 0.7
         # Note: k attribute may not exist in OptimizationResult
 
@@ -366,7 +369,7 @@ class TestOptimalThresholdSortScan:
         result = optimal_threshold_sortscan(
             [0, 0, 0], [0.1, 0.5, 0.9], get_vectorized_metric("f1")
         )
-        threshold, score = result.threshold, result.score
+        threshold, _score = result.threshold, result.score
         # Fixed: should return proper threshold, not arbitrary 0.5
         assert threshold >= 0.9  # Should be >= max probability to predict all negative
 
@@ -374,7 +377,7 @@ class TestOptimalThresholdSortScan:
         result = optimal_threshold_sortscan(
             [1, 1, 1], [0.1, 0.5, 0.9], get_vectorized_metric("f1")
         )
-        threshold, score = result.threshold, result.score
+        threshold, _score = result.threshold, result.score
         # Fixed: should return proper threshold, not arbitrary 0.5
         assert threshold <= 0.1  # Should be <= min probability to predict all positive
 
@@ -591,7 +594,7 @@ class TestPropertyBasedComparison:
         result_scan = optimal_threshold_sortscan(
             y, p, get_vectorized_metric("f1")
         )
-        t_scan, s_scan = result_scan.threshold, result_scan.score
+        _t_scan, s_scan = result_scan.threshold, result_scan.score
 
         # Test brute force over midpoints
         t_br, s_br = self.brute_force_midpoints(y, p, get_vectorized_metric("f1"))
@@ -621,7 +624,7 @@ class TestPropertyBasedComparison:
         result_scan = optimal_threshold_sortscan(
             y, p, get_vectorized_metric("accuracy")
         )
-        t_scan, s_scan = result_scan.threshold, result_scan.score
+        _t_scan, s_scan = result_scan.threshold, result_scan.score
 
         # Test brute force over midpoints
         t_br, s_br = self.brute_force_midpoints(y, p, get_vectorized_metric("accuracy"))
