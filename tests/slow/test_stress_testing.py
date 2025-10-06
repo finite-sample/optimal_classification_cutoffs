@@ -127,7 +127,7 @@ class TestConcurrentStressTesting:
             y_true, pred_prob = generate_binary_data(n_samples, random_state=seed)
 
             result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
-            score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+            score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
 
             threshold = result.threshold
             assert_valid_threshold(threshold)
@@ -310,7 +310,7 @@ class TestRobustnessUnderAdversarialConditions:
                 threshold = result.threshold
                 assert_valid_threshold(threshold)
 
-                score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+                score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
                 assert_valid_metric_score(score, "f1")
 
             except Exception as e:

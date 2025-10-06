@@ -22,52 +22,14 @@ from scipy import optimize
 
 from .numba_utils import NUMBA_AVAILABLE, jit  # only import what we truly use
 from .types_minimal import OptimizationResult
+from .validation import validate_binary_classification
 
 # ============================================================================
 # Data Validation
 # ============================================================================
 
 
-def validate_binary_data(
-    labels: np.ndarray, scores: np.ndarray, weights: np.ndarray | None = None
-) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """Validate and normalize binary classification data."""
-    labels = np.asarray(labels, dtype=np.int8)
-    scores = np.asarray(scores, dtype=np.float64)
-
-    if labels.ndim != 1 or scores.ndim != 1:
-        raise ValueError("Labels and scores must be 1D")
-    if len(labels) == 0:
-        raise ValueError("Labels cannot be empty")
-    if len(scores) == 0:
-        raise ValueError("Scores cannot be empty")
-    if len(labels) != len(scores):
-        raise ValueError(f"Length mismatch: {len(labels)} vs {len(scores)}")
-    if not np.all((labels == 0) | (labels == 1)):
-        raise ValueError("Labels must be binary (0 or 1)")
-    if not np.all(np.isfinite(scores)):
-        raise ValueError("Scores must be finite")
-
-    if weights is not None:
-        weights = np.asarray(weights, dtype=np.float64)
-        if weights.ndim != 1:
-            raise ValueError("Weights must be 1D")
-        if len(weights) != len(labels):
-            raise ValueError(
-                f"Length mismatch: {len(labels)} labels vs {len(weights)} weights"
-            )
-        if not np.all(np.isfinite(weights)):
-            if np.any(np.isnan(weights)):
-                raise ValueError("Sample weights contains NaN values")
-            if np.any(np.isinf(weights)):
-                raise ValueError("Sample weights contains infinite values")
-            raise ValueError("Sample weights must be finite")
-        if np.any(weights < 0):
-            raise ValueError("Sample weights must be non-negative")
-        if np.sum(weights) == 0:
-            raise ValueError("Sample weights sum to zero")
-
-    return labels, scores, weights
+# Removed validate_binary_data - use validate_binary_classification from validation.py instead
 
 
 # ============================================================================
@@ -667,7 +629,7 @@ def optimize_sort_scan(
     operator: str = ">=",
 ) -> OptimizationResult:
     """Sort-and-scan optimization for piecewise-constant metrics."""
-    labels, scores, weights = validate_binary_data(labels, scores, weights)
+    labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     if metric.lower() in ("f1", "f1_score"):
         threshold, score = sort_scan_kernel(
@@ -741,7 +703,7 @@ def optimize_scipy(
     tol: float = 1e-6,
 ) -> OptimizationResult:
     """Scipy-based optimization for smooth metrics."""
-    labels, scores, weights = validate_binary_data(labels, scores, weights)
+    labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS
 
@@ -797,7 +759,7 @@ def optimize_gradient(
     tol: float = 1e-6,
 ) -> OptimizationResult:
     """Simple gradient ascent optimization (use for smooth metrics)."""
-    labels, scores, weights = validate_binary_data(labels, scores, weights)
+    labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS, is_piecewise_metric
 

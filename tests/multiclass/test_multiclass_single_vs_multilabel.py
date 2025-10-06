@@ -57,6 +57,9 @@ class TestExclusiveVsOvRDistinction:
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
+            # Extract thresholds from result
+            thresholds = result.thresholds
+            
             # Apply exclusive prediction rule: argmax(p - tau)
             scores = probs - thresholds.reshape(1, -1)
             predictions = np.argmax(scores, axis=1)
@@ -90,6 +93,9 @@ class TestExclusiveVsOvRDistinction:
             labels, probs, metric="f1", method="auto", comparison=">"
         )
 
+        # Extract thresholds from result
+        thresholds = result.thresholds
+        
         # Apply per-class thresholds
         predictions = probs > thresholds.reshape(1, -1)
 
@@ -118,9 +124,11 @@ class TestExclusiveVsOvRDistinction:
         )
 
         # Get OvR thresholds (standard approach)
-        result = get_optimal_threshold(
+        result_ovr = get_optimal_threshold(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
+        
+        thresholds_ovr = result_ovr.thresholds
 
         # Apply OvR predictions
         pred_ovr = probs > thresholds_ovr.reshape(1, -1)
@@ -190,9 +198,11 @@ class TestExclusiveVsOvRDistinction:
         labels, probs = _generate_multiclass_data(n_samples=20, n_classes=3)
 
         # Get OvR thresholds
-        result = get_optimal_threshold(
+        result_ovr = get_optimal_threshold(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
+        
+        thresholds_ovr = result_ovr.thresholds
 
         # Apply OvR predictions
         pred_ovr = probs > thresholds_ovr.reshape(1, -1)
@@ -263,10 +273,10 @@ class TestMulticlassAccuracySemantics:
 
         # F1 should work with OvR approach
         try:
-            result = get_optimal_threshold(
+            result_f1 = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
-            thresholds = result.thresholds
+            thresholds_f1 = result_f1.thresholds
             assert len(thresholds_f1) == probs.shape[1]
 
         except Exception as e:
@@ -274,12 +284,12 @@ class TestMulticlassAccuracySemantics:
 
         # Accuracy should require exclusive approach or raise error
         try:
-            result = get_optimal_threshold(
+            result_accuracy = get_optimal_threshold(
                 labels, probs, metric="accuracy", method="auto", comparison=">"
             )
 
             # If it works, it should produce exclusive-style results
-            thresholds = result.thresholds
+            thresholds_accuracy = result_accuracy.thresholds
             assert len(thresholds_accuracy) == probs.shape[1]
 
         except ValueError as e:
@@ -309,6 +319,8 @@ class TestMulticlassAccuracySemantics:
             result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
+            
+            thresholds = result.thresholds
 
             # Apply exclusive prediction rule
             scores = probs - thresholds.reshape(1, -1)
@@ -329,8 +341,7 @@ class TestMulticlassAccuracySemantics:
 
             except (NotImplementedError, ValueError):
                 # If exclusive accuracy not implemented, just verify manual computation
-                threshold = result.threshold
-                assert 0 <= threshold <= 1
+                assert 0 <= manual_accuracy <= 1
 
         except (ValueError, NotImplementedError):
             pytest.skip("Coordinate ascent or exclusive accuracy not available")
@@ -382,6 +393,8 @@ class TestMulticlassEdgeCases:
                 result = get_optimal_threshold(
                     labels, probs, metric="f1", method=method, comparison=">"
                 )
+                
+                thresholds = result.thresholds
 
                 # With perfect separation, should achieve perfect performance
                 pred_classes = np.argmax(probs - thresholds.reshape(1, -1), axis=1)
@@ -439,6 +452,8 @@ class TestMulticlassEdgeCases:
             result = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
+            
+            thresholds = result.thresholds
 
             # Apply exclusive prediction rule
             scores = probs - thresholds.reshape(1, -1)

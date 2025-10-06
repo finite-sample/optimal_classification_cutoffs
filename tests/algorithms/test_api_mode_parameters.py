@@ -45,30 +45,27 @@ class TestModeParameter:
         assert abs(result1.threshold - result_expected.threshold) < 1e-10
 
     def test_mode_expected_f1_only(self):
-        """Test that mode='expected' only works with F1 metric."""
+        """Test that mode='expected' only works with F1/F-beta metrics."""
         y_true = np.array([0, 0, 1, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
-        # Should work with F1 and return a tuple (threshold, f1_score)
+        # Should work with F1 and return an OptimizationResult
         result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        threshold = result1.threshold
-        threshold = result1.threshold
-        threshold = result1.threshold
         assert hasattr(result1, "threshold") and hasattr(result1, "score")
         threshold, f1_score = result1.threshold, result1.score
         assert isinstance(threshold, (float, np.number)) or (isinstance(threshold, np.ndarray) and threshold.size == 1)
         assert isinstance(f1_score, float)
         assert 0 <= threshold <= 1
-        assert 0 <= threshold <= 1
 
-        # Note: mode='expected' now supports other metrics as well
-        # Test that it works with precision too
+        # Should also work with f1 (which is F-beta with beta=1)
         result2 = get_optimal_threshold(
-            y_true, y_prob, metric="precision", mode="expected"
+            y_true, y_prob, metric="f1", mode="expected"
         )
-        threshold = result2.threshold
-        threshold = result2.threshold
         assert hasattr(result2, "threshold") and hasattr(result2, "score")
+        
+        # Should NOT work with non-F-beta metrics
+        with pytest.raises(ValueError, match="mode='expected' currently supports F-beta only"):
+            get_optimal_threshold(y_true, y_prob, metric="precision", mode="expected")
 
     def test_mode_expected_supports_multiclass(self):
         """Test that mode='expected' works with multiclass classification."""
@@ -310,31 +307,26 @@ class TestErrorMessages:
         assert "mode='bayes' requires utility parameter" in str(exc_info.value)
 
     def test_mode_expected_supports_multiple_metrics(self):
-        """Test that mode='expected' supports multiple metrics."""
+        """Test that mode='expected' currently supports F-beta metrics only."""
         y_true = np.array([0, 0, 1, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
-        # Should work with different supported metrics
-        for metric in ["f1", "precision", "jaccard"]:
-            result1 = get_optimal_threshold(
-                y_true, y_prob, metric=metric, mode="expected"
-            )
-            threshold = result1.threshold
-            assert hasattr(result1, "threshold") and hasattr(result1, "score")
-            threshold, f1_score = result1.threshold, result1.score
-            assert 0 <= threshold <= 1
-            assert 0 <= f1_score <= 1
+        # Should work with F1 metric (the only supported F-beta metric currently)
+        result1 = get_optimal_threshold(
+            y_true, y_prob, metric="f1", mode="expected"
+        )
+        threshold = result1.threshold
+        assert hasattr(result1, "threshold") and hasattr(result1, "score")
+        threshold, f1_score = result1.threshold, result1.score
+        assert 0 <= threshold <= 1
+        assert 0 <= f1_score <= 1
 
-        # Test that additional metrics also work (implementation now supports them)
-        for metric in ["accuracy", "recall", "specificity"]:
-            result2 = get_optimal_threshold(
-                y_true, y_prob, metric=metric, mode="expected"
-            )
-            threshold = result2.threshold
-            assert hasattr(result2, "threshold") and hasattr(result2, "score")
-            threshold, score = result2.threshold, result2.score
-            assert 0 <= threshold <= 1
-            assert 0 <= score <= 1
+        # Test that unsupported metrics raise appropriate errors
+        for metric in ["accuracy", "precision", "recall", "specificity", "jaccard"]:
+            with pytest.raises(ValueError, match="mode='expected' currently supports F-beta only"):
+                get_optimal_threshold(
+                    y_true, y_prob, metric=metric, mode="expected"
+                )
 
     def test_mode_expected_multiclass_support(self):
         """Test that mode='expected' supports multiclass classification."""

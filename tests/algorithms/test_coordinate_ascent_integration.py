@@ -59,7 +59,7 @@ class TestCoordinateAscentCore:
         # Class 2: TP=1, FP=0, FN=1 -> F1 = 2*1/(2*1+0+1) = 2/3 ≈ 0.667
         # Macro-F1 = (0.5 + 0.4 + 0.667) / 3 ≈ 0.522
 
-        assert 0.52 <= threshold <= 0.53
+        assert 0.52 <= macro_f1 <= 0.53
 
     def test_coord_ascent_monotone_macro_f1(self):
         """Test that coordinate ascent produces monotone increasing macro-F1."""
@@ -73,7 +73,7 @@ class TestCoordinateAscentCore:
         P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         tau, best_macro, history = coordinate_ascent_kernel(
-            y_true_int32, P_float64, max_iter=10, tol=1e-12
+            y_true_int32, P_float64, weights=None, max_iter=10, tol=1e-12
         )
 
         # Check monotone ascent in history
@@ -84,7 +84,7 @@ class TestCoordinateAscentCore:
 
         # Verify final result
         assert len(tau) == C
-        assert 0.0 <= result1.threshold <= 1.0
+        assert 0.0 <= best_macro <= 1.0
         assert best_macro == history[-1]
 
     def test_coord_ascent_vs_ovr_baseline(self):
@@ -95,9 +95,10 @@ class TestCoordinateAscentCore:
         y_true = rng.integers(0, C, size=n)
 
         # Compare coordinate ascent to OvR baseline
-        tau0 = get_optimal_multiclass_thresholds(
+        result0 = get_optimal_multiclass_thresholds(
             y_true, P, metric="f1", method="unique_scan"
         )
+        tau0 = result0.thresholds
 
         y_pred0 = _assign_labels_shifted(P, tau0)
         macro0 = float(
@@ -112,7 +113,7 @@ class TestCoordinateAscentCore:
 
         # Coordinate ascent
         tau, best_macro, _ = coordinate_ascent_kernel(
-            y_true_int32, P_float64, max_iter=10, tol=1e-12
+            y_true_int32, P_float64, weights=None, max_iter=10, tol=1e-12
         )
 
         # Coordinate ascent should be >= OvR baseline
@@ -129,11 +130,11 @@ class TestCoordinateAscentCore:
         P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
         tau, best_macro, history = coordinate_ascent_kernel(
-            y_true_int32, P_float64, max_iter=5, tol=1e-12
+            y_true_int32, P_float64, weights=None, max_iter=5, tol=1e-12
         )
 
         assert len(tau) == 2
-        assert 0.0 <= result1.threshold <= 1.0
+        assert all(not np.isnan(t) and not np.isinf(t) for t in tau)  # Check for valid values
         assert len(history) >= 1
 
     def test_coord_ascent_initialization_strategies(self):
@@ -150,16 +151,17 @@ class TestCoordinateAscentCore:
         # Test with different tolerances (replacing init strategies)
         for tol in [1e-10, 1e-12]:
             tau, best_macro, _ = coordinate_ascent_kernel(
-                y_true_int32, P_float64, max_iter=5, tol=tol
+                y_true_int32, P_float64, weights=None, max_iter=5, tol=tol
             )
             assert len(tau) == C
-            assert 0.0 <= result1.threshold <= 1.0
+            assert 0.0 <= best_macro <= 1.0
 
         # Test invalid tolerance (replacing init validation)
         with pytest.raises((ValueError, TypeError)):
             coordinate_ascent_kernel(
                 y_true_int32,
                 P_float64,
+                weights=None,
                 max_iter=5,
                 tol="invalid_tol",  # Should be numeric
             )
@@ -176,9 +178,10 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Test through main API
-        tau = get_optimal_multiclass_thresholds(
+        result = get_optimal_multiclass_thresholds(
             y_true, P, metric="f1", method="coord_ascent"
         )
+        tau = result.thresholds
 
         assert len(tau) == C
         assert all(isinstance(t, (float, np.floating)) for t in tau)
@@ -190,20 +193,20 @@ class TestCoordinateAscentIntegration:
         P = rng.dirichlet(alpha=np.ones(C), size=n)
         y_true = rng.integers(0, C, size=n)
 
-        # Sample weights not supported
-        with pytest.raises(NotImplementedError, match="sample weights"):
-            get_optimal_multiclass_thresholds(
-                y_true, P, metric="f1", method="coord_ascent", sample_weight=np.ones(n)
-            )
+        # Sample weights are now supported - test that it works
+        result = get_optimal_multiclass_thresholds(
+            y_true, P, metric="f1", method="coord_ascent", sample_weight=np.ones(n)
+        )
+        assert len(result.thresholds) == C
 
         # Only '>' comparison supported
-        with pytest.raises(NotImplementedError, match="comparison"):
+        with pytest.raises(NotImplementedError, match="'>' is required"):
             get_optimal_multiclass_thresholds(
                 y_true, P, metric="f1", method="coord_ascent", comparison=">="
             )
 
         # Only F1 metric supported currently
-        with pytest.raises(NotImplementedError, match="only supports 'f1' metric"):
+        with pytest.raises(NotImplementedError, match="supports 'f1' metric only"):
             get_optimal_multiclass_thresholds(
                 y_true, P, metric="accuracy", method="coord_ascent"
             )
@@ -216,9 +219,10 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Test through direct API instead of removed wrapper
-        thresholds = get_optimal_multiclass_thresholds(
+        result = get_optimal_multiclass_thresholds(
             y_true, P, metric="f1", method="coord_ascent"
         )
+        thresholds = result.thresholds
 
         # Check that thresholds were learned
         assert isinstance(thresholds, np.ndarray)
@@ -259,9 +263,10 @@ class TestCoordinateAscentPerformance:
             P[i] /= P[i].sum()  # Renormalize
 
         # Compare OvR vs coordinate ascent
-        tau_ovr = get_optimal_multiclass_thresholds(
+        result_ovr = get_optimal_multiclass_thresholds(
             y_true, P, metric="f1", method="unique_scan"
         )
+        tau_ovr = result_ovr.thresholds
         y_pred_ovr = _assign_labels_shifted(P, tau_ovr)
         macro_f1_ovr = float(
             compute_multiclass_metrics_from_labels(
@@ -269,9 +274,10 @@ class TestCoordinateAscentPerformance:
             )
         )
 
-        tau_coord = get_optimal_multiclass_thresholds(
+        result_coord = get_optimal_multiclass_thresholds(
             y_true, P, metric="f1", method="coord_ascent"
         )
+        tau_coord = result_coord.thresholds
         y_pred_coord = _assign_labels_shifted(P, tau_coord)
         macro_f1_coord = float(
             compute_multiclass_metrics_from_labels(
@@ -301,10 +307,10 @@ class TestCoordinateAscentPerformance:
             P_float64 = np.asarray(P, dtype=np.float64, order="C")
 
             tau, best_macro, history = coordinate_ascent_kernel(
-                y_true_int32, P_float64, max_iter=20, tol=tol
+                y_true_int32, P_float64, weights=None, max_iter=20, tol=tol
             )
 
             # Should terminate before max_iter due to convergence
             assert len(history) <= 20
             assert len(tau) == C
-            assert 0.0 <= result1.threshold <= 1.0
+            assert 0.0 <= best_macro <= 1.0

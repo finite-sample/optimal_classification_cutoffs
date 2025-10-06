@@ -133,21 +133,23 @@ class TestSampleWeights:
         weights = np.array([2, 3, 1, 2])  # Integer weights for exact expansion
 
         # Weighted approach
-        result = get_optimal_threshold(
+        result_weighted = get_optimal_threshold(
             y_true, y_prob, metric="accuracy", sample_weight=weights
         )
+        threshold_weighted = result_weighted.threshold
 
         # Expansion approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(y_prob, weights)
-        result = get_optimal_threshold(
+        result_expanded = get_optimal_threshold(
             y_expanded, p_expanded, metric="accuracy"
         )
+        threshold_expanded = result_expanded.threshold
 
         # Should be nearly identical
         assert_method_consistency(
-            threshold,
-            threshold,
+            threshold_weighted,
+            threshold_expanded,
             "weighted",
             "expanded",
             tolerance=1e-10,
@@ -243,9 +245,10 @@ class TestComparisonOperators:
 
         thresholds = {}
         for comparison in [">", ">="]:
-            thresholds[comparison] = get_optimal_threshold(
+            result = get_optimal_threshold(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
+            thresholds[comparison] = result.threshold
             assert_valid_threshold(thresholds[comparison])
 
         # Thresholds might be different due to tie handling
@@ -451,6 +454,7 @@ class TestBinaryEdgeCaseIntegration:
         # Should achieve perfect or near-perfect performance
         for metric in ["f1", "accuracy", "precision", "recall"]:
             result = get_optimal_threshold(y_true, y_prob, metric=metric)
+            threshold = result.threshold
 
             tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
 

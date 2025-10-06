@@ -9,8 +9,8 @@ import warnings
 import numpy as np
 import pytest
 
+from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.metrics import compute_metric_at_threshold
-from optimal_cutoffs.optimize import find_optimal_threshold
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
     assert_valid_threshold,
@@ -27,15 +27,17 @@ class TestFallbackTieHandling:
         p_tied = np.array([0.5, 0.5, 0.5, 0.5])
 
         # Should not crash and return a valid threshold
-        threshold, _ = find_optimal_threshold(
-            y_true, p_tied, metric="f1", strategy="sort_scan", operator=">="
+        result = get_optimal_threshold(
+            y_true, p_tied, metric="f1", method="sort_scan", comparison=">="
         )
+        threshold = result.threshold
         assert_valid_threshold(threshold)
 
         # Test with main function too
-        threshold_main, _ = find_optimal_threshold(
-            y_true, p_tied, metric="f1", strategy="sort_scan", operator=">="
+        result_main = get_optimal_threshold(
+            y_true, p_tied, metric="f1", method="sort_scan", comparison=">="
         )
+        threshold_main = result_main.threshold
         assert_valid_threshold(threshold_main)
 
     def test_ties_with_exclusive_semantics(self):
@@ -43,9 +45,10 @@ class TestFallbackTieHandling:
         y_true = np.array([1, 0, 1, 0])
         p_tied = np.array([0.5, 0.5, 0.5, 0.5])
 
-        threshold, _ = find_optimal_threshold(
-            y_true, p_tied, metric="f1", strategy="sort_scan", operator=">"
+        result = get_optimal_threshold(
+            y_true, p_tied, metric="f1", method="sort_scan", comparison=">"
         )
+        threshold = result.threshold
         assert_valid_threshold(threshold)
 
         # Should get valid metric score
@@ -64,7 +67,9 @@ class TestDegenerateCaseFallbacks:
         y_true = np.array([1, 1, 1, 1])
         y_prob = np.array([0.2, 0.5, 0.7, 0.9])
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
 
@@ -72,7 +77,9 @@ class TestDegenerateCaseFallbacks:
         y_true = np.array([0, 0, 0, 0])
         y_prob = np.array([0.1, 0.3, 0.6, 0.8])
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         # F1 should be 0 for all-negative case
         assert score == pytest.approx(0.0, abs=1e-10)
@@ -84,7 +91,9 @@ class TestDegenerateCaseFallbacks:
         y_true = np.concatenate([np.zeros(99), np.ones(1)])
         y_prob = np.random.uniform(0, 1, 100)
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
 
@@ -97,7 +106,9 @@ class TestNumericalStabilityFallbacks:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([1e-15, 1e-14, 1e-13, 1e-12])
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
 
@@ -106,7 +117,9 @@ class TestNumericalStabilityFallbacks:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([1 - 1e-15, 1 - 1e-14, 1 - 1e-13, 1 - 1e-12])
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
 
@@ -116,7 +129,9 @@ class TestNumericalStabilityFallbacks:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([0.5, 0.5 + eps, 0.5 + 2 * eps, 0.5 + 3 * eps])
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
 
@@ -129,18 +144,20 @@ class TestOptimizationMethodFallbacks:
         y_true = np.array([0, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.9, 0.2, 0.8, 0.3, 0.7])
 
-        # Test that different strategies all work
-        strategies = ["sort_scan", "grid_search"]
+        # Test that different methods all work
+        methods = ["sort_scan", "unique_scan"]
 
-        for strategy in strategies:
+        for method in methods:
             try:
-                threshold, score = find_optimal_threshold(
-                    y_true, y_prob, metric="f1", strategy=strategy
+                result = get_optimal_threshold(
+                    y_true, y_prob, metric="f1", method=method
                 )
+                threshold = result.threshold
+                score = result.score
                 assert_valid_threshold(threshold)
                 assert_valid_metric_score(score, "f1")
             except (ValueError, NotImplementedError):
-                # Some strategies might not be implemented
+                # Some methods might not be implemented
                 continue
 
     def test_metric_specific_fallbacks(self):
@@ -152,7 +169,9 @@ class TestOptimizationMethodFallbacks:
         metrics = ["f1", "precision", "recall", "accuracy"]
 
         for metric in metrics:
-            threshold, score = find_optimal_threshold(y_true, y_prob, metric=metric)
+            result = get_optimal_threshold(y_true, y_prob, metric=metric)
+            threshold = result.threshold
+            score = result.score
             assert_valid_threshold(threshold)
             assert_valid_metric_score(score, metric, allow_nan=True)
 
@@ -169,7 +188,9 @@ class TestWarningSuppressionInFallbacks:
         # Should complete without unhandled warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # Suppress expected warnings
-            threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+            result = get_optimal_threshold(y_true, y_prob, metric="f1")
+            threshold = result.threshold
+            score = result.score
 
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
@@ -182,7 +203,9 @@ class TestWarningSuppressionInFallbacks:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+            result = get_optimal_threshold(y_true, y_prob, metric="f1")
+            threshold = result.threshold
+            score = result.score
 
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
@@ -201,7 +224,9 @@ class TestRobustnessUnderAdversarialConditions:
         y_true[0] = 0
         y_true[1] = 1
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
 
@@ -213,7 +238,9 @@ class TestRobustnessUnderAdversarialConditions:
             [0.4999999, 0.5000000, 0.5000001, 0.5000002, 0.5000003, 0.5000004]
         )
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")
 
@@ -232,6 +259,8 @@ class TestRobustnessUnderAdversarialConditions:
         y_true[0] = 0
         y_true[1] = 1
 
-        threshold, score = find_optimal_threshold(y_true, y_prob, metric="f1")
+        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        threshold = result.threshold
+        score = result.score
         assert_valid_threshold(threshold)
         assert_valid_metric_score(score, "f1")

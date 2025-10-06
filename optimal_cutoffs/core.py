@@ -94,6 +94,10 @@ def get_optimal_threshold(
         Per-class weights for weighted averaging in expected mode.
     average : {"macro", "micro", "weighted", "none"}, default="macro"
         Averaging strategy for multiclass metrics.
+    tolerance : float, default=1e-10
+        Numerical tolerance for floating-point comparisons in optimization
+        algorithms. Affects boundary conditions and tie-breaking in sort-scan
+        and scipy optimization methods.
 
     Returns
     -------
@@ -321,7 +325,7 @@ def _optimize_expected(
     if not is_multiclass:
         if P.ndim == 2 and P.shape[1] == 1:
             P = P.ravel()
-        result = dinkelbach_expected_fbeta_binary(P, beta=beta, sample_weight=sw, comparison=comparison, tol=tolerance)
+        result = dinkelbach_expected_fbeta_binary(P, beta=beta, sample_weight=sw, comparison=comparison)
         thr, score = result.threshold, result.score
 
         def predict_binary(probs: ArrayLike) -> np.ndarray:
@@ -352,12 +356,12 @@ def _optimize_expected(
         average=avg,
         true_labels=(None if true_labs is None else np.asarray(true_labs, dtype=int)),
         comparison=comparison,
-        tol=tolerance,
     )
 
-    if "threshold" in out:  # micro averaging
-        thr = float(out["threshold"])
-        score = float(out["score"])
+    # Check if this is micro averaging (single threshold) or macro/weighted (per-class thresholds)
+    if out.thresholds.size == 1:  # micro averaging
+        thr = float(out.thresholds[0])
+        score = float(out.scores[0])
 
         def predict_micro(probs: ArrayLike) -> np.ndarray:
             q = np.asarray(probs, dtype=np.float64).ravel()
@@ -372,8 +376,8 @@ def _optimize_expected(
         )
 
     # macro / weighted
-    thrs = np.asarray(out["thresholds"], dtype=np.float64)
-    score = float(out["score"])
+    thrs = np.asarray(out.thresholds, dtype=np.float64)
+    score = float(out.scores[0]) if out.scores.size == 1 else float(np.mean(out.scores))
 
     def predict_perclass(probs: ArrayLike) -> np.ndarray:
         q = np.asarray(probs, dtype=np.float64)

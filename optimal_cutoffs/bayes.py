@@ -95,6 +95,8 @@ class BayesOptimal:
         """Check if this is a binary problem."""
         if isinstance(self.utility, UtilitySpec):
             return True
+        if self.utility is None:
+            raise ValueError("mode='bayes' requires utility parameter")
         return self.utility.shape == (2, 2)
 
     @cached_property
@@ -500,8 +502,6 @@ def bayes_thresholds_from_costs(
 # ============================================================================
 # Integration with Optimization Pipeline
 # ============================================================================
-
-
 
 
 def optimize_bayes_thresholds(

@@ -45,20 +45,20 @@ class TestMulticlassAveragingSemantics:
         """Test that average='none' returns array of per-class scores."""
         result = multiclass_metric_ovr(self.cms, "f1", average="none")
 
-        assert isinstance(result_union, np.ndarray)
-        assert len(result_union) == 3  # Number of classes
-        assert result_union.dtype == np.float64
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 3  # Number of classes
+        assert result.dtype == np.float64
 
         # Each score should be between 0 and 1
-        assert all(0 <= score <= 1 for score in result_union)
+        assert all(0 <= score <= 1 for score in result)
 
     def test_macro_micro_weighted_return_float(self):
         """Test that other averaging strategies return float."""
         for average in ["macro", "micro", "weighted"]:
             result = multiclass_metric_ovr(self.cms, "f1", average=average)
 
-            assert isinstance(result_union, (float, np.floating))
-            assert 0 <= result_union.threshold <= 1
+            assert isinstance(result, (float, np.floating))
+            assert 0 <= result <= 1
 
     def test_macro_averaging_identity(self):
         """Test macro averaging identity: macro = mean(per_class_scores)."""
@@ -114,13 +114,13 @@ class TestMulticlassAveragingSemantics:
 
     def test_all_metrics_support_all_averages(self):
         """Test that all registered metrics support all averaging strategies."""
-        from optimal_cutoffs import METRIC_REGISTRY
+        from optimal_cutoffs.metrics import METRICS
 
         metrics_to_test = ["f1", "precision", "recall", "accuracy"]
         averages = ["macro", "micro", "weighted", "none"]
 
         for metric_name in metrics_to_test:
-            assert metric_name in METRIC_REGISTRY
+            assert metric_name in METRICS
 
             for average in averages:
                 # Special handling for micro accuracy which now correctly raises error
@@ -133,10 +133,10 @@ class TestMulticlassAveragingSemantics:
                     result = multiclass_metric_ovr(self.cms, metric_name, average=average)
 
                     if average == "none":
-                        assert isinstance(result_union, np.ndarray)
-                        assert len(result_union) == 3
+                        assert isinstance(result, np.ndarray)
+                        assert len(result) == 3
                     else:
-                        assert isinstance(result_union, (float, np.floating))
+                        assert isinstance(result, (float, np.floating))
 
     def test_invalid_average_raises_error(self):
         """Test that invalid average parameter raises appropriate error."""
@@ -179,21 +179,20 @@ class TestMulticlassOptimizationAveraging:
 
         for method in methods:
             # Get thresholds for different averaging strategies
-            result = get_optimal_threshold(
+            result_macro = get_optimal_threshold(
                 self.true_labs, self.pred_prob, "f1", method, average="macro"
             )
-            result = get_optimal_threshold(
+            result_micro = get_optimal_threshold(
                 self.true_labs, self.pred_prob, "f1", method, average="micro"
             )
 
             # Results should be valid thresholds
-            thresholds = result.thresholds
-            assert isinstance(result_union.thresholds, np.ndarray)
-            assert isinstance(result_union.thresholds, np.ndarray)
-            assert len(result_union.thresholds) == 3
-            assert len(result_union.thresholds) == 3
-            assert all(0 <= t <= 1 for t in result_union.thresholds)
-            assert all(0 <= t <= 1 for t in result_union.thresholds)
+            assert isinstance(result_macro.thresholds, np.ndarray)
+            assert isinstance(result_micro.thresholds, np.ndarray)
+            assert len(result_macro.thresholds) == 3
+            assert len(result_micro.thresholds) == 3
+            assert all(0 <= t <= 1 for t in result_macro.thresholds)
+            assert all(0 <= t <= 1 for t in result_micro.thresholds)
 
     def test_macro_none_weighted_equivalent(self):
         """Test that macro, none, and weighted give same results when classes balanced."""
@@ -210,13 +209,13 @@ class TestMulticlassOptimizationAveraging:
         )
 
         # Get thresholds (should be identical for balanced data)
-        result = get_optimal_threshold(
+        result_macro = get_optimal_threshold(
             true_labs_balanced, pred_prob_balanced, "f1", "unique_scan", average="macro"
         )
-        result = get_optimal_threshold(
+        result_none = get_optimal_threshold(
             true_labs_balanced, pred_prob_balanced, "f1", "unique_scan", average="none"
         )
-        result = get_optimal_threshold(
+        result_weighted = get_optimal_threshold(
             true_labs_balanced,
             pred_prob_balanced,
             "f1",
@@ -225,9 +224,8 @@ class TestMulticlassOptimizationAveraging:
         )
 
         # For balanced data, macro and weighted should be identical
-        thresholds = result.thresholds
-        np.testing.assert_array_almost_equal(result_union.thresholds, result_union.thresholds)
-        np.testing.assert_array_almost_equal(result_union.thresholds, result_union.thresholds)
+        np.testing.assert_array_almost_equal(result_macro.thresholds, result_weighted.thresholds)
+        np.testing.assert_array_almost_equal(result_macro.thresholds, result_none.thresholds)
 
     def test_standard_optimization_works(self):
         """Test that standard optimization produces valid results."""
@@ -240,10 +238,9 @@ class TestMulticlassOptimizationAveraging:
         )
 
         # Should produce valid thresholds
-        thresholds = result.thresholds
-        assert isinstance(result_union.thresholds, np.ndarray)
-        assert len(result_union.thresholds) == 3
-        assert all(0 <= t <= 1 for t in result_union.thresholds)
+        assert isinstance(result.thresholds, np.ndarray)
+        assert len(result.thresholds) == 3
+        assert all(0 <= t <= 1 for t in result.thresholds)
 
     def test_different_averaging_strategies_documented(self):
         """Test that all averaging strategies are properly documented and work."""
@@ -254,40 +251,37 @@ class TestMulticlassOptimizationAveraging:
                 self.true_labs, self.pred_prob, "f1", "unique_scan", average=average
             )
 
-            thresholds = result.thresholds
-            assert isinstance(result_union.thresholds, np.ndarray)
-            assert len(result_union.thresholds) == 3
-            assert all(0 <= t <= 1 for t in result_union.thresholds)
+            assert isinstance(result.thresholds, np.ndarray)
+            assert len(result.thresholds) == 3
+            assert all(0 <= t <= 1 for t in result.thresholds)
 
     def test_backward_compatibility(self):
         """Test that default behavior is unchanged."""
         # Default should be macro averaging
-        result = get_optimal_threshold(
+        result_default = get_optimal_threshold(
             self.true_labs, self.pred_prob, "f1"
         )
-        result = get_optimal_threshold(
+        result_explicit = get_optimal_threshold(
             self.true_labs, self.pred_prob, "f1", average="macro"
         )
 
-        thresholds = result.thresholds
-        np.testing.assert_array_equal(result_union.thresholds, result_union.thresholds)
+        np.testing.assert_array_equal(result_default.thresholds, result_explicit.thresholds)
 
     def test_micro_optimization_different_from_macro(self):
         """Test that micro optimization can produce different results from macro."""
         # For some datasets, micro and macro optimization should differ
-        result = get_optimal_threshold(
+        result_macro = get_optimal_threshold(
             self.true_labs, self.pred_prob, "f1", "minimize", average="macro"
         )
-        result = get_optimal_threshold(
+        result_micro = get_optimal_threshold(
             self.true_labs, self.pred_prob, "f1", "minimize", average="micro"
         )
 
         # Both should be valid
-        thresholds = result.thresholds
-        assert isinstance(result_union.thresholds, np.ndarray)
-        assert isinstance(result_union.thresholds, np.ndarray)
-        assert len(result_union.thresholds) == 3
-        assert len(result_union.thresholds) == 3
+        assert isinstance(result_macro.thresholds, np.ndarray)
+        assert isinstance(result_micro.thresholds, np.ndarray)
+        assert len(result_macro.thresholds) == 3
+        assert len(result_micro.thresholds) == 3
 
 
 class TestPerformanceImprovements:
@@ -305,10 +299,9 @@ class TestPerformanceImprovements:
             true_labs, pred_prob, "f1", "unique_scan", average="macro"
         )
 
-        thresholds = result.thresholds
-        assert isinstance(result_union.thresholds, np.ndarray)
-        assert len(result_union.thresholds) == 3
-        assert all(0 <= t <= 1 for t in result_union.thresholds)
+        assert isinstance(result.thresholds, np.ndarray)
+        assert len(result.thresholds) == 3
+        assert all(0 <= t <= 1 for t in result.thresholds)
 
     def test_large_dataset_performance(self):
         """Test performance improvements on larger datasets."""
@@ -326,10 +319,9 @@ class TestPerformanceImprovements:
             true_labs, pred_prob, "f1", "unique_scan", average="macro"
         )
 
-        thresholds = result.thresholds
-        assert isinstance(result_union.thresholds, np.ndarray)
-        assert len(thresholds) == n_classes
-        assert all(0 <= t <= 1 for t in result_union.thresholds)
+        assert isinstance(result.thresholds, np.ndarray)
+        assert len(result.thresholds) == n_classes
+        assert all(0 <= t <= 1 for t in result.thresholds)
 
 
 if __name__ == "__main__":

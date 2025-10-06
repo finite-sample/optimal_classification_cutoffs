@@ -284,6 +284,7 @@ class TestBinarySearchEfficiency:
                 method="unique_scan",
                 comparison=comparison,
             )
+            threshold = result.threshold
 
             # Verify correctness by checking confusion matrix
             tp, tn, fp, fn = get_confusion_matrix(
@@ -291,9 +292,8 @@ class TestBinarySearchEfficiency:
             )
             f1 = f1_score(tp, tn, fp, fn)
 
-            threshold = result.threshold
             assert 0 <= threshold <= 1
-            assert 0 <= threshold <= 1
+            assert 0 <= f1 <= 1
             assert tp + tn + fp + fn == len(y_true)
 
     def test_binary_search_with_weights(self):
@@ -310,6 +310,7 @@ class TestBinarySearchEfficiency:
             method="unique_scan",
             sample_weight=sample_weight,
         )
+        threshold = result.threshold
 
         # Verify weighted confusion matrix
         tp, tn, fp, fn = get_confusion_matrix(
@@ -465,8 +466,8 @@ class TestExclusivePredictionRule:
         argmax_acc = np.mean(argmax_preds == y_true)
 
         # They can be different (not asserting inequality since it's probabilistic)
-        assert 0 <= threshold <= 1
-        assert 0 <= threshold <= 1
+        assert 0 <= exclusive_acc <= 1
+        assert 0 <= argmax_acc <= 1
         print(
             f"Exclusive accuracy: {exclusive_acc:.3f}, Argmax accuracy: {argmax_acc:.3f}"
         )
@@ -496,34 +497,35 @@ class TestPropertyBased:
         weights = np.random.randint(1, 4, n_samples)  # Weights 1, 2, or 3
 
         # Weighted approach
-        result = get_optimal_threshold(
+        result_weighted = get_optimal_threshold(
             y_true,
             pred_prob,
             metric="accuracy",
             method="unique_scan",
             sample_weight=weights,
         )
+        threshold_weighted = result_weighted.threshold
 
         # Expanded approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(pred_prob, weights)
-        result = get_optimal_threshold(
+        result_expanded = get_optimal_threshold(
             y_expanded, p_expanded, metric="accuracy", method="unique_scan"
         )
+        threshold_expanded = result_expanded.threshold
 
         # Should be exactly equal or very close (allowing only tiny eps for tie semantics)
-        threshold = result.threshold
-        assert abs(threshold - threshold) < 1e-10, (
-            f"Weighted ({threshold:.10f}) and expanded ({threshold:.10f}) "
+        assert abs(threshold_weighted - threshold_expanded) < 1e-10, (
+            f"Weighted ({threshold_weighted:.10f}) and expanded ({threshold_expanded:.10f}) "
             f"approaches should be nearly identical (integer weight expansion)"
         )
 
         # Also verify scores are identical
         tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(
-            y_true, pred_prob, threshold, weights
+            y_true, pred_prob, threshold_weighted, weights
         )
         tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(
-            y_expanded, p_expanded, threshold
+            y_expanded, p_expanded, threshold_expanded
         )
 
         acc_weighted = accuracy_score(tp_w, tn_w, fp_w, fn_w)
@@ -553,12 +555,15 @@ class TestPropertyBased:
         y_true = np.random.randint(0, 2, n_samples)
 
         # Get thresholds for both comparison operators
-        result = get_optimal_threshold(
+        result_excl = get_optimal_threshold(
             y_true, pred_prob, metric="f1", comparison=">"
         )
-        result = get_optimal_threshold(
+        thresh_excl = result_excl.threshold
+        
+        result_incl = get_optimal_threshold(
             y_true, pred_prob, metric="f1", comparison=">="
         )
+        thresh_incl = result_incl.threshold
 
         # Apply thresholds
 
@@ -570,9 +575,8 @@ class TestPropertyBased:
             pass  # Just verify no crashes occur
 
         # Both should produce valid results
-        threshold = result.threshold
-        assert 0 <= threshold <= 1
-        assert 0 <= threshold <= 1
+        assert 0 <= thresh_excl <= 1
+        assert 0 <= thresh_incl <= 1
 
     @given(
         n_classes=st.integers(min_value=2, max_value=5),
@@ -665,20 +669,20 @@ class TestRegressionPrevention:
                 y_true, pred_prob, mode="expected", metric="f1", comparison=comparison
             )
 
-            # Extract threshold from tuple
-            threshold, expected_f1 = result.threshold, result.score
+            # Extract threshold from result
+            threshold = result.threshold
+            expected_f1 = result.score
 
             # Should be reasonable threshold
-            threshold = result.threshold
             assert 0 <= threshold <= 1
-            assert 0 <= threshold <= 1
+            assert 0 <= expected_f1 <= 1
 
             # Should produce reasonable F1
             tp, tn, fp, fn = get_confusion_matrix(
                 y_true, pred_prob, threshold, comparison=comparison
             )
             f1 = f1_score(tp, tn, fp, fn)
-            assert 0 <= threshold <= 1
+            assert 0 <= f1 <= 1
 
             # For well-calibrated data, F1 should be decent
             assert f1 > 0.3, f"F1 score {f1:.3f} seems too low for calibrated data"

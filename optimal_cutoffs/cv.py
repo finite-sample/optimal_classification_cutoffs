@@ -356,11 +356,12 @@ def _evaluate_threshold_on_fold(
 
     if pred_prob.ndim == 1:
         # scalar threshold required
-        t = (
-            float(thr)
-            if not isinstance(thr, dict)
-            else float(thr.get("threshold", thr))
-        )
+        if isinstance(thr, dict):
+            t = float(thr.get("threshold", thr))
+        else:
+            # Handle both scalar and array cases
+            thr_array = np.asarray(thr)
+            t = float(thr_array.item()) if thr_array.ndim == 0 else float(thr_array.flat[0])
         tp, tn, fp, fn = get_confusion_matrix(
             y_true, pred_prob, t, sample_weight=sw, comparison=comparison
         )

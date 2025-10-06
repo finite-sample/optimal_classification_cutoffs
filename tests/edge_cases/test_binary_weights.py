@@ -77,7 +77,7 @@ class TestWeightedEqualsExpanded:
         w = rng.choice([0.5, 1.0, 1.5, 2.0, 2.5, 3.0], size=n)
 
         # Weighted optimization
-        threshold_weighted = get_optimal_threshold(
+        result_weighted = get_optimal_threshold(
             y,
             p,
             metric="f1",
@@ -85,10 +85,11 @@ class TestWeightedEqualsExpanded:
             comparison=comparison,
             sample_weight=w,
         )
+        threshold_weighted = result_weighted.threshold
 
         # Expanded dataset optimization
         y_expanded, p_expanded = expand_by_rational_weights(y, p, w)
-        threshold_expanded = get_optimal_threshold(
+        result_expanded = get_optimal_threshold(
             y_expanded,
             p_expanded,
             metric="f1",
@@ -96,6 +97,7 @@ class TestWeightedEqualsExpanded:
             comparison=comparison,
             sample_weight=None,
         )
+        threshold_expanded = result_expanded.threshold
 
         # Decisions must match on original items
         pred_weighted = (
@@ -146,7 +148,7 @@ class TestWeightedEqualsExpanded:
         # Use rational weights for exact expansion
         w = rng.choice([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0], size=n)
 
-        threshold_weighted = get_optimal_threshold(
+        result_weighted = get_optimal_threshold(
             y,
             p,
             metric="accuracy",
@@ -154,9 +156,10 @@ class TestWeightedEqualsExpanded:
             comparison=comparison,
             sample_weight=w,
         )
+        threshold_weighted = result_weighted.threshold
 
         y_expanded, p_expanded = expand_by_rational_weights(y, p, w)
-        threshold_expanded = get_optimal_threshold(
+        result_expanded = get_optimal_threshold(
             y_expanded,
             p_expanded,
             metric="accuracy",
@@ -164,6 +167,7 @@ class TestWeightedEqualsExpanded:
             comparison=comparison,
             sample_weight=None,
         )
+        threshold_expanded = result_expanded.threshold
 
         # Verify decisions match
         pred_weighted = (
@@ -188,6 +192,7 @@ class TestWeightedEqualsExpanded:
         result = get_optimal_threshold(
             y, p, metric="f1", method="sort_scan", sample_weight=w
         )
+        threshold = result.threshold
 
         # Verify confusion matrix preserves fractional values
         tp, tn, fp, fn = get_confusion_matrix(y, p, threshold, w)
@@ -237,7 +242,7 @@ class TestWeightScaleInvariance:
         w_scaled = w_orig * scale_factor
 
         # Both should give same threshold (decisions)
-        threshold_orig = get_optimal_threshold(
+        result_orig = get_optimal_threshold(
             y,
             p,
             metric="f1",
@@ -245,8 +250,9 @@ class TestWeightScaleInvariance:
             comparison=comparison,
             sample_weight=w_orig,
         )
+        threshold_orig = result_orig.threshold
 
-        threshold_scaled = get_optimal_threshold(
+        result_scaled = get_optimal_threshold(
             y,
             p,
             metric="f1",
@@ -254,6 +260,7 @@ class TestWeightScaleInvariance:
             comparison=comparison,
             sample_weight=w_scaled,
         )
+        threshold_scaled = result_scaled.threshold
 
         # Decisions should be identical
         pred_orig = (p > threshold_orig) if comparison == ">" else (p >= threshold_orig)
@@ -277,13 +284,15 @@ class TestWeightScaleInvariance:
         for scale in [0.1, 0.5, 2.0, 5.0, 10.0]:
             w_scaled = w_orig * scale
 
-            threshold_orig = get_optimal_threshold(
+            result_orig = get_optimal_threshold(
                 y, p, metric="accuracy", method="sort_scan", sample_weight=w_orig
             )
+            threshold_orig = result_orig.threshold
 
-            threshold_scaled = get_optimal_threshold(
+            result_scaled = get_optimal_threshold(
                 y, p, metric="accuracy", method="sort_scan", sample_weight=w_scaled
             )
+            threshold_scaled = result_scaled.threshold
 
             pred_orig = p > threshold_orig
             pred_scaled = p > threshold_scaled
@@ -333,13 +342,15 @@ class TestWeightEdgeCases:
         for weight_val in [0.5, 1.0, 2.0, 5.0]:
             w_uniform = np.full(n, weight_val)
 
-            threshold_weighted = get_optimal_threshold(
+            result_weighted = get_optimal_threshold(
                 y, p, metric="f1", method="sort_scan", sample_weight=w_uniform
             )
+            threshold_weighted = result_weighted.threshold
 
-            threshold_unweighted = get_optimal_threshold(
+            result_unweighted = get_optimal_threshold(
                 y, p, metric="f1", method="sort_scan", sample_weight=None
             )
+            threshold_unweighted = result_unweighted.threshold
 
             # Decisions should be identical
             pred_weighted = p > threshold_weighted
@@ -358,6 +369,7 @@ class TestWeightEdgeCases:
         result = get_optimal_threshold(
             y, p, metric="accuracy", method="sort_scan", sample_weight=w
         )
+        threshold = result.threshold
 
         # Should optimize for the single weighted sample (y[1]=1, p[1]=0.7)
         # For accuracy, optimal is to predict this sample correctly
@@ -385,7 +397,7 @@ class TestWeightMethodConsistency:
             y[0] = 0
 
         try:
-            threshold_scan = get_optimal_threshold(
+            result_scan = get_optimal_threshold(
                 y,
                 p,
                 metric="f1",
@@ -393,8 +405,9 @@ class TestWeightMethodConsistency:
                 comparison=comparison,
                 sample_weight=w,
             )
+            threshold_scan = result_scan.threshold
 
-            threshold_brute = get_optimal_threshold(
+            result_brute = get_optimal_threshold(
                 y,
                 p,
                 metric="f1",
@@ -402,6 +415,7 @@ class TestWeightMethodConsistency:
                 comparison=comparison,
                 sample_weight=w,
             )
+            threshold_brute = result_brute.threshold
 
             # Decisions should match (allowing small threshold differences due to different
             # threshold selection strategies)
@@ -435,15 +449,17 @@ class TestWeightMethodConsistency:
 
         # Equal weights
         w_equal = np.ones(5)
-        threshold_equal = get_optimal_threshold(
+        result_equal = get_optimal_threshold(
             y, p, metric="accuracy", sample_weight=w_equal
         )
+        threshold_equal = result_equal.threshold
 
         # Weight the correct predictions more heavily
         w_biased = np.array([2.0, 2.0, 2.0, 2.0, 1.0])  # Weight first 4 samples more
-        threshold_biased = get_optimal_threshold(
+        result_biased = get_optimal_threshold(
             y, p, metric="accuracy", sample_weight=w_biased
         )
+        threshold_biased = result_biased.threshold
 
         # Apply thresholds
         pred_equal = p > threshold_equal

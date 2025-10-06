@@ -8,7 +8,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.core import TOLERANCE
+# Local tolerance for test precision
+TOLERANCE = 1e-10
 from optimal_cutoffs.metrics import get_vectorized_metric
 from optimal_cutoffs.optimize import find_optimal_threshold
 from optimal_cutoffs.piecewise import (

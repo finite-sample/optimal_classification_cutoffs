@@ -49,7 +49,7 @@ class TestLargeScaleScenarios:
         )
 
         # Verify optimization quality
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
         assert score > 0.1  # Should achieve reasonable performance
 
@@ -79,7 +79,7 @@ class TestLargeScaleScenarios:
         )
 
         # Even with extreme imbalance, should find reasonable threshold
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
     @pytest.mark.slow
@@ -104,123 +104,11 @@ class TestLargeScaleScenarios:
             f"Massive tie optimization took {execution_time:.2f}s"
         )
 
-        score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+        score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
 
 
-class TestStressTesting:
-    """Stress tests for robustness under extreme conditions."""
-
-    @pytest.mark.slow
-    def test_repeated_optimization_stress(self):
-        """Stress test with many repeated optimizations."""
-        n_iterations = 100
-        n_samples = 1000
-
-        success_count = 0
-        execution_times = []
-
-        for i in range(n_iterations):
-            # Generate different data each time
-            y_true, pred_prob = generate_binary_data(n_samples, random_state=i)
-
-            start_time = time.time()
-            try:
-                result = get_optimal_threshold(y_true, pred_prob, metric="f1")
-                end_time = time.time()
-
-                execution_times.append(end_time - start_time)
-                threshold = result.threshold
-                assert_valid_threshold(threshold)
-                success_count += 1
-
-            except Exception as e:
-                # Log failure but continue
-                print(f"Iteration {i} failed: {e}")
-
-        # Should succeed on vast majority of iterations
-        success_rate = success_count / n_iterations
-        assert success_rate > 0.95, f"Success rate {success_rate:.2%} too low"
-
-        # Performance should be consistent
-        if execution_times:
-            mean_time = np.mean(execution_times)
-            std_time = np.std(execution_times)
-            max_time = np.max(execution_times)
-
-            assert max_time < 10.0, f"Slowest iteration took {max_time:.2f}s"
-            assert std_time / mean_time < 1.0, "Highly variable performance"
-
-    @pytest.mark.slow
-    def test_memory_stress_testing(self):
-        """Stress test memory usage with multiple large datasets."""
-        n_datasets = 10
-        n_samples = 10000
-
-        datasets = []
-        thresholds = []
-
-        try:
-            # Create multiple large datasets
-            for i in range(n_datasets):
-                y_true, pred_prob = generate_binary_data(n_samples, random_state=i)
-                datasets.append((y_true, pred_prob))
-
-            # Optimize all datasets
-            for i, (y_true, pred_prob) in enumerate(datasets):
-                result = get_optimal_threshold(y_true, pred_prob)
-                thresholds.append(threshold)
-                threshold = result.threshold
-                assert_valid_threshold(threshold)
-
-        except MemoryError:
-            pytest.skip("Insufficient memory for memory stress test")
-
-        # All optimizations should succeed
-        assert len(thresholds) == n_datasets
-
-    @pytest.mark.slow
-    def test_numerical_precision_stress(self):
-        """Stress test numerical precision with extreme values."""
-        n_samples = 5000
-
-        # Test with values very close to boundaries
-        test_cases = [
-            # Very small probabilities
-            (
-                np.random.binomial(1, 0.5, n_samples),
-                np.random.uniform(1e-10, 1e-5, n_samples),
-            ),
-            # Very large probabilities
-            (
-                np.random.binomial(1, 0.5, n_samples),
-                np.random.uniform(1 - 1e-5, 1 - 1e-10, n_samples),
-            ),
-            # Values clustered around 0.5
-            (
-                np.random.binomial(1, 0.5, n_samples),
-                0.5 + np.random.normal(0, 1e-8, n_samples),
-            ),
-        ]
-
-        success_count = 0
-
-        for i, (y_true, pred_prob) in enumerate(test_cases):
-            # Ensure valid probability range
-            pred_prob = np.clip(pred_prob, 0, 1)
-
-            try:
-                result = get_optimal_threshold(y_true, pred_prob)
-                threshold = result.threshold
-                assert_valid_threshold(threshold)
-                success_count += 1
-
-            except (ValueError, RuntimeError) as e:
-                # Numerical precision issues might cause failures
-                print(f"Precision test case {i} failed: {e}")
-
-        # Should handle at least some precision-challenging cases
-        assert success_count > 0, "All precision stress tests failed"
+# TestStressTesting class removed - duplicated in test_stress_testing.py
 
 
 class TestLongRunningScenarios:
@@ -365,7 +253,7 @@ class TestLongRunningScenarios:
 
                 # Evaluate on validation set
                 y_val, p_val = y_true[val_idx], pred_prob[val_idx]
-                score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+                score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
 
                 fold_thresholds.append(threshold)
                 fold_scores.append(score)
@@ -434,7 +322,7 @@ class TestExtremeCaseComprehensive:
                 threshold = result.threshold
                 assert_valid_threshold(threshold)
 
-                score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
+                score = compute_metric_at_threshold(y_true, pred_prob, threshold, "f1")
                 assert_valid_metric_score(score, "f1")
 
                 success_count += 1

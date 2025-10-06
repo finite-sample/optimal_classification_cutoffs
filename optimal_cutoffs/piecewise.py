@@ -119,6 +119,9 @@ def optimal_threshold_sortscan(
     require_proba : bool, default=True
         Validate inputs in [0, 1]. Threshold may be nudged by ±1 ULP outside [0,1]
         to exactly realize inclusivity/exclusivity in boundary/tie cases.
+    tolerance : float, default=1e-10
+        Numerical tolerance for floating-point comparisons when computing
+        threshold midpoints and handling ties between scores.
 
     Returns
     -------

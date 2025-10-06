@@ -91,19 +91,22 @@ def test_optimal_threshold_with_sample_weights():
     # Equal weights should give same result as no weights
     equal_weights = np.ones(len(true_labs))
 
-    threshold_no_weights = get_optimal_threshold(true_labs, pred_prob, "f1")
-    threshold_equal_weights = get_optimal_threshold(
+    result_no_weights = get_optimal_threshold(true_labs, pred_prob, "f1")
+    result_equal_weights = get_optimal_threshold(
         true_labs, pred_prob, "f1", sample_weight=equal_weights
     )
+    threshold_no_weights = result_no_weights.threshold
+    threshold_equal_weights = result_equal_weights.threshold
 
     assert np.isclose(threshold_no_weights, threshold_equal_weights, rtol=1e-10)
 
     # Different weights should potentially give different result
     # Weight the positive class more heavily
     heavy_positive_weights = np.array([1.0, 1.0, 1.0, 5.0, 5.0, 5.0])
-    threshold_weighted = get_optimal_threshold(
+    result_weighted = get_optimal_threshold(
         true_labs, pred_prob, "f1", sample_weight=heavy_positive_weights
     )
+    threshold_weighted = result_weighted.threshold
 
     # Should be a valid threshold
     assert 0 <= threshold_weighted <= 1
@@ -126,9 +129,10 @@ def test_multiclass_optimal_thresholds_with_sample_weights():
 
     sample_weight = np.array([1.0, 2.0, 1.5, 0.5, 2.0, 1.0])
 
-    thresholds = get_optimal_multiclass_thresholds(
+    result = get_optimal_multiclass_thresholds(
         true_labs, pred_prob, metric="f1", sample_weight=sample_weight
     )
+    thresholds = result.thresholds
 
     assert len(thresholds) == 3
     assert all(0 <= t <= 1 for t in thresholds)
