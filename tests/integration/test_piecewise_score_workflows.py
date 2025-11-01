@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pytest
 
-from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.metrics import get_metric_function
 from optimal_cutoffs.piecewise import (
     _compute_threshold_midpoint,
     optimal_threshold_sortscan,
@@ -27,7 +27,7 @@ class TestScoreBasedWorkflows:
 
         # Should work with require_proba=False
         y, s, _ = validate_binary_classification(
-            y_true, scores, require_proba=False, force_dtypes=True
+            y_true, scores, require_proba=False
         )
         assert y.dtype == np.int8
         assert s.dtype == np.float64
@@ -40,7 +40,7 @@ class TestScoreBasedWorkflows:
         scores = [-1.5, 0.2, 1.1, 2.8]  # Logits
 
         result = optimal_threshold_sortscan(
-            y_true, scores, get_vectorized_metric("f1"), require_proba=False
+            y_true, scores, "f1", require_proba=False
         )
         threshold = result.threshold
         score = result.score
@@ -57,7 +57,7 @@ class TestScoreBasedWorkflows:
         scores = [-5.0, 10.0]  # Extreme scores
 
         result = optimal_threshold_sortscan(
-            y_true, scores, get_vectorized_metric("f1"), require_proba=False
+            y_true, scores, "f1", require_proba=False
         )
         threshold = result.threshold
 
@@ -91,7 +91,7 @@ class TestScoreBasedWorkflows:
         scores = [-2.5]
 
         result = optimal_threshold_sortscan(
-            y_true, scores, get_vectorized_metric("f1"), require_proba=False
+            y_true, scores, "f1", require_proba=False
         )
         threshold = result.threshold
         score = result.score
@@ -107,7 +107,7 @@ class TestScoreBasedWorkflows:
         scores = [1.1, 2.5, 3.9]
 
         result = optimal_threshold_sortscan(
-            y_true, scores, get_vectorized_metric("f1"), require_proba=False
+            y_true, scores, "f1", require_proba=False
         )
         threshold = result.threshold
         score = result.score
@@ -126,7 +126,7 @@ class TestScoreBasedWorkflows:
         result = optimal_threshold_sortscan(
             y_true,
             scores,
-            get_vectorized_metric("f1"),
+            "f1",
             sample_weight=weights,
             require_proba=False,
         )
@@ -149,7 +149,7 @@ class TestNewVectorizedMetrics:
         fp = np.array([1, 0, 2])
         fn = np.array([0, 1, 0])
 
-        iou_vectorized = get_vectorized_metric("iou")
+        iou_vectorized = get_metric_function("iou")
         iou_scores = iou_vectorized(tp, tn, fp, fn)
 
         # Case 0: IoU = 2/(2+1+0) = 2/3
@@ -168,7 +168,7 @@ class TestNewVectorizedMetrics:
         fp = np.array([0])
         fn = np.array([0])
 
-        iou_vectorized = get_vectorized_metric("iou")
+        iou_vectorized = get_metric_function("iou")
         iou_scores = iou_vectorized(tp, tn, fp, fn)
 
         # IoU = 0/(0+0+0) = 0.0 (handled by np.where)
@@ -181,7 +181,7 @@ class TestNewVectorizedMetrics:
         fp = np.array([1, 2, 1])
         fn = np.array([0, 1, 2])
 
-        specificity_vectorized = get_vectorized_metric("specificity")
+        specificity_vectorized = get_metric_function("specificity")
         spec_scores = specificity_vectorized(tp, tn, fp, fn)
 
         # Case 0: Specificity = 3/(3+1) = 3/4 = 0.75
@@ -200,7 +200,7 @@ class TestNewVectorizedMetrics:
         fp = np.array([0])
         fn = np.array([1])
 
-        specificity_vectorized = get_vectorized_metric("specificity")
+        specificity_vectorized = get_metric_function("specificity")
         spec_scores = specificity_vectorized(tp, tn, fp, fn)
 
         # Specificity = 0/(0+0) = 0.0 (handled by np.where)
@@ -208,13 +208,13 @@ class TestNewVectorizedMetrics:
 
     def test_get_vectorized_metric_new_metrics(self):
         """Test that new metrics are available through the registry."""
-        iou_func = get_vectorized_metric("iou")
+        iou_func = get_metric_function("iou")
         assert callable(iou_func)
 
-        jaccard_func = get_vectorized_metric("jaccard")
+        jaccard_func = get_metric_function("jaccard")
         assert callable(jaccard_func)  # Should be alias
 
-        spec_func = get_vectorized_metric("specificity")
+        spec_func = get_metric_function("specificity")
         assert callable(spec_func)
 
     def test_optimization_with_new_metrics(self):
@@ -224,14 +224,14 @@ class TestNewVectorizedMetrics:
 
         # Test IoU optimization
         result_iou = optimal_threshold_sortscan(
-            y_true, pred_prob, get_vectorized_metric("iou")
+            y_true, pred_prob, "iou"
         )
         threshold_iou = result_iou.threshold
         score_iou = result_iou.score
 
         # Test specificity optimization
         result_spec = optimal_threshold_sortscan(
-            y_true, pred_prob, get_vectorized_metric("specificity")
+            y_true, pred_prob, "specificity"
         )
         threshold_spec = result_spec.threshold
         score_spec = result_spec.score
@@ -255,7 +255,7 @@ class TestTieHandlingImprovements:
         results = []
         for _ in range(5):
             result = optimal_threshold_sortscan(
-                y_true, pred_prob, get_vectorized_metric("f1")
+                y_true, pred_prob, "f1"
             )
             threshold = result.threshold
             score = result.score
@@ -275,7 +275,7 @@ class TestTieHandlingImprovements:
         pred_prob = [0.2, 0.5, 0.5, 0.5, 0.8]  # Ties at decision boundary
 
         result = optimal_threshold_sortscan(
-            y_true, pred_prob, get_vectorized_metric("f1")
+            y_true, pred_prob, "f1"
         )
         threshold = result.threshold
         score = result.score
@@ -294,7 +294,7 @@ class TestTieHandlingImprovements:
 
         start_time = time.time()
         result = optimal_threshold_sortscan(
-            y_true, pred_prob, get_vectorized_metric("f1")
+            y_true, pred_prob, "f1"
         )
         threshold = result.threshold
         score = result.score

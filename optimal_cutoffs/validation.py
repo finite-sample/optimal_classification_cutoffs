@@ -139,9 +139,9 @@ def validate_probabilities(
     # Check for NaN/inf
     if not np.all(np.isfinite(arr)):
         if np.any(np.isnan(arr)):
-            raise ValueError("Probabilities contain NaN values")
+            raise ValueError("Probabilities contains NaN values")
         if np.any(np.isinf(arr)):
-            raise ValueError("Probabilities contain infinite values")
+            raise ValueError("Probabilities contains infinite values")
         raise ValueError("Probabilities must be finite")
 
     # Check shape
@@ -437,9 +437,9 @@ def infer_problem_type(predictions: ArrayLike) -> str:
     if arr.ndim == 1:
         return "binary"
     elif arr.ndim == 2:
-        # (n, 2) is binary: [P(class=0), P(class=1)]
-        # (n, k) where k > 2 is multiclass
-        return "binary" if arr.shape[1] == 2 else "multiclass"
+        # All 2D arrays are treated as multiclass
+        # (n, k) where k >= 2 is multiclass (OvR threshold optimization)
+        return "multiclass"
     else:
         raise ValueError(
             f"Cannot infer problem type from shape {arr.shape}. "
@@ -531,7 +531,7 @@ def validate_inputs(
     # Try to infer problem type
     pred_arr = np.asarray(predictions)
     
-    if pred_arr.ndim == 1 or (pred_arr.ndim == 2 and pred_arr.shape[1] == 2):
+    if pred_arr.ndim == 1:
         # Binary case
         return validate_binary_classification(
             labels, predictions, weights, require_proba=require_proba

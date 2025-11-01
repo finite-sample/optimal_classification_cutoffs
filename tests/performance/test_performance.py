@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import get_vectorized_metric
+from optimal_cutoffs.metrics import get_metric_function
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 
 
@@ -33,7 +33,7 @@ class TestAlgorithmicComplexity:
 
         # Get vectorized metric
         try:
-            f1_vectorized = get_vectorized_metric("f1")
+            f1_vectorized = get_metric_function("f1")
         except (KeyError, AttributeError, ValueError):
             pytest.skip("Vectorized F1 metric not available")
 
@@ -80,7 +80,7 @@ class TestAlgorithmicComplexity:
             try:
                 if method == "sort_scan":
                     # Direct sort_scan call
-                    f1_vectorized = get_vectorized_metric("f1")
+                    f1_vectorized = get_metric_function("f1")
                     result = optimal_threshold_sortscan(y_true, pred_prob, f1_vectorized)
                     threshold = result.threshold
                 else:

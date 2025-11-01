@@ -525,10 +525,28 @@ def optimize_bayes_thresholds(
     OptimizationResult
         Unified optimization result with thresholds, scores, and predict function
     """
-    # Validate inputs
-    labels, predictions, weights, problem_type = validate_classification(
-        labels, predictions, weights
-    )
+    # Validate inputs - for Bayes optimization, labels can be None
+    if labels is None:
+        # For Bayes mode, only validate predictions and infer problem type
+        from .validation import infer_problem_type, validate_probabilities
+        problem_type = infer_problem_type(predictions)
+        
+        if problem_type == "binary":
+            predictions = validate_probabilities(predictions, binary=True, require_proba=True)
+        else:
+            predictions = validate_probabilities(predictions, binary=False, require_proba=True)
+            
+        # Handle sample weights
+        if weights is not None:
+            weights = np.asarray(weights, dtype=np.float64)
+            if len(weights) != len(predictions):
+                raise ValueError("Sample weights must match number of predictions")
+        
+        labels = None  # Keep labels as None for Bayes mode
+    else:
+        labels, predictions, weights, problem_type = validate_classification(
+            labels, predictions, weights
+        )
 
     # Convert utility if needed
     if isinstance(utility, dict):

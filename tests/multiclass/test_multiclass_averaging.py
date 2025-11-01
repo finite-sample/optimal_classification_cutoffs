@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    get_multiclass_confusion_matrix,
     get_optimal_threshold,  # Use unified function instead of multiclass-specific
+    multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
 )
 
@@ -37,7 +37,7 @@ class TestMulticlassAveragingSemantics:
         self.thresholds = np.array([0.5, 0.5, 0.5])
 
         # Compute confusion matrices
-        self.cms = get_multiclass_confusion_matrix(
+        self.cms = multiclass_confusion_matrices_at_thresholds(
             self.true_labs, self.pred_prob, self.thresholds
         )
 

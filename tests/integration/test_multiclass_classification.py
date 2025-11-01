@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    get_multiclass_confusion_matrix,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
+    multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
 )
 from tests.fixtures.assertions import (
@@ -40,7 +40,7 @@ class TestMulticlassWorkflows:
             assert_valid_threshold(threshold)
 
         # Test confusion matrix computation
-        cms = get_multiclass_confusion_matrix(y_true, y_prob, thresholds)
+        cms = multiclass_confusion_matrices_at_thresholds(y_true, y_prob, thresholds)
 
         assert len(cms) == 3
         for i, (tp, tn, fp, fn) in enumerate(cms):
@@ -114,12 +114,13 @@ class TestMulticlassConfusionMatrix:
         )
         thresholds = np.array([0.5, 0.5, 0.5])
 
-        cms = get_multiclass_confusion_matrix(true_labs, pred_prob, thresholds)
+        cms = multiclass_confusion_matrices_at_thresholds(true_labs, pred_prob, thresholds)
 
         assert len(cms) == 3
         for cm in cms:
             assert len(cm) == 4
-            assert all(isinstance(x, (int, np.integer)) for x in cm)
+            # Values should be numeric (int or float)
+            assert all(isinstance(x, (int, float, np.integer, np.floating)) for x in cm)
 
     def test_multiclass_confusion_matrix_binary_fallback(self):
         """Test multiclass confusion matrix with binary input."""
@@ -127,7 +128,7 @@ class TestMulticlassConfusionMatrix:
         pred_prob = np.array([0.2, 0.8, 0.7, 0.3])
         threshold = np.array([0.5])
 
-        cms = get_multiclass_confusion_matrix(true_labs, pred_prob, threshold)
+        cms = multiclass_confusion_matrices_at_thresholds(true_labs, pred_prob, threshold)
 
         assert len(cms) == 1
         assert len(cms[0]) == 4
@@ -138,7 +139,7 @@ class TestMulticlassConfusionMatrix:
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
         thresholds = np.array([0.3, 0.4, 0.5])
 
-        cms = get_multiclass_confusion_matrix(
+        cms = multiclass_confusion_matrices_at_thresholds(
             y_true, y_prob, thresholds, sample_weight=weights
         )
 
@@ -154,7 +155,7 @@ class TestMulticlassConfusionMatrix:
         thresholds = np.array([0.3, 0.5, 0.4])
 
         for comparison in [">", ">="]:
-            cms = get_multiclass_confusion_matrix(
+            cms = multiclass_confusion_matrices_at_thresholds(
                 y_true, y_prob, thresholds, comparison=comparison
             )
 

@@ -642,7 +642,7 @@ def _generic_sort_scan(
 
     from .metrics import METRICS
 
-    metric_fn = METRICS[metric].scalar_fn
+    metric_fn = METRICS[metric].fn
 
     order = np.argsort(scores)  # ascending
     sorted_scores = scores[order]
@@ -680,8 +680,9 @@ def optimize_scipy(
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS
-
-    metric_fn = METRICS[metric].scalar_fn
+    
+    # All metric functions now available through registry
+    metric_fn = METRICS[metric].fn
 
     def objective(threshold: float) -> float:
         preds = (scores >= threshold) if operator == ">=" else (scores > threshold)
@@ -736,8 +737,9 @@ def optimize_gradient(
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS, is_piecewise_metric
-
-    metric_fn = METRICS[metric].scalar_fn
+    
+    # All metric functions now available through registry
+    metric_fn = METRICS[metric].fn
 
     if is_piecewise_metric(metric):
         warnings.warn(

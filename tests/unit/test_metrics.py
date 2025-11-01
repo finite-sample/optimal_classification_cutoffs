@@ -32,7 +32,7 @@ def test_metric_registry_and_custom_registration():
     def sum_tp_tn(tp, tn, fp, fn):
         return tp + tn
 
-    assert METRICS["sum_tp_tn"].scalar_fn(1, 1, 0, 0) == 2
+    assert METRICS["sum_tp_tn"].fn(1, 1, 0, 0) == 2
 
     def tpr(tp, tn, fp, fn):
         return tp / (tp + fn) if tp + fn > 0 else 0.0

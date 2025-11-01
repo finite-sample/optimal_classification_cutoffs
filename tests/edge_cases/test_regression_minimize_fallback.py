@@ -360,9 +360,9 @@ class TestFallbackEdgeCases:
         assert 0 <= threshold <= 1
 
         # Should produce valid confusion matrix
-        from optimal_cutoffs import get_confusion_matrix
+        from optimal_cutoffs import confusion_matrix_at_threshold
 
-        tp, tn, fp, fn = get_confusion_matrix(true_labels, pred_probs, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(true_labels, pred_probs, threshold)
         assert tp + tn + fp + fn == len(true_labels)
 
     def test_fallback_performance_characteristics(self):

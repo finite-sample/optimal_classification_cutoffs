@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -24,46 +24,38 @@ from .validation import (
 class MetricInfo:
     """Complete information about a metric."""
 
-    scalar_fn: Callable[[float, float, float, float], float]
-    vectorized_fn: (
-        Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray] | None
-    ) = None
+    fn: Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]
     is_piecewise: bool = True
     maximize: bool = True
     needs_proba: bool = False
 
 
-# Unified metrics registry
+# Metrics registry
 METRICS: dict[str, MetricInfo] = {}
 
 
 def register_metric(
     name: str | None = None,
-    func: Callable[[float, float, float, float], float] | None = None,
-    vectorized_func: Callable[
-        [np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray
-    ]
-    | None = None,
+    func: Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float] | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
 ) -> (
-    Callable[[float, float, float, float], float]
+    Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]
     | Callable[
-        [Callable[[float, float, float, float], float]],
-        Callable[[float, float, float, float], float],
+        [Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]],
+        Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float],
     ]
 ):
-    """Register a metric function with optional vectorized version.
+    """Register a metric function.
 
     Parameters
     ----------
     name : str, optional
         Key under which to store the metric. If not provided, uses function's __name__.
     func : callable, optional
-        Metric callable accepting (tp, tn, fp, fn) scalars and returning a float.
-    vectorized_func : callable, optional
-        Vectorized version accepting arrays. Used for O(n log n) optimization.
+        Metric callable accepting (tp, tn, fp, fn) as scalars or arrays.
+        Handles both scalar and array inputs via NumPy broadcasting.
     is_piecewise : bool, default=True
         Whether metric is piecewise-constant w.r.t. threshold changes.
     maximize : bool, default=True
@@ -79,8 +71,7 @@ def register_metric(
     if func is not None:
         metric_name = name or func.__name__
         METRICS[metric_name] = MetricInfo(
-            scalar_fn=func,
-            vectorized_fn=vectorized_func,
+            fn=func,
             is_piecewise=is_piecewise,
             maximize=maximize,
             needs_proba=needs_proba,
@@ -90,12 +81,11 @@ def register_metric(
         return func
 
     def decorator(
-        f: Callable[[float, float, float, float], float],
-    ) -> Callable[[float, float, float, float], float]:
+        f: Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float],
+    ) -> Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]:
         metric_name = name or f.__name__
         METRICS[metric_name] = MetricInfo(
-            scalar_fn=f,
-            vectorized_fn=vectorized_func,
+            fn=f,
             is_piecewise=is_piecewise,
             maximize=maximize,
             needs_proba=needs_proba,
@@ -132,11 +122,7 @@ def register_alias(alias_name: str, target_name: str) -> None:
 
 
 def register_metrics(
-    metrics: dict[str, Callable[[float, float, float, float], float]],
-    vectorized_metrics: dict[
-        str, Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]
-    ]
-    | None = None,
+    metrics: dict[str, Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]],
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
@@ -146,9 +132,7 @@ def register_metrics(
     Parameters
     ----------
     metrics : dict
-        Mapping of metric names to scalar functions.
-    vectorized_metrics : dict, optional
-        Mapping of metric names to vectorized implementations.
+        Mapping of metric names to functions that handle both scalars and arrays.
     is_piecewise : bool, default=True
         Whether metrics are piecewise-constant.
     maximize : bool, default=True
@@ -156,11 +140,9 @@ def register_metrics(
     needs_proba : bool, default=False
         Whether metrics require probability scores.
     """
-    for name, scalar_fn in metrics.items():
-        vectorized_fn = vectorized_metrics.get(name) if vectorized_metrics else None
+    for name, metric_fn in metrics.items():
         METRICS[name] = MetricInfo(
-            scalar_fn=scalar_fn,
-            vectorized_fn=vectorized_fn,
+            fn=metric_fn,
             is_piecewise=is_piecewise,
             maximize=maximize,
             needs_proba=needs_proba,
@@ -170,7 +152,7 @@ def register_metrics(
 
 @lru_cache(maxsize=128)
 def get_metric_function(
-    metric_name: str, vectorized: bool = False
+    metric_name: str
 ) -> Callable[..., Any]:
     """Get metric function with caching for hot paths.
 
@@ -178,18 +160,16 @@ def get_metric_function(
     ----------
     metric_name : str
         Name of the metric.
-    vectorized : bool, default=False
-        If True, return vectorized version.
 
     Returns
     -------
     callable
-        The requested metric function.
+        The metric function that handles both scalar and array inputs.
 
     Raises
     ------
     ValueError
-        If metric doesn't exist or vectorized version not available.
+        If metric doesn't exist.
     """
     if metric_name not in METRICS:
         available = sorted(METRICS.keys())
@@ -200,37 +180,30 @@ def get_metric_function(
         )
 
     info = METRICS[metric_name]
-
-    if vectorized:
-        if info.vectorized_fn is None:
-            raise ValueError(
-                f"Vectorized implementation not available for '{metric_name}'"
-            )
-        return info.vectorized_fn
-
-    return info.scalar_fn
+    return info.fn
 
 
 def is_piecewise_metric(metric_name: str) -> bool:
     """Check if a metric is piecewise-constant."""
-    return METRICS.get(metric_name, MetricInfo(lambda *_: 0.0)).is_piecewise
+    return METRICS.get(metric_name, MetricInfo(fn=lambda *_: 0.0)).is_piecewise
 
 
 def should_maximize_metric(metric_name: str) -> bool:
     """Check if a metric should be maximized."""
-    return METRICS.get(metric_name, MetricInfo(lambda *_: 0.0)).maximize
+    return METRICS.get(metric_name, MetricInfo(fn=lambda *_: 0.0)).maximize
 
 
 def needs_probability_scores(metric_name: str) -> bool:
     """Check if a metric needs probability scores."""
-    return METRICS.get(metric_name, MetricInfo(lambda *_: 0.0)).needs_proba
+    return METRICS.get(metric_name, MetricInfo(fn=lambda *_: 0.0)).needs_proba
 
 
 def has_vectorized_implementation(metric_name: str) -> bool:
-    """Check if a metric has a vectorized implementation."""
-    if metric_name not in METRICS:
-        return False
-    return METRICS[metric_name].vectorized_fn is not None
+    """Check if a metric has a vectorized implementation.
+    
+    Note: Always returns True since all metrics handle both scalar and array inputs.
+    """
+    return metric_name in METRICS
 
 
 # ============================================================================
@@ -272,90 +245,72 @@ def _safe_div(
         return result if np.isfinite(result) else 0.0
 
 
-def _scalarize(
-    vectorized_func: Callable[..., np.ndarray],
-) -> Callable[..., float]:
-    """Convert a vectorized metric function to a scalar version."""
-
-    def scalar_wrapper(
-        tp: int | float, tn: int | float, fp: int | float, fn: int | float
-    ) -> float:
-        tp_arr = np.array([tp], dtype=float)
-        tn_arr = np.array([tn], dtype=float)
-        fp_arr = np.array([fp], dtype=float)
-        fn_arr = np.array([fn], dtype=float)
-
-        result_arr = vectorized_func(tp_arr, tn_arr, fp_arr, fn_arr)
-        return float(result_arr[0])
-
-    return scalar_wrapper
 
 
 # ============================================================================
-# Vectorized Metric Implementations
+# Metric Implementations (Handle Both Scalars and Arrays)
 # ============================================================================
 
 
-def _f1_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
-    """Vectorized F1 score: 2*TP / (2*TP + FP + FN)."""
-    return cast(np.ndarray, _safe_div(2 * tp, 2 * tp + fp + fn))
 
 
-def _accuracy_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
-    """Vectorized accuracy: (TP + TN) / (TP + TN + FP + FN)."""
-    return cast(np.ndarray, _safe_div(tp + tn, tp + tn + fp + fn))
+def f1_score(
+    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+) -> np.ndarray | float:
+    """F1 score: 2*TP / (2*TP + FP + FN).
+    
+    Automatically handles both scalar and array inputs via NumPy broadcasting.
+    """
+    return _safe_div(2 * tp, 2 * tp + fp + fn)
 
 
-def _precision_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
-    """Vectorized precision: TP / (TP + FP)."""
-    return cast(np.ndarray, _safe_div(tp, tp + fp))
 
 
-def _recall_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
-    """Vectorized recall: TP / (TP + FN)."""
-    return cast(np.ndarray, _safe_div(tp, tp + fn))
 
 
-def _iou_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
-    """Vectorized IoU/Jaccard: TP / (TP + FP + FN)."""
-    return cast(np.ndarray, _safe_div(tp, tp + fp + fn))
 
 
-def _specificity_vectorized(
-    tp: np.ndarray, tn: np.ndarray, fp: np.ndarray, fn: np.ndarray
-) -> np.ndarray:
-    """Vectorized specificity: TN / (TN + FP)."""
-    return cast(np.ndarray, _safe_div(tn, tn + fp))
 
 
-# Scalar metric functions derived from vectorized implementations
-f1_score = _scalarize(_f1_vectorized)
-f1_score.__doc__ = "F1 score (harmonic mean of precision and recall)."
 
-accuracy_score = _scalarize(_accuracy_vectorized)
-accuracy_score.__doc__ = "Classification accuracy."
 
-precision_score = _scalarize(_precision_vectorized)
-precision_score.__doc__ = "Precision (positive predictive value)."
 
-recall_score = _scalarize(_recall_vectorized)
-recall_score.__doc__ = "Recall (sensitivity, true positive rate)."
 
-jaccard_score = _scalarize(_iou_vectorized)
-jaccard_score.__doc__ = "Jaccard index (IoU score)."
+def accuracy_score(
+    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+) -> np.ndarray | float:
+    """Accuracy: (TP + TN) / (TP + TN + FP + FN)."""
+    return _safe_div(tp + tn, tp + tn + fp + fn)
 
-specificity_score = _scalarize(_specificity_vectorized)
-specificity_score.__doc__ = "Specificity (true negative rate)."
+
+def precision_score(
+    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+) -> np.ndarray | float:
+    """Precision: TP / (TP + FP)."""
+    return _safe_div(tp, tp + fp)
+
+
+def recall_score(
+    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+) -> np.ndarray | float:
+    """Recall: TP / (TP + FN)."""
+    return _safe_div(tp, tp + fn)
+
+
+def iou_score(
+    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+) -> np.ndarray | float:
+    """IoU/Jaccard: TP / (TP + FP + FN)."""
+    return _safe_div(tp, tp + fp + fn)
+
+
+def specificity_score(
+    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+) -> np.ndarray | float:
+    """Specificity: TN / (TN + FP)."""
+    return _safe_div(tn, tn + fp)
+
+
 
 
 # ============================================================================
@@ -665,7 +620,7 @@ def compute_metric_at_threshold(
         true_labels, pred_proba, threshold, sample_weight, comparison
     )
 
-    metric_func = get_metric_function(metric, vectorized=False)
+    metric_func = get_metric_function(metric)
     return float(metric_func(tp, tn, fp, fn))
 
 
@@ -722,7 +677,7 @@ def multiclass_metric_single_label(
     labels = np.unique(true_labels.astype(int))
     sw = None if sample_weight is None else np.asarray(sample_weight, dtype=float)
 
-    metric_func = get_metric_function(metric_name, vectorized=False)
+    metric_func = get_metric_function(metric_name)
     per_class = []
 
     for c in labels:
@@ -762,7 +717,7 @@ def multiclass_metric_ovr(
     ValueError
         If metric doesn't support requested averaging or is unknown
     """
-    metric_func = get_metric_function(metric_name, vectorized=False)
+    metric_func = get_metric_function(metric_name)
 
     if average == "macro":
         scores = [metric_func(*cm) for cm in confusion_matrices]
@@ -1036,11 +991,21 @@ def make_linear_counts_metric(
 
     # Auto-register if name provided
     if name is not None:
-        scalar_fn = _scalarize(_metric)
+        # Create metric function from vectorized implementation
+        def linear_metric(
+            tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+        ) -> np.ndarray | float:
+            """Linear counts metric."""
+            return _metric(
+                np.asarray(tp, dtype=float),
+                np.asarray(tn, dtype=float), 
+                np.asarray(fp, dtype=float),
+                np.asarray(fn, dtype=float)
+            )
+        
         register_metric(
             name=name,
-            func=scalar_fn,
-            vectorized_func=_metric,
+            func=linear_metric,
             is_piecewise=True,
             maximize=True,
             needs_proba=False,
@@ -1097,12 +1062,12 @@ def make_cost_metric(
 # Register Built-in Metrics
 # ============================================================================
 
-register_metric("f1", f1_score, _f1_vectorized)
-register_metric("accuracy", accuracy_score, _accuracy_vectorized)
-register_metric("precision", precision_score, _precision_vectorized)
-register_metric("recall", recall_score, _recall_vectorized)
-register_metric("iou", jaccard_score, _iou_vectorized)
-register_metric("specificity", specificity_score, _specificity_vectorized)
+register_metric("f1", f1_score)
+register_metric("accuracy", accuracy_score)
+register_metric("precision", precision_score)
+register_metric("recall", recall_score)
+register_metric("iou", iou_score)
+register_metric("specificity", specificity_score)
 
 # Register aliases
 register_alias("jaccard", "iou")

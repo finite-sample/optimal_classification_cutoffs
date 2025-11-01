@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    get_multiclass_confusion_matrix,
+    multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
 )
 from optimal_cutoffs.metrics import METRICS
@@ -283,7 +283,7 @@ class TestAveragingMathematicalIdentities:
 
         # Use fixed thresholds to get confusion matrices
         thresholds = np.full(n_classes, 0.25)  # 1/n_classes
-        cms = get_multiclass_confusion_matrix(true_labels, pred_probs, thresholds)
+        cms = multiclass_confusion_matrices_at_thresholds(true_labels, pred_probs, thresholds)
 
         # Test identities on this realistic data
         for metric_name in ["f1", "precision", "recall"]:

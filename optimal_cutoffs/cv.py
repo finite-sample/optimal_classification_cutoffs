@@ -366,7 +366,7 @@ def _evaluate_threshold_on_fold(
             y_true, pred_prob, t, sample_weight=sw, comparison=comparison
         )
         # Metric validation happens early in CV functions - no need to validate again
-        metric_fn = METRICS[metric].scalar_fn
+        metric_fn = METRICS[metric].fn
         return float(metric_fn(tp, tn, fp, fn))
 
     # Multiclass / multilabel (n, K)

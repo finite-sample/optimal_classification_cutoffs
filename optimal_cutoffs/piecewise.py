@@ -133,7 +133,7 @@ def _predict_from_threshold(probs: Array, threshold: float, inclusive: bool) -> 
 def optimal_threshold_sortscan(
     y_true: Array,
     pred_prob: Array,
-    metric_fn: Callable[[Array, Array, Array, Array], Array],
+    metric: str | Callable[[Array, Array, Array, Array], Array],
     *,
     sample_weight: Array | None = None,
     inclusive: bool = False,  # True for ">=", False for ">"
@@ -148,9 +148,10 @@ def optimal_threshold_sortscan(
         Binary labels in {0, 1}.
     pred_prob : array-like of shape (n_samples,)
         Predicted probabilities in [0, 1] or arbitrary scores if require_proba=False.
-    metric_fn : callable
-        Vectorized metric: (tp_vec, tn_vec, fp_vec, fn_vec) -> score_vec.
-        Each input/output is a 1D array over the n+1 possible cuts (k=0..n).
+    metric : str or callable
+        Metric name (e.g., "f1", "precision") or vectorized function.
+        If string, automatically resolves to vectorized implementation.
+        If callable: (tp_vec, tn_vec, fp_vec, fn_vec) -> score_vec.
     sample_weight : array-like, optional
         Non-negative sample weights of shape (n_samples,).
     inclusive : bool, default=False
@@ -179,6 +180,13 @@ def optimal_threshold_sortscan(
             - inclusive: bool
             - require_proba: bool
     """
+    # 0) Resolve metric to vectorized function
+    if isinstance(metric, str):
+        from .metrics import get_metric_function
+        metric_fn = get_metric_function(metric)
+    else:
+        metric_fn = metric
+    
     # 1) Validate inputs
     y, p, _ = validate_binary_classification(
         y_true, pred_prob, require_proba=require_proba

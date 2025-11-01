@@ -77,7 +77,7 @@ class TestTiedProbabilityHandling:
         y_true = np.array([0, 1, 0, 1, 0, 1], dtype=np.int8)
         y_prob = np.array([0.2, 0.5, 0.5, 0.5, 0.8, 0.8])
 
-        f1_vectorized = get_metric_function("f1", vectorized=True)
+        f1_vectorized = get_metric_function("f1")
 
         # Test both comparison operators
         for inclusive in [">", ">="]:

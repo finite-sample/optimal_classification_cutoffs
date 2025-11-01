@@ -174,6 +174,12 @@ def get_optimal_threshold(
             tolerance,
         )
     elif mode == "bayes":
+        # For binary problems, utility is required. For multiclass, we let the bayes module handle the error
+        if utility is None:
+            from .validation import infer_problem_type
+            problem_type = infer_problem_type(pred_prob)
+            if problem_type == "binary":
+                raise ValueError("mode='bayes' requires utility parameter")
         from .bayes import optimize_bayes_thresholds
         result = optimize_bayes_thresholds(
             true_labs,
@@ -423,7 +429,10 @@ def _optimize_empirical(
     from .optimize import find_optimal_threshold, find_optimal_threshold_multiclass
 
     if true_labs is None:
-        raise ValueError("true_labs is required for empirical optimization")
+        if utility is not None:
+            raise ValueError("true_labs is required for empirical utility optimization")
+        else:
+            raise ValueError("true_labs is required for empirical optimization")
 
     pred_prob_arr = np.asarray(pred_prob)
 
@@ -448,10 +457,10 @@ def _optimize_empirical(
 
     # Handle utility-based optimization
     if utility is not None:
-        # Validate utility dict
-        required_keys = {"tp", "tn", "fp", "fn"}
-        if not required_keys.issubset(utility.keys()):
-            raise ValueError(f"utility dict must contain keys: {required_keys}")
+        # Ensure utility dict has all required keys, defaulting missing ones to 0
+        default_utility = {"tp": 0.0, "tn": 0.0, "fp": 0.0, "fn": 0.0}
+        default_utility.update(utility)
+        utility = default_utility
         
         # Default minimize_cost to False if not specified
         if minimize_cost is None:

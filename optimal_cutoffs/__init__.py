@@ -32,12 +32,15 @@ from .expected import (
 )
 from .metrics import (
     METRICS,
+    accuracy_score,
     compute_metric_at_threshold,
     compute_multiclass_metrics_from_labels,
     confusion_matrix_at_threshold,
     confusion_matrix_from_predictions,
+    f1_score,
     get_metric_function,
     has_vectorized_implementation,
+    iou_score,
     is_piecewise_metric,
     make_cost_metric,
     make_linear_counts_metric,
@@ -45,9 +48,12 @@ from .metrics import (
     multiclass_metric_ovr,
     multiclass_metric_single_label,
     needs_probability_scores,
+    precision_score,
+    recall_score,
     register_metric,
     register_metrics,
     should_maximize_metric,
+    specificity_score,
 )
 from .optimize import (
     find_optimal_threshold_multiclass as get_optimal_multiclass_thresholds,
@@ -68,12 +74,15 @@ __all__ = [
     # Enhanced expected functions
     "dinkelbach_expected_fbeta_multilabel",
     # Metrics and confusion matrix
+    "accuracy_score",
     "compute_metric_at_threshold",
     "compute_multiclass_metrics_from_labels",
     "confusion_matrix_at_threshold",
     "confusion_matrix_from_predictions",
+    "f1_score",
     "get_metric_function",
     "has_vectorized_implementation",
+    "iou_score",
     "is_piecewise_metric",
     "make_cost_metric",
     "make_linear_counts_metric",
@@ -82,9 +91,12 @@ __all__ = [
     "multiclass_metric_single_label",
     "METRICS",
     "needs_probability_scores",
+    "precision_score",
+    "recall_score",
     "register_metric",
     "register_metrics",
     "should_maximize_metric",
+    "specificity_score",
     # Core optimization functions
     "get_optimal_threshold",
     "get_optimal_multiclass_thresholds",

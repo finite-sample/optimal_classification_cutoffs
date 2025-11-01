@@ -7,13 +7,13 @@ from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
 from optimal_cutoffs import (
-    get_confusion_matrix,
+    confusion_matrix_at_threshold,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
 )
 from optimal_cutoffs.metrics import (
     compute_metric_at_threshold,
-    get_multiclass_confusion_matrix,
+    multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
 )
 from optimal_cutoffs.optimize import find_optimal_threshold
@@ -267,7 +267,7 @@ class TestCoreInvariants:
         labels, probabilities = data
 
         result = get_optimal_threshold(labels, probabilities, "f1")
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, result.threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, result.threshold)
 
         total = tp + tn + fp + fn
         assert total == len(labels), (
@@ -303,10 +303,10 @@ class TestCoreInvariants:
         assert 0 <= threshold_gte <= 1
 
         # Get confusion matrices for both
-        cm_gt = get_confusion_matrix(
+        cm_gt = confusion_matrix_at_threshold(
             labels, probabilities, threshold_gt, comparison=">"
         )
-        cm_gte = get_confusion_matrix(
+        cm_gte = confusion_matrix_at_threshold(
             labels, probabilities, threshold_gte, comparison=">="
         )
 
@@ -440,7 +440,7 @@ class TestStatisticalProperties:
             assert 0 <= threshold <= 1
 
             # Should produce a valid confusion matrix
-            tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+            tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
             assert tp + tn + fp + fn == len(labels)
 
         except Exception as e:
@@ -471,7 +471,7 @@ class TestNumericalStability:
         assert 0 <= threshold <= 1
 
         # Confusion matrix should be valid
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == len(labels)
 
     @given(matched_labels_and_probabilities(min_size=3, max_size=20))
@@ -495,7 +495,7 @@ class TestNumericalStability:
         assert 0 <= threshold <= 1
 
         # Test confusion matrix
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == len(labels)
 
 
@@ -665,7 +665,7 @@ class TestMulticlassPropertyBased:
                 )
 
             # Test that confusion matrices are valid
-            cms = get_multiclass_confusion_matrix(labels, probabilities, thresholds)
+            cms = multiclass_confusion_matrices_at_thresholds(labels, probabilities, thresholds)
             assert len(cms) == probabilities.shape[1]
 
             for tp, tn, fp, fn in cms:
@@ -718,7 +718,7 @@ class TestMulticlassPropertyBased:
             )
 
             # Get confusion matrices
-            cms = get_multiclass_confusion_matrix(labels, probabilities, thresholds)
+            cms = multiclass_confusion_matrices_at_thresholds(labels, probabilities, thresholds)
 
             # Test macro averaging
             score_macro = multiclass_metric_ovr(cms, metric, "macro")
@@ -761,10 +761,10 @@ class TestMulticlassPropertyBased:
         assert np.all((thresholds_gte >= 0) & (thresholds_gte <= 1))
 
         # Get confusion matrices with both
-        cms_gt = get_multiclass_confusion_matrix(
+        cms_gt = multiclass_confusion_matrices_at_thresholds(
             labels, probabilities, thresholds_gt, comparison=">"
         )
-        cms_gte = get_multiclass_confusion_matrix(
+        cms_gte = multiclass_confusion_matrices_at_thresholds(
             labels, probabilities, thresholds_gte, comparison=">="
         )
 
@@ -796,7 +796,7 @@ class TestMulticlassMathematicalProperties:
             )
 
             # Get confusion matrices
-            cms = get_multiclass_confusion_matrix(labels, probabilities, thresholds)
+            cms = multiclass_confusion_matrices_at_thresholds(labels, probabilities, thresholds)
 
             # Compute different averages
             score_macro = multiclass_metric_ovr(cms, "f1", "macro")
@@ -915,7 +915,7 @@ class TestPerformanceProperties:
         assert 0 <= threshold <= 1
 
         # Test that confusion matrix computation is also linear
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == len(labels)
 
     @given(matched_labels_and_probabilities(min_size=20, max_size=200))

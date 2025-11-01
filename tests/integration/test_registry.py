@@ -33,7 +33,7 @@ class TestRegistryIntegration:
     def test_get_vectorized_metric(self):
         """Test getting vectorized metric functions."""
         # Test valid metric
-        f1_vec = get_metric_function("f1", vectorized=True)
+        f1_vec = get_metric_function("f1")
         assert callable(f1_vec)
 
         # Test with array inputs

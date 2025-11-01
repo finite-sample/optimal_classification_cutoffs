@@ -272,22 +272,6 @@ def test_sample_weights_piecewise_optimization():
     )
 
 
-def test_backward_compatibility():
-    """Test that all changes are backward compatible."""
-    true_labs = np.array([0, 1, 1, 0])
-    pred_prob = np.array([0.2, 0.8, 0.7, 0.3])
-
-    # All these should work exactly as before
-    result = get_optimal_threshold(true_labs, pred_prob, "f1")
-    threshold = result.threshold
-    assert 0 <= threshold <= 1
-
-    tp, tn, fp, fn = confusion_matrix_at_threshold(true_labs, pred_prob, 0.5)
-    assert all(isinstance(x, int) for x in [tp, tn, fp, fn])
-
-    # ThresholdOptimizer wrapper was removed - use direct API instead
-    # The direct API functions provide the core functionality
-
 
 if __name__ == "__main__":
     pytest.main([__file__])

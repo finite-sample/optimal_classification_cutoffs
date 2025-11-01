@@ -175,7 +175,7 @@ class TestBasicInputValidation:
             validate_inputs(true_labels, pred_probs, weights=[1.0, 2.0])
 
         # NaN values
-        with pytest.raises(ValueError, match="Sample weights contains NaN values"):
+        with pytest.raises(ValueError, match="Sample weights contain NaN values"):
             validate_inputs(
                 true_labels, pred_probs, weights=[1.0, np.nan, 1.5, 0.5]
             )
@@ -227,7 +227,7 @@ class TestBinaryClassificationValidation:
         probs = [0.2, 0.8, 0.3, 0.7]  # List input
 
         validated_labels, validated_probs, _ = validate_binary_classification(
-            labels, probs, force_dtypes=True
+            labels, probs
         )
         assert validated_labels.dtype == np.int8
         assert validated_probs.dtype == np.float64
@@ -471,10 +471,10 @@ class TestPublicAPIValidation:
         tp, tn, fp, fn = confusion_matrix_at_threshold(
             valid_labels, valid_probs, valid_threshold
         )
-        assert all(isinstance(x, int) for x in [tp, tn, fp, fn])
+        assert all(isinstance(x, float) for x in [tp, tn, fp, fn])
 
         # Should fail with invalid threshold
-        with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\]"):
+        with pytest.raises(ValueError, match="Thresholds must be in \\[0, 1\\]"):
             confusion_matrix_at_threshold(valid_labels, valid_probs, -0.1)
 
         # Should fail with invalid comparison
@@ -549,7 +549,7 @@ class TestErrorHandling:
             get_optimal_threshold(y_true, y_prob, sample_weight=[1.0, -1.0, 1.0, 1.0])
 
         # NaN weights
-        with pytest.raises(ValueError, match="Sample weights contains NaN"):
+        with pytest.raises(ValueError, match="Sample weights contain NaN values"):
             get_optimal_threshold(y_true, y_prob, sample_weight=[1.0, np.nan, 1.0, 1.0])
 
     def test_threshold_range_errors(self):
@@ -558,10 +558,10 @@ class TestErrorHandling:
         y_prob = [0.2, 0.8, 0.4, 0.6]
 
         # Test via get_confusion_matrix which has threshold validation
-        with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\]"):
+        with pytest.raises(ValueError, match="Thresholds must be in \\[0, 1\\]"):
             confusion_matrix_at_threshold(y_true, y_prob, 1.5)
 
-        with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\]"):
+        with pytest.raises(ValueError, match="Thresholds must be in \\[0, 1\\]"):
             confusion_matrix_at_threshold(y_true, y_prob, -0.5)
 
 
