@@ -1,10 +1,10 @@
 # Optimal Classification Cut-Offs
 
-[![Python application](https://github.com/finite-sample/optimal_classification_cutoffs/actions/workflows/ci.yml/badge.svg)](https://github.com/finite-sample/optimal_classification_cutoffs/actions/workflows/ci.yml)
-[![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://finite-sample.github.io/optimal_classification_cutoffs/)
+[![Python application](https://github.com/finite-sample/optimal-classification-cutoffs/actions/workflows/ci.yml/badge.svg)](https://github.com/finite-sample/optimal-classification-cutoffs/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://finite-sample.github.io/optimal-classification-cutoffs/)
 [![PyPI version](https://img.shields.io/pypi/v/optimal-classification-cutoffs.svg)](https://pypi.org/project/optimal-classification-cutoffs/)
 [![PyPI Downloads](https://static.pepy.tech/badge/optimal-classification-cutoffs)](https://pepy.tech/projects/optimal-classification-cutoffs)
-[![Python](https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/finite-sample/optimal_classification_cutoffs/master/pyproject.toml&query=$.project.requires-python&label=Python)](https://github.com/finite-sample/optimal_classification_cutoffs)
+[![Python](https://img.shields.io/badge/dynamic/toml?url=https://raw.githubusercontent.com/finite-sample/optimal-classification-cutoffs/master/pyproject.toml&query=$.project.requires-python&label=Python)](https://github.com/finite-sample/optimal-classification-cutoffs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Select optimal probability thresholds for binary and multiclass classification.**  
