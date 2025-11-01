@@ -20,6 +20,7 @@ except Exception:
 from .bayes import (
     BayesOptimal,
     bayes_optimal_decisions,
+    bayes_optimal_threshold,
     bayes_thresholds_from_costs,
     compute_bayes_threshold,
     optimize_bayes_thresholds,
@@ -60,6 +61,7 @@ __all__ = [
     # Enhanced Bayes functions
     "BayesOptimal",
     "bayes_optimal_decisions",
+    "bayes_optimal_threshold",
     "bayes_thresholds_from_costs",
     "compute_bayes_threshold",
     "optimize_bayes_thresholds",

@@ -13,7 +13,11 @@ from sklearn.metrics import f1_score as sklearn_f1
 from optimal_cutoffs import get_optimal_threshold
 
 # Local tolerance for test precision
-from optimal_cutoffs.metrics import accuracy_score, f1_score, confusion_matrix_at_threshold
+from optimal_cutoffs.metrics import (
+    accuracy_score,
+    confusion_matrix_at_threshold,
+    f1_score,
+)
 
 # Import test fixtures
 from tests.fixtures import (
