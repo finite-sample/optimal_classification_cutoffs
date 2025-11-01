@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 from scipy import optimize
 
-from .numba_utils import NUMBA_AVAILABLE, jit  # only import what we truly use
+from .numba_utils import NUMBA_AVAILABLE, jit, numba_with_fallback
 from .types_minimal import OptimizationResult
 from .validation import validate_binary_classification
 
@@ -33,55 +33,62 @@ from .validation import validate_binary_classification
 
 
 # ============================================================================
-# Fast Kernels (Numba where available)
+# Fast Kernels (Unified with auto-fallback)
+# ============================================================================
+
+
+@numba_with_fallback(nopython=True, fastmath=True, cache=True)
+def fast_f1_score(tp: float, tn: float, fp: float, fn: float) -> float:
+    """Compute F1 score from confusion matrix."""
+    denom = 2.0 * tp + fp + fn
+    return 2.0 * tp / denom if denom > 0.0 else 0.0
+
+
+@numba_with_fallback(nopython=True, cache=True)
+def compute_confusion_matrix_weighted(
+    labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
+) -> tuple[float, float, float, float]:
+    """Compute weighted confusion matrix elements (serial, race-free)."""
+    tp = 0.0
+    tn = 0.0
+    fp = 0.0
+    fn = 0.0
+    n = labels.shape[0]
+
+    if weights is None:
+        for i in range(n):
+            if labels[i] == 1:
+                if predictions[i]:
+                    tp += 1.0
+                else:
+                    fn += 1.0
+            else:
+                if predictions[i]:
+                    fp += 1.0
+                else:
+                    tn += 1.0
+    else:
+        for i in range(n):
+            w = weights[i]
+            if labels[i] == 1:
+                if predictions[i]:
+                    tp += w
+                else:
+                    fn += w
+            else:
+                if predictions[i]:
+                    fp += w
+                else:
+                    tn += w
+
+    return tp, tn, fp, fn
+
+
+# ============================================================================
+# Fast Kernels (Numba where available) - TO BE MIGRATED
 # ============================================================================
 
 if NUMBA_AVAILABLE:
-
-    @jit(nopython=True, cache=True)
-    def compute_confusion_matrix_weighted(
-        labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
-    ) -> tuple[float, float, float, float]:
-        """Compute weighted confusion matrix elements (serial, race-free)."""
-        tp = 0.0
-        tn = 0.0
-        fp = 0.0
-        fn = 0.0
-        n = labels.shape[0]
-
-        if weights is None:
-            for i in range(n):
-                if labels[i] == 1:
-                    if predictions[i]:
-                        tp += 1.0
-                    else:
-                        fn += 1.0
-                else:
-                    if predictions[i]:
-                        fp += 1.0
-                    else:
-                        tn += 1.0
-        else:
-            for i in range(n):
-                w = weights[i]
-                if labels[i] == 1:
-                    if predictions[i]:
-                        tp += w
-                    else:
-                        fn += w
-                else:
-                    if predictions[i]:
-                        fp += w
-                    else:
-                        tn += w
-
-        return tp, tn, fp, fn
-
-    @jit(nopython=True, fastmath=True, cache=True)
-    def fast_f1_score(tp: float, tn: float, fp: float, fn: float) -> float:
-        """Compute F1 score from confusion matrix."""
-        denom = 2.0 * tp + fp + fn
-        return 2.0 * tp / denom if denom > 0.0 else 0.0
 
     @jit(nopython=True, fastmath=True, cache=True)
     def sort_scan_kernel(
@@ -372,43 +379,6 @@ if NUMBA_AVAILABLE:
 
 else:
     # ------------------------- Python fallbacks -------------------------
-
-    def compute_confusion_matrix_weighted(
-        labels: np.ndarray, predictions: np.ndarray, weights: np.ndarray | None
-    ) -> tuple[float, float, float, float]:
-        tp = tn = fp = fn = 0.0
-        n = len(labels)
-
-        if weights is None:
-            for i in range(n):
-                if labels[i] == 1:
-                    if predictions[i]:
-                        tp += 1.0
-                    else:
-                        fn += 1.0
-                else:
-                    if predictions[i]:
-                        fp += 1.0
-                    else:
-                        tn += 1.0
-        else:
-            for i in range(n):
-                w = weights[i]
-                if labels[i] == 1:
-                    if predictions[i]:
-                        tp += w
-                    else:
-                        fn += w
-                else:
-                    if predictions[i]:
-                        fp += w
-                    else:
-                        tn += w
-        return tp, tn, fp, fn
-
-    def fast_f1_score(tp: float, tn: float, fp: float, fn: float) -> float:
-        denom = 2.0 * tp + fp + fn
-        return 2.0 * tp / denom if denom > 0.0 else 0.0
 
     def sort_scan_kernel(
         labels: np.ndarray,

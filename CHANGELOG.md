@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2025-01-01
+
+### Fixed
+- **CRITICAL: Expected Mode Type Mismatch**: Fixed bug in `core.py` where expected mode optimization was incorrectly accessing `.threshold` and `.score` properties on OptimizationResult
+  - Changed to use correct API: `result.thresholds[0]` and `result.scores[0]`
+  - Two previously failing tests are now working and un-skipped
+- **Array Handling Efficiency**: Improved piecewise optimization performance by eliminating unnecessary scalar-to-array conversions
+  - Added `_evaluate_metric_scalar_efficient()` helper function
+  - Reduced memory allocations and function call overhead in hot paths
+- **Safe Division Robustness**: Enhanced `_safe_div()` function to handle all edge cases
+  - Now properly handles negative denominators, inf/nan values
+  - Provides consistent 0.0 return for problematic divisions
+- **Input Validation Gaps**: Strengthened validation functions to catch more edge cases
+  - Added None input handling, dtype conversion error catching
+  - Enhanced detection of non-finite values (NaN, inf)
+  - Added unified validation helper `_validate_threshold_inputs()`
+
+### Changed
+- **Function Naming Clarity**: Renamed functions for better API clarity (no backward compatibility)
+  - `get_confusion_matrix` → `confusion_matrix_at_threshold`
+  - `_confusion_matrix_from_labels` → `confusion_matrix_from_predictions`
+  - Updated all internal references and examples
+
+### Developer Notes
+- All core unit tests and integration tests pass
+- Linting passes with 0 errors (ruff compliant)
+- Critical functionality that was previously broken (expected mode) now works correctly
+- No breaking changes to public API except function renames (which improve clarity)
+
 ## [0.6.0] - 2025-01-01
 
 ### Added

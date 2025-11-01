@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs import confusion_matrix_at_threshold, get_optimal_threshold
 from optimal_cutoffs.metrics import METRICS, register_metric, register_metrics
 
 # Local tolerance for test precision
@@ -12,7 +12,7 @@ def test_confusion_matrix_and_metrics():
     y_true = np.array([0, 1, 1, 0, 1])
     y_prob = np.array([0.2, 0.6, 0.7, 0.3, 0.4])
     threshold = 0.5
-    tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+    tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
     assert (tp, tn, fp, fn) == (2, 2, 0, 1)
 
     precision = tp / (tp + fp) if tp + fp > 0 else 0.0

@@ -25,4 +25,35 @@ except ImportError:
     int32 = int
 
 
-__all__ = ["NUMBA_AVAILABLE", "jit", "prange", "float64", "int32"]
+def numba_with_fallback(**numba_kwargs):
+    """Decorator that auto-generates Python fallback from Numba code.
+    
+    When Numba is available: applies JIT compilation with specified kwargs
+    When Numba unavailable: returns original function (Numba code is valid Python!)
+    
+    Parameters
+    ----------
+    **numba_kwargs : dict
+        Keyword arguments to pass to numba.jit (e.g., nopython=True, cache=True)
+        
+    Returns
+    -------
+    callable
+        Decorator function that applies JIT or returns original function
+        
+    Examples
+    --------
+    >>> @numba_with_fallback(nopython=True, cache=True)
+    ... def fast_function(x, y):
+    ...     return x + y
+    """
+    def decorator(func):
+        if NUMBA_AVAILABLE:
+            return jit(**numba_kwargs)(func)
+        else:
+            # Return original function - Numba code is valid Python!
+            return func
+    return decorator
+
+
+__all__ = ["NUMBA_AVAILABLE", "jit", "prange", "float64", "int32", "numba_with_fallback"]

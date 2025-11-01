@@ -20,6 +20,32 @@ import numpy as np
 from .types_minimal import OptimizationResult
 
 # ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+def _vectorize_threshold_function(scalar_fn, candidates):
+    """Vectorize a scalar threshold function over candidate array.
+    
+    Parameters
+    ----------
+    scalar_fn : callable
+        Function that takes a scalar threshold and returns a scalar value
+    candidates : array_like
+        Array of threshold candidates to evaluate
+        
+    Returns
+    -------
+    ndarray
+        Array of function values for each candidate
+    """
+    candidates = np.asarray(candidates)
+    if candidates.ndim == 0:
+        return scalar_fn(candidates)
+    return np.array([scalar_fn(t) for t in candidates])
+
+
+# ============================================================================
 # Core Algorithm - Single Dinkelbach implementation
 # ============================================================================
 
@@ -67,17 +93,18 @@ def dinkelbach_optimize(
         def objective(t, lambda_val=lam):
             return numerator_fn(t) - lambda_val * denominator_fn(t)
 
-        # Simple grid search over unique probabilities
-        # (This is fast enough for most cases)
+        # Vectorized grid search over unique probabilities
         candidates = np.unique(p)
-        best_t = 0.5
-        best_val = -np.inf
-
-        for t in candidates:
-            val = objective(t)
-            if val > best_val:
-                best_val = val
-                best_t = t
+        
+        # Vectorize the objective function evaluation
+        numerator_values = _vectorize_threshold_function(numerator_fn, candidates)
+        denominator_values = _vectorize_threshold_function(denominator_fn, candidates)
+        obj_values = numerator_values - lam * denominator_values
+        
+        # Find the best candidate
+        best_idx = np.argmax(obj_values)
+        best_t = candidates[best_idx]
+        best_val = obj_values[best_idx]
 
         # Update lambda
         num = numerator_fn(best_t)

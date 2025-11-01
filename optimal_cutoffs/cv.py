@@ -12,8 +12,8 @@ from sklearn.model_selection import (
 from .core import get_optimal_threshold
 from .metrics import (
     METRICS,
-    get_confusion_matrix,
-    get_multiclass_confusion_matrix,
+    confusion_matrix_at_threshold,
+    multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
     multiclass_metric_single_label,
 )
@@ -362,7 +362,7 @@ def _evaluate_threshold_on_fold(
             # Handle both scalar and array cases
             thr_array = np.asarray(thr)
             t = float(thr_array.item()) if thr_array.ndim == 0 else float(thr_array.flat[0])
-        tp, tn, fp, fn = get_confusion_matrix(
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
             y_true, pred_prob, t, sample_weight=sw, comparison=comparison
         )
         # Metric validation happens early in CV functions - no need to validate again
@@ -395,7 +395,7 @@ def _evaluate_threshold_on_fold(
                 y_true, pred_prob, thresholds, "accuracy", comparison, sw
             )
         )
-    cms = get_multiclass_confusion_matrix(
+    cms = multiclass_confusion_matrices_at_thresholds(
         y_true, pred_prob, thresholds, sample_weight=sw, comparison=comparison
     )
     return float(multiclass_metric_ovr(cms, metric, average))

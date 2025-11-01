@@ -20,9 +20,9 @@ from typing import Any
 import numpy as np
 
 from .metrics import (
-    _confusion_matrix_from_labels,
     apply_metric_to_confusion_counts,
     compute_vectorized_confusion_matrices,
+    confusion_matrix_from_predictions,
 )
 from .types_minimal import OptimizationResult
 from .validation import validate_binary_classification, validate_weights
@@ -30,6 +30,37 @@ from .validation import validate_binary_classification, validate_weights
 Array = np.ndarray[Any, Any]
 
 # NOTE: NUMERICAL_TOLERANCE moved to function parameters for user control
+
+
+def _evaluate_metric_scalar_efficient(
+    metric_fn: Callable, tp: float, tn: float, fp: float, fn: float
+) -> float:
+    """Efficiently evaluate metric function on scalar confusion matrix values.
+    
+    This avoids the inefficient pattern of converting scalars to single-element 
+    arrays just to call vectorized functions and extract the first element.
+    
+    Parameters
+    ----------
+    metric_fn : callable
+        Vectorized metric function that expects arrays
+    tp, tn, fp, fn : float
+        Scalar confusion matrix values
+        
+    Returns
+    -------
+    float
+        Metric score
+    """
+    # Call vectorized function with single-element arrays and extract result
+    return float(
+        metric_fn(
+            np.array([tp], dtype=float),
+            np.array([tn], dtype=float), 
+            np.array([fp], dtype=float),
+            np.array([fn], dtype=float)
+        )[0]
+    )
 
 
 def _compute_threshold_midpoint(
@@ -69,7 +100,11 @@ def _compute_threshold_midpoint(
     tied = exc
     # For '>', place threshold just above tied to exclude equals.
     # For '>=', place just below tied to include equals.
-    return float(np.nextafter(tied, np.inf)) if not inclusive else float(np.nextafter(tied, -np.inf))
+    return (
+        float(np.nextafter(tied, np.inf))
+        if not inclusive
+        else float(np.nextafter(tied, -np.inf))
+    )
 
 
 def _realized_k(p_sorted: Array, threshold: float, inclusive: bool) -> int:
@@ -88,7 +123,11 @@ def _predict_from_threshold(probs: Array, threshold: float, inclusive: bool) -> 
         p = p[:, 1]
     elif p.ndim == 2 and p.shape[1] == 1:
         p = p.ravel()
-    return (p >= threshold).astype(np.int32) if inclusive else (p > threshold).astype(np.int32)
+    return (
+        (p >= threshold).astype(np.int32)
+        if inclusive
+        else (p > threshold).astype(np.int32)
+    )
 
 
 def optimal_threshold_sortscan(
@@ -97,7 +136,7 @@ def optimal_threshold_sortscan(
     metric_fn: Callable[[Array, Array, Array, Array], Array],
     *,
     sample_weight: Array | None = None,
-    inclusive: bool = False,   # True for ">=", False for ">"
+    inclusive: bool = False,  # True for ">=", False for ">"
     require_proba: bool = True,
     tolerance: float = 1e-10,
 ) -> OptimizationResult:
@@ -141,7 +180,9 @@ def optimal_threshold_sortscan(
             - require_proba: bool
     """
     # 1) Validate inputs
-    y, p, _ = validate_binary_classification(y_true, pred_prob, require_proba=require_proba)
+    y, p, _ = validate_binary_classification(
+        y_true, pred_prob, require_proba=require_proba
+    )
     n = y.shape[0]
     weights = (
         validate_weights(sample_weight, n)
@@ -156,10 +197,14 @@ def optimal_threshold_sortscan(
     w_sorted = weights[order]
 
     # 3) Vectorized confusion counts at all n+1 cuts (k=0..n)
-    tp_vec, tn_vec, fp_vec, fn_vec = compute_vectorized_confusion_matrices(y_sorted, w_sorted)
+    tp_vec, tn_vec, fp_vec, fn_vec = compute_vectorized_confusion_matrices(
+        y_sorted, w_sorted
+    )
 
     # 4) Vectorized metric over all cuts; take argmax
-    score_vec = apply_metric_to_confusion_counts(metric_fn, tp_vec, tn_vec, fp_vec, fn_vec)
+    score_vec = apply_metric_to_confusion_counts(
+        metric_fn, tp_vec, tn_vec, fp_vec, fn_vec
+    )
     k_star = int(np.argmax(score_vec))
     score_theoretical = float(score_vec[k_star])
 
@@ -168,10 +213,10 @@ def optimal_threshold_sortscan(
 
     # 6) Evaluate the achieved score at that threshold (handles ties & numerics)
     pred_labels = _predict_from_threshold(p, threshold, inclusive)
-    tp, tn, fp, fn = _confusion_matrix_from_labels(y, pred_labels, sample_weight=weights)
-    score_actual = float(metric_fn(
-        np.array([tp]), np.array([tn]), np.array([fp]), np.array([fn])
-    )[0])
+    tp, tn, fp, fn = confusion_matrix_from_predictions(
+        y, pred_labels, sample_weight=weights
+    )
+    score_actual = _evaluate_metric_scalar_efficient(metric_fn, tp, tn, fp, fn)
 
     # 7) If the realized score differs meaningfully (e.g., due to ties), probe a few
     #    locally optimal alternatives (extremes and one-ULP nudges around the boundary).
@@ -192,11 +237,13 @@ def optimal_threshold_sortscan(
 
         if 0 < k_star < n:
             inc = float(p_sorted[k_star - 1])  # last included by k*
-            exc = float(p_sorted[k_star])      # first excluded by k*
-            candidates.extend([
-                float(np.nextafter(inc, -np.inf)),  # just below included
-                float(np.nextafter(exc, np.inf)),   # just above excluded
-            ])
+            exc = float(p_sorted[k_star])  # first excluded by k*
+            candidates.extend(
+                [
+                    float(np.nextafter(inc, -np.inf)),  # just below included
+                    float(np.nextafter(exc, np.inf)),  # just above excluded
+                ]
+            )
 
         # Evaluate candidates
         for t in candidates:
@@ -204,10 +251,10 @@ def optimal_threshold_sortscan(
             # we accept tiny excursions beyond [0,1] when necessary for semantics.
             t_eval = t
             pred_labels_alt = _predict_from_threshold(p, t_eval, inclusive)
-            tp2, tn2, fp2, fn2 = _confusion_matrix_from_labels(y, pred_labels_alt, sample_weight=weights)
-            s2 = float(metric_fn(
-                np.array([tp2]), np.array([tn2]), np.array([fp2]), np.array([fn2])
-            )[0])
+            tp2, tn2, fp2, fn2 = confusion_matrix_from_predictions(
+                y, pred_labels_alt, sample_weight=weights
+            )
+            s2 = _evaluate_metric_scalar_efficient(metric_fn, tp2, tn2, fp2, fn2)
             if s2 > best_score:
                 best_score = s2
                 best_thr = t_eval

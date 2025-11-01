@@ -13,7 +13,7 @@ from sklearn.metrics import f1_score as sklearn_f1
 from optimal_cutoffs import get_optimal_threshold
 
 # Local tolerance for test precision
-from optimal_cutoffs.metrics import accuracy_score, f1_score, get_confusion_matrix
+from optimal_cutoffs.metrics import accuracy_score, f1_score, confusion_matrix_at_threshold
 
 # Import test fixtures
 from tests.fixtures import (
@@ -108,7 +108,6 @@ class TestRealisticBinaryOptimization:
         assert f1_sep > 0.6, f"Well-separated F1 {f1_sep:.3f} should be high"
         assert f1_over > 0.2, f"Overlapping F1 {f1_over:.3f} should be reasonable"
 
-    @pytest.mark.skip(reason="Library bug: dinkelbach_expected_fbeta_binary returns OptimizationResult but core.py expects tuple")
     def test_calibrated_data_expected_vs_empirical(self):
         """Test expected vs empirical optimization on calibrated data."""
         y_true, y_prob = CALIBRATED_BINARY.y_true, CALIBRATED_BINARY.y_prob
@@ -373,7 +372,6 @@ class TestRealisticUtilityOptimization:
         assert all(p in [0, 1] for p in pred_fn)
         assert all(p in [0, 1] for p in pred_fp)
 
-    @pytest.mark.skip(reason="Library bug: same dinkelbach issue with expected mode")
     def test_bayes_vs_empirical_utility(self):
         """Test Bayes vs empirical utility optimization."""
         y_true, y_prob = CALIBRATED_BINARY.y_true, CALIBRATED_BINARY.y_prob
@@ -448,7 +446,7 @@ def test_all_metrics_on_realistic_data(metric):
     )
 
     # Apply threshold and verify metric calculation
-    tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+    tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
 
     if metric == "f1":
         score = f1_score(tp, tn, fp, fn)

@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Version Information
-- **Current Version**: 0.6.0
+- **Current Version**: 0.6.1
 - **Python Support**: 3.11, 3.12, 3.13
 
 ## Development Commands
