@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "optimal-classification-cutoffs"
 copyright = "2024, Gaurav Sood"
 author = "Gaurav Sood"
-release = "0.1.0"
+release = "0.6.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -33,8 +33,38 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
 html_static_path = ["_static"]
+
+# Furo theme options
+html_theme_options = {
+    "sidebar_hide_name": True,
+    "navigation_with_keys": True,
+    "top_of_page_button": "edit",
+    "source_repository": "https://github.com/finite-sample/optimal_classification_cutoffs/",
+    "source_branch": "master",
+    "source_directory": "docs/",
+    "light_css_variables": {
+        "color-brand-primary": "#2563eb",
+        "color-brand-content": "#1e40af",
+        "color-admonition-background": "#f8fafc",
+        "color-sidebar-background": "#f1f5f9",
+        "color-sidebar-background-border": "#e2e8f0",
+        "font-stack": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
+        "font-stack--monospace": "'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace",
+    },
+    "dark_css_variables": {
+        "color-brand-primary": "#60a5fa",
+        "color-brand-content": "#93c5fd",
+        "color-admonition-background": "#1e293b",
+        "color-sidebar-background": "#0f172a",
+        "color-sidebar-background-border": "#334155",
+    },
+}
+
+# Custom title and logo
+html_title = "Optimal Classification Cutoffs"
+html_short_title = "Optimal Cutoffs"
 
 # -- Extension configuration -------------------------------------------------
 
