@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import confusion_matrix_at_threshold
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold, get_metric_function
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
@@ -77,7 +77,7 @@ class TestTiedProbabilityHandling:
         y_true = np.array([0, 1, 0, 1, 0, 1], dtype=np.int8)
         y_prob = np.array([0.2, 0.5, 0.5, 0.5, 0.8, 0.8])
 
-        f1_vectorized = get_vectorized_metric("f1")
+        f1_vectorized = get_metric_function("f1", vectorized=True)
 
         # Test both comparison operators
         for inclusive in [">", ">="]:

@@ -15,6 +15,7 @@ from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
 from optimal_cutoffs.metrics import (
     accuracy_score,
+    compute_exclusive_predictions,
     confusion_matrix_at_threshold,
     f1_score,
     multiclass_confusion_matrices_at_thresholds,
@@ -424,7 +425,7 @@ class TestExclusivePredictionRule:
         pred_prob = np.array([[0.49, 0.10, 0.41]])  # Class 0 has highest prob
         thresholds = np.array([0.3, 0.5, 0.2])  # Class 2 has highest margin
 
-        predictions = _compute_exclusive_predictions(
+        predictions = compute_exclusive_predictions(
             pred_prob, thresholds, comparison=">"
         )
 
@@ -437,7 +438,7 @@ class TestExclusivePredictionRule:
         pred_prob = np.array([[0.2, 0.3, 0.5]])
         thresholds = np.array([0.4, 0.4, 0.6])  # All margins negative
 
-        predictions = _compute_exclusive_predictions(
+        predictions = compute_exclusive_predictions(
             pred_prob, thresholds, comparison=">"
         )
 
@@ -458,7 +459,7 @@ class TestExclusivePredictionRule:
         thresholds = np.array([0.2, 0.5, 0.3])
 
         # Exclusive predictions (margin-based)
-        exclusive_preds = _compute_exclusive_predictions(pred_prob, thresholds)
+        exclusive_preds = compute_exclusive_predictions(pred_prob, thresholds)
         exclusive_acc = np.mean(exclusive_preds == y_true)
 
         # Argmax predictions

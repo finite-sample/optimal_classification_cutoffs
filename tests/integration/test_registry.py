@@ -9,6 +9,7 @@ from optimal_cutoffs import (
     has_vectorized_implementation,
     is_piecewise_metric,
 )
+from optimal_cutoffs.metrics import get_metric_function
 
 
 class TestRegistryIntegration:
@@ -32,7 +33,7 @@ class TestRegistryIntegration:
     def test_get_vectorized_metric(self):
         """Test getting vectorized metric functions."""
         # Test valid metric
-        f1_vec = get_vectorized_metric("f1")
+        f1_vec = get_metric_function("f1", vectorized=True)
         assert callable(f1_vec)
 
         # Test with array inputs
