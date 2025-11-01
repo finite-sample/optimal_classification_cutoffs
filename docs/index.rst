@@ -16,14 +16,14 @@ A Python library for computing optimal classification thresholds for binary and 
 .. toctree::
    :maxdepth: 2
    :caption: Getting Started
-   
+
    installation
    quickstart
 
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
-   
+
    user_guide
    examples
    advanced
@@ -31,19 +31,19 @@ A Python library for computing optimal classification thresholds for binary and 
 .. toctree::
    :maxdepth: 2
    :caption: API Reference
-   
+
    api/index
 
 .. toctree::
    :maxdepth: 2
    :caption: Theory & Background
-   
+
    theory
 
 .. toctree::
    :maxdepth: 1
    :caption: Additional Resources
-   
+
    faq
 
 Why Optimize Classification Thresholds?
@@ -54,7 +54,7 @@ Most classifiers use a default threshold of 0.5, but this is often suboptimal fo
 🏥 **Medical Diagnosis**
    False negatives (missed diseases) cost far more than false positives
 
-🏦 **Fraud Detection**  
+🏦 **Fraud Detection**
    Missing fraud has higher cost than investigating legitimate transactions
 
 📧 **Spam Detection**
@@ -76,7 +76,7 @@ Classification metrics like F1 score are **piecewise-constant functions** that c
 Standard optimizers fail because these functions have:
 
 * **Zero gradients** everywhere except at breakpoints
-* **Flat regions** providing no directional information  
+* **Flat regions** providing no directional information
 * **Step discontinuities** that trap optimizers
 
 Our solution uses specialized algorithms designed for piecewise-constant optimization.
@@ -127,8 +127,8 @@ The library's specialized algorithms significantly outperform standard optimizat
 | 100,000 samples  | 0.080s ⚡       | 2.100s          | 5.000s          |
 +------------------+------------------+------------------+------------------+
 
-✅ **sort_scan**: O(n log n) exact algorithm for piecewise metrics  
-✅ **smart_brute**: Evaluates only unique probability values  
+✅ **sort_scan**: O(n log n) exact algorithm for piecewise metrics
+✅ **smart_brute**: Evaluates only unique probability values
 ⚠️ **minimize**: Standard scipy optimization (often suboptimal)
 
 Citation

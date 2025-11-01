@@ -53,16 +53,16 @@ class TestMulticlassWorkflows:
         methods = ["unique_scan", "minimize", "coord_ascent"]
 
         for method in methods:
-            result = get_optimal_threshold(
-                y_true, y_prob, metric="f1", method=method
-            )
+            result = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
 
             thresholds = result.thresholds
             assert len(thresholds) == 3
             for threshold in thresholds:
                 if method == "coord_ascent":
                     # Coordinate ascent can produce thresholds outside [0,1]
-                    assert np.isfinite(threshold), f"Threshold {threshold} should be finite"
+                    assert np.isfinite(
+                        threshold
+                    ), f"Threshold {threshold} should be finite"
                 else:
                     assert_valid_threshold(threshold)
 
@@ -114,13 +114,17 @@ class TestMulticlassConfusionMatrix:
         )
         thresholds = np.array([0.5, 0.5, 0.5])
 
-        cms = multiclass_confusion_matrices_at_thresholds(true_labs, pred_prob, thresholds)
+        cms = multiclass_confusion_matrices_at_thresholds(
+            true_labs, pred_prob, thresholds
+        )
 
         assert len(cms) == 3
         for cm in cms:
             assert len(cm) == 4
             # Values should be numeric (int or float)
-            assert all(isinstance(x, (int, float, np.integer, np.floating)) for x in cm)
+            assert all(
+                isinstance(x, int | float | np.integer | np.floating) for x in cm
+            )
 
     def test_multiclass_confusion_matrix_binary_fallback(self):
         """Test multiclass confusion matrix with binary input."""
@@ -128,7 +132,9 @@ class TestMulticlassConfusionMatrix:
         pred_prob = np.array([0.2, 0.8, 0.7, 0.3])
         threshold = np.array([0.5])
 
-        cms = multiclass_confusion_matrices_at_thresholds(true_labs, pred_prob, threshold)
+        cms = multiclass_confusion_matrices_at_thresholds(
+            true_labs, pred_prob, threshold
+        )
 
         assert len(cms) == 1
         assert len(cms[0]) == 4
@@ -293,7 +299,7 @@ class TestCoordinateAscent:
         # For OvR thresholds, check standard [0,1] bounds
         for threshold in thresholds_ovr:
             assert_valid_threshold(threshold)
-            
+
         # For coordinate ascent, thresholds can be outside [0,1] (legitimate behavior)
         for threshold in thresholds_coord:
             assert np.isfinite(threshold), f"Threshold {threshold} should be finite"
@@ -477,9 +483,9 @@ class TestMulticlassPerformance:
             times.append(elapsed)
 
             # Should complete in reasonable time
-            assert elapsed < 10.0, (
-                f"Optimization took {elapsed:.2f}s for {n_classes} classes"
-            )
+            assert (
+                elapsed < 10.0
+            ), f"Optimization took {elapsed:.2f}s for {n_classes} classes"
 
     def test_multiclass_scaling_with_samples(self):
         """Test that multiclass optimization scales with number of samples."""

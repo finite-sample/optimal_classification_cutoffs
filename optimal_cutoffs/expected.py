@@ -13,6 +13,7 @@ Key simplifications:
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 from typing import Any, Literal
 
 import numpy as np
@@ -26,14 +27,14 @@ from .types_minimal import OptimizationResult
 
 def _vectorize_threshold_function(scalar_fn, candidates):
     """Vectorize a scalar threshold function over candidate array.
-    
+
     Parameters
     ----------
     scalar_fn : callable
         Function that takes a scalar threshold and returns a scalar value
     candidates : array_like
         Array of threshold candidates to evaluate
-        
+
     Returns
     -------
     ndarray
@@ -52,8 +53,8 @@ def _vectorize_threshold_function(scalar_fn, candidates):
 
 def dinkelbach_optimize(
     probabilities: np.ndarray[Any, Any],
-    numerator_fn: callable,
-    denominator_fn: callable,
+    numerator_fn: Callable[[float], float],
+    denominator_fn: Callable[[float], float],
     max_iter: int = 100,
     tol: float = 1e-12,
 ) -> tuple[float, float]:
@@ -95,12 +96,12 @@ def dinkelbach_optimize(
 
         # Vectorized grid search over unique probabilities
         candidates = np.unique(p)
-        
+
         # Vectorize the objective function evaluation
         numerator_values = _vectorize_threshold_function(numerator_fn, candidates)
         denominator_values = _vectorize_threshold_function(denominator_fn, candidates)
         obj_values = numerator_values - lam * denominator_values
-        
+
         # Find the best candidate
         best_idx = np.argmax(obj_values)
         best_t = candidates[best_idx]
@@ -498,8 +499,7 @@ def dinkelbach_expected_fbeta_multilabel(
         # Validate weighted averaging requirements
         if average == "weighted" and true_labels is None:
             raise ValueError(
-                "Weighted averaging requires true_labels to compute class "
-                "frequencies"
+                "Weighted averaging requires true_labels to compute class frequencies"
             )
 
         # Create prediction function for macro/weighted averaging (per-class thresholds)
@@ -655,16 +655,16 @@ def expected_optimize_multiclass(
                 above_threshold = p > thresholds[None, :]
                 has_valid = np.any(above_threshold, axis=1)
                 predictions = np.zeros(p.shape[0], dtype=int)
-                
+
                 # For samples with at least one class above threshold
                 if np.any(has_valid):
                     masked = np.where(above_threshold, p, -np.inf)
                     predictions[has_valid] = np.argmax(masked[has_valid], axis=1)
-                
+
                 # For samples with no class above threshold, use argmax
                 if np.any(~has_valid):
                     predictions[~has_valid] = np.argmax(p[~has_valid], axis=1)
-                
+
                 return predictions
             else:
                 # Binary case - use first threshold
@@ -708,9 +708,7 @@ def optimize_expected_threshold(
     if p.ndim == 1:
         # Binary case
         if metric.lower() in {"f1", "fbeta"}:
-            result = dinkelbach_expected_fbeta_binary(
-                p, beta=kwargs.get("beta", 1.0)
-            )
+            result = dinkelbach_expected_fbeta_binary(p, beta=kwargs.get("beta", 1.0))
             return result.threshold
         elif metric.lower() == "precision":
             threshold, _ = expected_precision(p)

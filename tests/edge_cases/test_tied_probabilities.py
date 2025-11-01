@@ -86,7 +86,11 @@ class TestTiedProbabilityHandling:
             )
             threshold = result.threshold
             score = result.score
-            k_star = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+            k_star = (
+                result.diagnostics.get("k_star", 0)
+                if hasattr(result, "diagnostics") and result.diagnostics
+                else 0
+            )
 
             assert_valid_threshold(threshold)
             assert_valid_metric_score(score, "f1")
@@ -212,7 +216,9 @@ class TestExtremeTieCases:
         # Clamp threshold to valid range for confusion matrix calculation
         clamped_threshold = np.clip(threshold, 0.0, 1.0)
         # Should predict all negative for best accuracy
-        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, clamped_threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
+            y_true, y_prob, clamped_threshold
+        )
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         # Best accuracy is achieved by predicting majority class
         expected_accuracy = max(np.sum(y_true == 0), np.sum(y_true == 1)) / len(y_true)

@@ -38,9 +38,7 @@ class TestDinkelbachBasic:
 
         beta_values = [0.5, 1.0, 2.0]
         for beta in beta_values:
-            result = dinkelbach_expected_fbeta_binary(
-                y_prob, beta=beta
-            )
+            result = dinkelbach_expected_fbeta_binary(y_prob, beta=beta)
             threshold = result.threshold
             expected_score = result.score
 
@@ -146,12 +144,12 @@ class TestDinkelbachConvergenceWarnings:
     def test_dinkelbach_normal_case_no_warnings(self):
         """Test that normal cases don't produce warnings."""
         y_prob = np.array([0.1, 0.4, 0.6, 0.9])
-        
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
             threshold = result.threshold
-            
+
             # Should not have any warnings for normal convergent cases
             assert len(w) == 0
             assert_valid_threshold(threshold)
@@ -160,18 +158,18 @@ class TestDinkelbachConvergenceWarnings:
     def test_dinkelbach_edge_cases_no_warnings(self):
         """Test that edge cases handle warnings appropriately."""
         edge_cases = [
-            np.array([0.5]),      # Single probability
-            np.array([0.0, 1.0]), # Extreme probabilities
-            np.zeros(5),          # All zeros
-            np.ones(5),           # All ones
+            np.array([0.5]),  # Single probability
+            np.array([0.0, 1.0]),  # Extreme probabilities
+            np.zeros(5),  # All zeros
+            np.ones(5),  # All ones
         ]
-        
+
         for y_prob in edge_cases:
             with warnings.catch_warnings(record=True):
                 warnings.simplefilter("always")
                 result = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
                 threshold = result.threshold
-                
+
                 # Edge cases should generally converge without warnings
                 assert_valid_threshold(threshold)
                 assert 0.0 <= threshold <= 1.0
@@ -189,7 +187,9 @@ class TestDinkelbachBasicFunctionality:
         threshold = result.threshold
 
         # Should return a valid threshold
-        assert isinstance(threshold, (float, np.number)) or (isinstance(threshold, np.ndarray) and threshold.size == 1)
+        assert isinstance(threshold, float | np.number) or (
+            isinstance(threshold, np.ndarray) and threshold.size == 1
+        )
         assert 0.0 <= threshold <= 1.0
 
     def test_dinkelbach_through_get_optimal_threshold(self):
@@ -206,5 +206,8 @@ class TestDinkelbachBasicFunctionality:
         assert 0.0 <= f1_score_dinkelbach <= 1.0
 
         # Dinkelbach should produce reasonable results
-        assert isinstance(threshold_dinkelbach, (float, np.number)) or (isinstance(threshold_dinkelbach, np.ndarray) and threshold_dinkelbach.size == 1)
-        assert isinstance(f1_score_dinkelbach, (float, np.number))
+        assert isinstance(threshold_dinkelbach, float | np.number) or (
+            isinstance(threshold_dinkelbach, np.ndarray)
+            and threshold_dinkelbach.size == 1
+        )
+        assert isinstance(f1_score_dinkelbach, float | np.number)

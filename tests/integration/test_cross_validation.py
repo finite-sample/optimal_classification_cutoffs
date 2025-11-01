@@ -3,7 +3,7 @@
 This module consolidates all cross-validation functionality testing including:
 - Basic CV functionality
 - Nested CV for proper threshold selection
-- Early parameter validation 
+- Early parameter validation
 - Threshold averaging behavior
 - Edge cases and error handling
 - Multiclass workflows
@@ -116,7 +116,9 @@ class TestBasicCrossValidation:
 
         # Scores should be reasonable for structured data
         mean_score = np.mean(scores)
-        assert mean_score > 0.3, f"Mean F1 score {mean_score:.3f} too low for structured data"
+        assert (
+            mean_score > 0.3
+        ), f"Mean F1 score {mean_score:.3f} too low for structured data"
 
         # Thresholds should be reasonable
         for threshold in thresholds:
@@ -144,7 +146,7 @@ class TestNestedCrossValidation:
             if isinstance(threshold, np.ndarray):
                 threshold = float(threshold[0]) if threshold.size == 1 else threshold
             assert 0.0 <= threshold <= 1.0
-        
+
         for score in scores:
             assert 0.0 <= score <= 1.0
 
@@ -159,13 +161,13 @@ class TestNestedCrossValidation:
         # Should return valid thresholds and scores
         assert len(thresholds) == 3
         assert len(scores) == 3
-        
+
         # All results should be valid
         for threshold in thresholds:
             if isinstance(threshold, np.ndarray):
                 threshold = float(threshold[0]) if threshold.size == 1 else threshold
             assert 0.0 <= threshold <= 1.0
-            
+
         # Selected threshold should correspond to best mean performance
         # (This is tested implicitly by the implementation)
 
@@ -178,10 +180,14 @@ class TestEarlyValidation:
         y_true, y_prob = _generate_test_data()
 
         # Invalid cv values should raise immediately
-        with pytest.raises(ValueError, match="k-fold cross-validation requires at least one"):
+        with pytest.raises(
+            ValueError, match="k-fold cross-validation requires at least one"
+        ):
             cv_threshold_optimization(y_true, y_prob, cv=1)
 
-        with pytest.raises(ValueError, match="k-fold cross-validation requires at least one"):
+        with pytest.raises(
+            ValueError, match="k-fold cross-validation requires at least one"
+        ):
             cv_threshold_optimization(y_true, y_prob, cv=0)
 
     def test_cv_threshold_optimization_invalid_metric(self):
@@ -196,11 +202,15 @@ class TestEarlyValidation:
         y_true, y_prob = _generate_test_data()
 
         # Invalid outer_cv
-        with pytest.raises(ValueError, match="k-fold cross-validation requires at least one"):
+        with pytest.raises(
+            ValueError, match="k-fold cross-validation requires at least one"
+        ):
             nested_cv_threshold_optimization(y_true, y_prob, outer_cv=1)
 
         # Invalid inner_cv
-        with pytest.raises(ValueError, match="k-fold cross-validation requires at least one"):
+        with pytest.raises(
+            ValueError, match="k-fold cross-validation requires at least one"
+        ):
             nested_cv_threshold_optimization(y_true, y_prob, inner_cv=1)
 
 
@@ -320,13 +330,13 @@ class TestStatisticalSoundness:
         # Should return valid arrays
         assert len(thresholds) == 3
         assert len(scores) == 3
-        
+
         # All results should be reasonable
         for threshold in thresholds:
             if isinstance(threshold, np.ndarray):
                 threshold = float(threshold[0]) if threshold.size == 1 else threshold
             assert 0.0 <= threshold <= 1.0
-            
+
         # Should have evaluated using inner CV (tested implicitly by implementation)
 
     def test_no_data_leakage_between_cv_levels(self):
@@ -503,6 +513,7 @@ class TestCrossValidationPerformance:
         y_true, y_prob = generate_binary_data(200, random_state=42)
 
         import time
+
         start_time = time.time()
 
         thresholds, scores = cv_threshold_optimization(

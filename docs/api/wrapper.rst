@@ -22,19 +22,19 @@ Basic Usage
    from optimal_cutoffs import ThresholdOptimizer
    from sklearn.ensemble import RandomForestClassifier
    from sklearn.model_selection import train_test_split
-   
+
    # Train your classifier
    clf = RandomForestClassifier()
    clf.fit(X_train, y_train)
-   
+
    # Get probabilities
    y_prob_train = clf.predict_proba(X_train)[:, 1]  # Binary case
    y_prob_test = clf.predict_proba(X_test)[:, 1]
-   
+
    # Optimize threshold
    optimizer = ThresholdOptimizer(metric='f1', method='auto')
    optimizer.fit(y_train, y_prob_train)
-   
+
    # Make predictions
    y_pred = optimizer.predict(y_prob_test)
 
@@ -46,11 +46,11 @@ Multiclass Usage
    # For multiclass problems, pass full probability matrix
    y_prob_train = clf.predict_proba(X_train)  # Shape: (n_samples, n_classes)
    y_prob_test = clf.predict_proba(X_test)
-   
+
    # Optimizer automatically detects multiclass
    optimizer = ThresholdOptimizer(metric='f1')
    optimizer.fit(y_train, y_prob_train)  # y_train has integer class labels
-   
+
    # Returns class predictions
    y_pred = optimizer.predict(y_prob_test)
 
@@ -61,14 +61,14 @@ Pipeline Integration
 
    from sklearn.pipeline import Pipeline
    from sklearn.preprocessing import StandardScaler
-   
+
    # Create pipeline with threshold optimization
    pipeline = Pipeline([
        ('scaler', StandardScaler()),
        ('classifier', RandomForestClassifier()),
        ('threshold', ThresholdOptimizer(metric='f1'))
    ])
-   
+
    # Note: This requires custom pipeline steps for probability extraction
    # See advanced examples for full implementation
 

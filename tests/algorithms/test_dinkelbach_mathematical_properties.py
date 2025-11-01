@@ -103,9 +103,9 @@ class TestDinkelbachLabelIndependence:
 
         # All thresholds should be identical
         for i in range(1, len(thresholds)):
-            assert abs(thresholds[i] - thresholds[0]) < 1e-10, (
-                f"Pattern {i} gave different threshold: {thresholds[i]} vs {thresholds[0]}"
-            )
+            assert (
+                abs(thresholds[i] - thresholds[0]) < 1e-10
+            ), f"Pattern {i} gave different threshold: {thresholds[i]} vs {thresholds[0]}"
 
     def test_dinkelbach_sum_probabilities_not_labels(self):
         """Verify Dinkelbach uses sum(p) not sum(y) in expected F-beta calculation."""
@@ -127,15 +127,15 @@ class TestDinkelbachLabelIndependence:
         threshold1 = result1.threshold
         threshold2 = result2.threshold
         # Should be identical despite different label sums
-        assert abs(threshold1 - threshold2) < 1e-10, (
-            f"Different label sums should not affect Dinkelbach: {threshold1} vs {threshold2}"
-        )
+        assert (
+            abs(threshold1 - threshold2) < 1e-10
+        ), f"Different label sums should not affect Dinkelbach: {threshold1} vs {threshold2}"
 
         # Neither should equal a threshold based on label statistics
         label_based_fraction = np.sum(labels) / len(labels)  # 0.4
-        assert abs(threshold1 - label_based_fraction) > 1e-6, (
-            f"Threshold {threshold1} suspiciously close to label fraction {label_based_fraction}"
-        )
+        assert (
+            abs(threshold1 - label_based_fraction) > 1e-6
+        ), f"Threshold {threshold1} suspiciously close to label fraction {label_based_fraction}"
 
 
 class TestDinkelbachCalibratedPerformance:
@@ -205,10 +205,14 @@ class TestDinkelbachCalibratedPerformance:
 
         # Compute F1 scores
         f1_dinkelbach = f1_score(
-            *confusion_matrix_at_threshold(labels, probs, threshold_dinkelbach, comparison=">")
+            *confusion_matrix_at_threshold(
+                labels, probs, threshold_dinkelbach, comparison=">"
+            )
         )
         f1_sort_scan = f1_score(
-            *confusion_matrix_at_threshold(labels, probs, threshold_sort_scan, comparison=">")
+            *confusion_matrix_at_threshold(
+                labels, probs, threshold_sort_scan, comparison=">"
+            )
         )
 
         # Both should be reasonable
@@ -264,9 +268,9 @@ class TestDinkelbachCalibratedPerformance:
         # For large samples, empirical should be close to expected (stochastic relationship)
         # We mainly test that both are reasonable, not exact equality
         assert 0 <= expected_f1 <= 1, f"Expected F1 {expected_f1} out of range"
-        assert abs(empirical_f1 - expected_f1) < 0.5, (
-            f"Empirical F1 {empirical_f1:.4f} very different from expected {expected_f1:.4f}"
-        )
+        assert (
+            abs(empirical_f1 - expected_f1) < 0.5
+        ), f"Empirical F1 {empirical_f1:.4f} very different from expected {expected_f1:.4f}"
 
 
 class TestDinkelbachTieHandling:
@@ -297,17 +301,17 @@ class TestDinkelbachTieHandling:
             # Threshold exactly at tie - test exclusion
             pred_exclusive = probs > threshold_exclusive
             tied_indices = np.isclose(probs, 0.5, atol=1e-10)
-            assert not pred_exclusive[tied_indices].any(), (
-                "Exclusive '>' should not include tied probabilities"
-            )
+            assert not pred_exclusive[
+                tied_indices
+            ].any(), "Exclusive '>' should not include tied probabilities"
 
         if abs(threshold_inclusive - 0.5) < 1e-12:
             # Threshold exactly at tie - test inclusion
             pred_inclusive = probs >= threshold_inclusive
             tied_indices = np.isclose(probs, 0.5, atol=1e-10)
-            assert pred_inclusive[tied_indices].all(), (
-                "Inclusive '>=' should include tied probabilities"
-            )
+            assert pred_inclusive[
+                tied_indices
+            ].all(), "Inclusive '>=' should include tied probabilities"
 
     def test_dinkelbach_all_probabilities_tied(self):
         """Test Dinkelbach when all probabilities are identical."""
@@ -326,9 +330,9 @@ class TestDinkelbachTieHandling:
 
             # Predictions should be all same (since all probs identical)
             pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
-            assert len(np.unique(pred)) == 1, (
-                f"All probs equal, so predictions should be identical with {comparison}"
-            )
+            assert (
+                len(np.unique(pred)) == 1
+            ), f"All probs equal, so predictions should be identical with {comparison}"
 
     def test_dinkelbach_threshold_selection_with_ties(self):
         """Test Dinkelbach threshold selection strategy with tied probabilities."""
@@ -352,13 +356,13 @@ class TestDinkelbachTieHandling:
             if len(tied_predictions) > 0 and abs(threshold - 0.6) < 1e-10:
                 # If threshold is exactly at tie value
                 if comparison == ">":
-                    assert not tied_predictions.any(), (
-                        "Tied values should be excluded with '>'"
-                    )
+                    assert (
+                        not tied_predictions.any()
+                    ), "Tied values should be excluded with '>'"
                 else:  # '>='
-                    assert tied_predictions.all(), (
-                        "Tied values should be included with '>='"
-                    )
+                    assert (
+                        tied_predictions.all()
+                    ), "Tied values should be included with '>='"
 
 
 class TestDinkelbachEdgeCases:
@@ -375,9 +379,9 @@ class TestDinkelbachEdgeCases:
             )
             threshold = result.threshold
 
-            assert 0 <= threshold <= 1, (
-                f"Threshold {threshold} out of bounds with extreme probs"
-            )
+            assert (
+                0 <= threshold <= 1
+            ), f"Threshold {threshold} out of bounds with extreme probs"
 
             # Verify behavior at boundaries
             pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
@@ -412,9 +416,9 @@ class TestDinkelbachEdgeCases:
             pred = (probs > threshold) if comparison == ">" else (probs >= threshold)
 
             # All predictions should be identical
-            assert len(np.unique(pred)) == 1, (
-                f"Single probability should give uniform predictions with {comparison}"
-            )
+            assert (
+                len(np.unique(pred)) == 1
+            ), f"Single probability should give uniform predictions with {comparison}"
 
     def test_dinkelbach_reproducibility(self):
         """Test that Dinkelbach gives identical results on repeated calls."""
@@ -438,9 +442,9 @@ class TestDinkelbachEdgeCases:
 
             # All should be identical
             for i in range(1, len(thresholds)):
-                assert abs(thresholds[i] - thresholds[0]) < 1e-12, (
-                    f"Dinkelbach not reproducible: call {i} gave {thresholds[i]} vs {thresholds[0]}"
-                )
+                assert (
+                    abs(thresholds[i] - thresholds[0]) < 1e-12
+                ), f"Dinkelbach not reproducible: call {i} gave {thresholds[i]} vs {thresholds[0]}"
 
     def test_dinkelbach_supports_sample_weights(self):
         """Test that Dinkelbach correctly handles sample weights."""

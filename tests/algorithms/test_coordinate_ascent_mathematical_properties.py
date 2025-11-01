@@ -116,9 +116,9 @@ class TestCoordinateAscentMonotonicity:
 
                 # Final should be at least as good as random perturbations
                 # (allowing small numerical tolerance)
-                assert final_f1 >= perturbed_f1 - 1e-6, (
-                    f"Final F1 {final_f1:.8f} should be >= perturbed F1 {perturbed_f1:.8f}"
-                )
+                assert (
+                    final_f1 >= perturbed_f1 - 1e-6
+                ), f"Final F1 {final_f1:.8f} should be >= perturbed F1 {perturbed_f1:.8f}"
 
         except ValueError as e:
             if "not supported" in str(e).lower() or "not implemented" in str(e).lower():
@@ -151,9 +151,9 @@ class TestCoordinateAscentMonotonicity:
             max_random_f1 = max(random_f1s)
 
             # Optimal should be at least as good as the best random initialization
-            assert optimal_f1 >= max_random_f1 - 1e-10, (
-                f"Coordinate ascent F1 {optimal_f1:.8f} should be >= best random {max_random_f1:.8f}"
-            )
+            assert (
+                optimal_f1 >= max_random_f1 - 1e-10
+            ), f"Coordinate ascent F1 {optimal_f1:.8f} should be >= best random {max_random_f1:.8f}"
 
         except Exception as e:
             if any(
@@ -197,9 +197,9 @@ class TestCoordinateAscentMonotonicity:
 
                 # Optimized should be better than poor starting point
                 # (unless the poor start happens to be optimal by coincidence)
-                assert optimal_f1 >= poor_f1 - 1e-10, (
-                    f"Optimal F1 {optimal_f1:.8f} should be >= poor start F1 {poor_f1:.8f}"
-                )
+                assert (
+                    optimal_f1 >= poor_f1 - 1e-10
+                ), f"Optimal F1 {optimal_f1:.8f} should be >= poor start F1 {poor_f1:.8f}"
 
         except Exception as e:
             if any(
@@ -260,9 +260,9 @@ class TestCoordinateAscentConvergence:
 
             # All results should be identical
             for i in range(1, len(results)):
-                assert np.allclose(results[i], results[0], atol=1e-12), (
-                    f"Coordinate ascent not deterministic: run {i} differs from run 0"
-                )
+                assert np.allclose(
+                    results[i], results[0], atol=1e-12
+                ), f"Coordinate ascent not deterministic: run {i} differs from run 0"
 
         except Exception as e:
             if any(
@@ -292,9 +292,9 @@ class TestCoordinateAscentConvergence:
             duration = end_time - start_time
 
             # Should complete in reasonable time (generous bound)
-            assert duration < 30.0, (
-                f"Coordinate ascent took too long: {duration:.2f}s (may indicate convergence issues)"
-            )
+            assert (
+                duration < 30.0
+            ), f"Coordinate ascent took too long: {duration:.2f}s (may indicate convergence issues)"
 
             # Result should be valid
             thresholds = result.thresholds
@@ -338,9 +338,7 @@ class TestSingleLabelConsistency:
 
             # Each sample should get exactly one prediction
             assert len(predicted_classes) == len(labels)
-            assert all(
-                isinstance(pred, (int, np.integer)) for pred in predicted_classes
-            )
+            assert all(isinstance(pred, int | np.integer) for pred in predicted_classes)
             assert all(0 <= pred < probs.shape[1] for pred in predicted_classes)
 
             # Convert to one-hot for verification
@@ -349,9 +347,9 @@ class TestSingleLabelConsistency:
 
             # Each sample should have exactly one positive prediction
             prediction_counts = np.sum(predictions_onehot, axis=1)
-            assert np.all(prediction_counts == 1), (
-                f"Each sample should have exactly 1 prediction, got {prediction_counts}"
-            )
+            assert np.all(
+                prediction_counts == 1
+            ), f"Each sample should have exactly 1 prediction, got {prediction_counts}"
 
         except Exception as e:
             if any(
@@ -391,9 +389,9 @@ class TestSingleLabelConsistency:
 
             # Coordinate ascent should have exactly 1 prediction per sample
             coord_counts = np.sum(pred_coord_onehot, axis=1)
-            assert np.all(coord_counts == 1), (
-                "Coordinate ascent should predict exactly 1 class per sample"
-            )
+            assert np.all(
+                coord_counts == 1
+            ), "Coordinate ascent should predict exactly 1 class per sample"
 
             # OvR can have variable predictions per sample
             ovr_counts = np.sum(pred_ovr, axis=1)
@@ -438,9 +436,9 @@ class TestSingleLabelConsistency:
             coord_f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")
 
             # The key test: coordinate ascent should produce a valid result1
-            assert 0 <= coord_f1 <= 1, (
-                f"Coordinate ascent F1 {coord_f1} out of valid range"
-            )
+            assert (
+                0 <= coord_f1 <= 1
+            ), f"Coordinate ascent F1 {coord_f1} out of valid range"
 
             # Verify single-label property
             assert len(predictions) == len(labels)
@@ -514,9 +512,9 @@ class TestCoordinateAscentEdgeCases:
             predictions = np.argmax(scores, axis=1)
 
             # All samples should get the same prediction (since all probs are identical)
-            assert len(set(predictions)) <= 1, (
-                f"With uniform probabilities, all predictions should be identical, got {predictions}"
-            )
+            assert (
+                len(set(predictions)) <= 1
+            ), f"With uniform probabilities, all predictions should be identical, got {predictions}"
 
         except Exception as e:
             if any(
@@ -575,19 +573,21 @@ class TestCoordinateAscentEdgeCases:
             assert len(thresholds) == n_classes, "Wrong number of thresholds"
             # Coordinate ascent can produce thresholds outside [0,1] - allow reasonable range
             out_of_range = [t for t in thresholds if not (-10 <= t <= 10)]
-            assert len(out_of_range) == 0, f"Thresholds out of reasonable range [-10,10]: {out_of_range}, all thresholds: {thresholds}"
-            assert all(not np.isnan(t) and not np.isinf(t) for t in thresholds), (
-                "Invalid threshold values"
-            )
+            assert (
+                len(out_of_range) == 0
+            ), f"Thresholds out of reasonable range [-10,10]: {out_of_range}, all thresholds: {thresholds}"
+            assert all(
+                not np.isnan(t) and not np.isinf(t) for t in thresholds
+            ), "Invalid threshold values"
 
             # Single-label property
             scores = probs - thresholds.reshape(1, -1)
             predictions = np.argmax(scores, axis=1)
 
             assert len(predictions) == n_samples, "Wrong number of predictions"
-            assert all(0 <= pred < n_classes for pred in predictions), (
-                "Invalid prediction classes"
-            )
+            assert all(
+                0 <= pred < n_classes for pred in predictions
+            ), "Invalid prediction classes"
 
             # F1 should be valid
             f1 = _compute_exclusive_f1(labels, probs, thresholds, ">")

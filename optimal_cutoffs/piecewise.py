@@ -36,17 +36,17 @@ def _evaluate_metric_scalar_efficient(
     metric_fn: Callable, tp: float, tn: float, fp: float, fn: float
 ) -> float:
     """Efficiently evaluate metric function on scalar confusion matrix values.
-    
-    This avoids the inefficient pattern of converting scalars to single-element 
+
+    This avoids the inefficient pattern of converting scalars to single-element
     arrays just to call vectorized functions and extract the first element.
-    
+
     Parameters
     ----------
     metric_fn : callable
         Vectorized metric function that expects arrays
     tp, tn, fp, fn : float
         Scalar confusion matrix values
-        
+
     Returns
     -------
     float
@@ -56,9 +56,9 @@ def _evaluate_metric_scalar_efficient(
     return float(
         metric_fn(
             np.array([tp], dtype=float),
-            np.array([tn], dtype=float), 
+            np.array([tn], dtype=float),
             np.array([fp], dtype=float),
-            np.array([fn], dtype=float)
+            np.array([fn], dtype=float),
         )[0]
     )
 
@@ -183,10 +183,11 @@ def optimal_threshold_sortscan(
     # 0) Resolve metric to vectorized function
     if isinstance(metric, str):
         from .metrics import get_metric_function
+
         metric_fn = get_metric_function(metric)
     else:
         metric_fn = metric
-    
+
     # 1) Validate inputs
     y, p, _ = validate_binary_classification(
         y_true, pred_prob, require_proba=require_proba

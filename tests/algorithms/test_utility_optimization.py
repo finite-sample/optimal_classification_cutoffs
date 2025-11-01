@@ -139,7 +139,9 @@ class TestUtilityOptimization:
         assert 0.01 < result1.threshold < 0.99
 
         # Verify it actually optimizes the utility
-        tp, tn, fp, fn = confusion_matrix_at_threshold(y, p, result1.threshold, comparison=">=")
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
+            y, p, result1.threshold, comparison=">="
+        )
         utility_score = 0 * tp + 0 * tn + (-1) * fp + (-5) * fn
 
         # Test nearby thresholds should give worse utility
@@ -161,9 +163,7 @@ class TestUtilityOptimization:
 
         # Cost case: FP=1, FN=5 (with neutral tp=0, tn=0)
         utility_dict = {"tp": 0.0, "tn": 0.0, "fp": -1.0, "fn": -5.0}
-        result1 = get_optimal_threshold(
-            y, p, utility=utility_dict, comparison=">="
-        )
+        result1 = get_optimal_threshold(y, p, utility=utility_dict, comparison=">=")
         result2 = get_optimal_threshold(
             None, p, utility=utility_dict, mode="bayes", comparison=">="
         )
@@ -175,19 +175,22 @@ class TestUtilityOptimization:
         expected_bayes = 1.0 / 6.0
         assert abs(result2.threshold - expected_bayes) < 1e-10
 
-    def test_minimize_cost_flag(self):
-        """Test minimize_cost flag behavior."""
+    def test_equivalent_utility_specifications(self):
+        """Test that equivalent utility specifications give same results."""
         np.random.seed(42)
         n = 500
         p = np.random.uniform(0.2, 0.8, size=n)
         y = (np.random.uniform(0, 1, size=n) < 0.5).astype(int)
 
-        # These should be equivalent
-        result1 = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
+        # These should be equivalent - same relative utility differences
+        result1 = get_optimal_threshold(
+            y, p, utility={"tp": 0, "tn": 0, "fp": -1.0, "fn": -5.0}
+        )
         result2 = get_optimal_threshold(
-            y, p, utility={"fp": 1.0, "fn": 5.0}, minimize_cost=True
+            y, p, utility={"tp": 5, "tn": 1, "fp": 0, "fn": 0}
         )
 
+        # Both should give the same threshold since relative differences are the same
         assert abs(result1.threshold - result2.threshold) < 1e-12
 
     def test_utility_with_sample_weights(self):
@@ -310,7 +313,7 @@ class TestEdgeCases:
         p = np.array([0.1, 0.5, 0.9])
 
         with pytest.raises(
-            ValueError, match="true_labs is required for empirical utility optimization"
+            ValueError, match="true_labels required for empirical optimization"
         ):
             get_optimal_threshold(
                 None, p, utility={"fp": -1, "fn": -5}, mode="empirical"

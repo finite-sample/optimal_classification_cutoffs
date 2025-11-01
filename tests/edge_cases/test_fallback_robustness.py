@@ -84,7 +84,6 @@ class TestDegenerateCaseFallbacks:
         # F1 should be 0 for all-negative case
         assert score == pytest.approx(0.0, abs=1e-10)
 
-
     def test_extreme_imbalance_fallback(self):
         """Test fallback with extreme class imbalance."""
         # 99:1 imbalance

@@ -9,7 +9,7 @@ Understanding Classification Thresholds
 Most machine learning classifiers output probabilities or scores that need to be converted to discrete predictions. The default threshold of 0.5 is often suboptimal, especially for:
 
 * **Imbalanced datasets**: When one class is much more frequent than others
-* **Cost-sensitive applications**: When different types of errors have different consequences  
+* **Cost-sensitive applications**: When different types of errors have different consequences
 * **Specific metric optimization**: When you need to maximize F1, precision, recall, or other metrics
 
 Why Standard Methods Fail
@@ -41,7 +41,7 @@ Basic Usage
    # Your classification results
    y_true = np.array([0, 0, 1, 1, 0, 1, 1, 0])
    y_prob = np.array([0.1, 0.4, 0.35, 0.8, 0.2, 0.9, 0.7, 0.3])
-   
+
    # Find optimal threshold
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1')
 
@@ -51,7 +51,7 @@ Supported Metrics
 Built-in metrics include:
 
 * ``'f1'``: F1 score (harmonic mean of precision and recall)
-* ``'accuracy'``: Classification accuracy  
+* ``'accuracy'``: Classification accuracy
 * ``'precision'``: Positive predictive value
 * ``'recall'``: Sensitivity, true positive rate
 
@@ -109,8 +109,8 @@ Control how threshold comparisons are handled:
 
    # Exclusive comparison: prediction = 1 if prob > threshold
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1', comparison='>')
-   
-   # Inclusive comparison: prediction = 1 if prob >= threshold  
+
+   # Inclusive comparison: prediction = 1 if prob >= threshold
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1', comparison='>=')
 
 This is important when many probability values are tied or at exact threshold boundaries.
@@ -124,9 +124,9 @@ Handle imbalanced datasets or assign different importance to samples:
 
    # Create sample weights (e.g., inverse frequency weighting)
    sample_weights = np.array([2.0, 2.0, 0.5, 0.5, 2.0, 0.5, 0.5, 2.0])
-   
+
    threshold = get_optimal_threshold(
-       y_true, y_prob, metric='f1', 
+       y_true, y_prob, metric='f1',
        sample_weight=sample_weights
    )
 
@@ -141,7 +141,7 @@ The library automatically detects multiclass problems and uses One-vs-Rest strat
    y_true = np.array([0, 1, 2, 0, 1, 2, 0, 1])
    y_prob = np.array([
        [0.8, 0.1, 0.1],  # Strongly class 0
-       [0.2, 0.7, 0.1],  # Strongly class 1  
+       [0.2, 0.7, 0.1],  # Strongly class 1
        [0.1, 0.2, 0.7],  # Strongly class 2
        [0.6, 0.3, 0.1],  # Moderately class 0
        [0.1, 0.8, 0.1],  # Strongly class 1
@@ -149,7 +149,7 @@ The library automatically detects multiclass problems and uses One-vs-Rest strat
        [0.5, 0.4, 0.1],  # Weakly class 0
        [0.3, 0.6, 0.1],  # Moderately class 1
    ])
-   
+
    # Returns array of per-class thresholds
    thresholds = get_optimal_threshold(y_true, y_prob, metric='f1')
    print(f"Class thresholds: {thresholds}")
@@ -161,9 +161,9 @@ Control how metrics are aggregated across classes:
 
 .. code-block:: python
 
-   # Macro averaging: equal weight to all classes  
+   # Macro averaging: equal weight to all classes
    thresholds = get_optimal_threshold(y_true, y_prob, metric='f1', average='macro')
-   
+
    # Weighted averaging: weight by class frequency
    thresholds = get_optimal_threshold(y_true, y_prob, metric='f1', average='weighted')
 
@@ -175,11 +175,11 @@ Convert multiclass probabilities to predictions using optimized thresholds:
 .. code-block:: python
 
    from optimal_cutoffs import ThresholdOptimizer
-   
-   # Fit optimizer  
+
+   # Fit optimizer
    optimizer = ThresholdOptimizer(metric='f1')
    optimizer.fit(y_true, y_prob)
-   
+
    # Make predictions on new data
    y_pred = optimizer.predict(y_prob_new)
 
@@ -209,7 +209,7 @@ Complete Utility Matrix
        y_true, y_prob,
        utility={
            "tp": 10.0,   # Benefit for correct positive prediction
-           "tn": 1.0,    # Benefit for correct negative prediction  
+           "tn": 1.0,    # Benefit for correct negative prediction
            "fp": -2.0,   # Cost for false positive
            "fn": -50.0   # Cost for false negative
        }
@@ -237,15 +237,15 @@ Robust threshold estimation using cross-validation:
 .. code-block:: python
 
    from optimal_cutoffs import cv_threshold_optimization
-   
+
    # 5-fold cross-validation
    thresholds, scores = cv_threshold_optimization(
-       y_true, y_prob, 
+       y_true, y_prob,
        metric='f1',
        cv=5,
        method='auto'
    )
-   
+
    print(f"CV thresholds: {thresholds}")
    print(f"CV scores: {scores}")
    print(f"Mean threshold: {np.mean(thresholds):.3f}")
@@ -258,16 +258,16 @@ Register your own metrics for optimization:
 .. code-block:: python
 
    from optimal_cutoffs.metrics import register_metric
-   
+
    def custom_metric(tp, tn, fp, fn):
        """Custom metric: weighted combination of precision and recall."""
        precision = tp / (tp + fp) if tp + fp > 0 else 0.0
        recall = tp / (tp + fn) if tp + fn > 0 else 0.0
        return 0.7 * precision + 0.3 * recall
-   
+
    # Register the metric
    register_metric('custom', custom_metric)
-   
+
    # Use it for optimization
    threshold = get_optimal_threshold(y_true, y_prob, metric='custom')
 
@@ -278,7 +278,7 @@ Method Selection Guidelines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * **Small datasets (< 1,000 samples)**: Use ``method='smart_brute'``
-* **Large datasets**: Use ``method='auto'`` or ``method='sort_scan'``  
+* **Large datasets**: Use ``method='auto'`` or ``method='sort_scan'``
 * **High precision needs**: Use ``method='smart_brute'`` for exact results
 * **Speed critical**: Use ``method='sort_scan'`` for piecewise metrics
 
@@ -292,17 +292,17 @@ For very large datasets:
    # Process in chunks for memory efficiency
    chunk_size = 10000
    thresholds = []
-   
+
    for i in range(0, len(y_true), chunk_size):
        chunk_true = y_true[i:i+chunk_size]
        chunk_prob = y_prob[i:i+chunk_size]
-       
+
        threshold = get_optimal_threshold(
            chunk_true, chunk_prob,
            metric='f1', method='sort_scan'
        )
        thresholds.append(threshold)
-   
+
    # Combine results (example: take median)
    final_threshold = np.median(thresholds)
 

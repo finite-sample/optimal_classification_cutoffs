@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "optimal-classification-cutoffs"
-version = "0.6.1"
+version = "1.0.0"
 description = "Utilities for computing optimal classification cutoffs for binary and multiclass classification"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -118,4 +118,3 @@ filterwarnings = [
     "ignore:unique_scan with micro averaging uses independent:UserWarning",
     "ignore:invalid value encountered in divide:RuntimeWarning",
 ]
-

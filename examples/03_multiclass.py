@@ -41,7 +41,7 @@ X, y = make_classification(
     n_clusters_per_class=1,
     weights=[0.4, 0.35, 0.25],  # Slightly imbalanced
     flip_y=0.01,
-    random_state=42
+    random_state=42,
 )
 
 X_train, X_test, y_train, y_test = train_test_split(
@@ -56,7 +56,7 @@ y_prob_train = model.predict_proba(X_train)  # Shape: (n_samples, 3)
 y_prob_test = model.predict_proba(X_test)
 
 print(f"📊 Test set: {len(y_test)} documents")
-for i, class_name in enumerate(['Politics', 'Sports', 'Tech']):
+for i, class_name in enumerate(["Politics", "Sports", "Tech"]):
     count = (y_test == i).sum()
     print(f"   {class_name}: {count} ({count/len(y_test):.1%})")
 print()
@@ -68,18 +68,20 @@ print("❌ METHOD 1: Default Argmax (Baseline)")
 print("-" * 35)
 
 y_pred_default = np.argmax(y_prob_test, axis=1)
-f1_default = f1_score(y_test, y_pred_default, average='weighted')
+f1_default = f1_score(y_test, y_pred_default, average="weighted")
 
 print(f"Weighted F1 Score: {f1_default:.3f}")
 print("Classification Report:")
-print(classification_report(y_test, y_pred_default, 
-                          target_names=['Politics', 'Sports', 'Tech'],
-                          digits=3))
+print(
+    classification_report(
+        y_test, y_pred_default, target_names=["Politics", "Sports", "Tech"], digits=3
+    )
+)
 
 # =============================================================================
 # METHOD 2: One-vs-Rest (OvR) Strategy
 # =============================================================================
-print("🔄 METHOD 2: One-vs-Rest (OvR) Strategy") 
+print("🔄 METHOD 2: One-vs-Rest (OvR) Strategy")
 print("-" * 35)
 print("• Treats each class as separate binary problem")
 print("• Optimizes threshold per class independently")
@@ -89,14 +91,16 @@ print()
 # OvR automatically detects multiclass input
 result_ovr = get_optimal_threshold(y_train, y_prob_train, metric="f1")
 y_pred_ovr = result_ovr.predict(y_prob_test)
-f1_ovr = f1_score(y_test, y_pred_ovr, average='weighted')
+f1_ovr = f1_score(y_test, y_pred_ovr, average="weighted")
 
 print(f"Per-class thresholds: {result_ovr.thresholds}")
 print(f"Weighted F1 Score: {f1_ovr:.3f} (↑ {(f1_ovr/f1_default-1)*100:+.1f}%)")
 print("Classification Report:")
-print(classification_report(y_test, y_pred_ovr,
-                          target_names=['Politics', 'Sports', 'Tech'], 
-                          digits=3))
+print(
+    classification_report(
+        y_test, y_pred_ovr, target_names=["Politics", "Sports", "Tech"], digits=3
+    )
+)
 
 # =============================================================================
 # METHOD 3: Coordinate Ascent Strategy (Single-Label Consistent)
@@ -110,17 +114,20 @@ print("• Better for strict single-label requirements")
 print()
 
 # Coordinate ascent for single-label consistency
-result_coord = get_optimal_threshold(y_train, y_prob_train, 
-                                   metric="f1", method="coord_ascent")
+result_coord = get_optimal_threshold(
+    y_train, y_prob_train, metric="f1", method="coord_ascent"
+)
 y_pred_coord = result_coord.predict(y_prob_test)
-f1_coord = f1_score(y_test, y_pred_coord, average='weighted')
+f1_coord = f1_score(y_test, y_pred_coord, average="weighted")
 
 print(f"Per-class thresholds: {result_coord.thresholds}")
 print(f"Weighted F1 Score: {f1_coord:.3f} (↑ {(f1_coord/f1_default-1)*100:+.1f}%)")
 print("Classification Report:")
-print(classification_report(y_test, y_pred_coord,
-                          target_names=['Politics', 'Sports', 'Tech'],
-                          digits=3))
+print(
+    classification_report(
+        y_test, y_pred_coord, target_names=["Politics", "Sports", "Tech"], digits=3
+    )
+)
 
 # =============================================================================
 # PREDICTION BEHAVIOR COMPARISON
@@ -130,13 +137,17 @@ print("=" * 35)
 
 # Show first 10 samples to illustrate differences
 print("Sample predictions (first 10 documents):")
-print(f"{'Sample':<6} {'True':<8} {'Argmax':<8} {'OvR':<8} {'Coord':<8} {'Max Prob':<10}")
+print(
+    f"{'Sample':<6} {'True':<8} {'Argmax':<8} {'OvR':<8} {'Coord':<8} {'Max Prob':<10}"
+)
 print("-" * 50)
 
 for i in range(min(10, len(y_test))):
     max_prob = np.max(y_prob_test[i])
-    print(f"{i+1:<6} {y_test[i]:<8} {y_pred_default[i]:<8} {y_pred_ovr[i]:<8} "
-          f"{y_pred_coord[i]:<8} {max_prob:<10.3f}")
+    print(
+        f"{i+1:<6} {y_test[i]:<8} {y_pred_default[i]:<8} {y_pred_ovr[i]:<8} "
+        f"{y_pred_coord[i]:<8} {max_prob:<10.3f}"
+    )
 print()
 
 # =============================================================================
@@ -147,8 +158,8 @@ print("=" * 30)
 
 methods = [
     ("Argmax (Default)", f1_default),
-    ("One-vs-Rest (OvR)", f1_ovr), 
-    ("Coordinate Ascent", f1_coord)
+    ("One-vs-Rest (OvR)", f1_ovr),
+    ("Coordinate Ascent", f1_coord),
 ]
 
 best_f1 = max(f1 for _, f1 in methods)
@@ -189,7 +200,7 @@ print("=" * 25)
 methods_cm = [
     ("Argmax", y_pred_default),
     ("OvR", y_pred_ovr),
-    ("Coordinate Ascent", y_pred_coord)
+    ("Coordinate Ascent", y_pred_coord),
 ]
 
 for name, predictions in methods_cm:
@@ -197,7 +208,7 @@ for name, predictions in methods_cm:
     cm = confusion_matrix(y_test, predictions)
     print("     Politics Sports  Tech")
     for i, row in enumerate(cm):
-        class_name = ['Politics', 'Sports', 'Tech'][i]
+        class_name = ["Politics", "Sports", "Tech"][i]
         print(f"{class_name:<8} {row[0]:>4} {row[1]:>6} {row[2]:>5}")
 
 print()
@@ -216,7 +227,7 @@ predictions_ovr = result_ovr.predict(y_prob_test)
 
 # Coordinate Ascent (single-label consistent, F1 only)
 result_coord = get_optimal_threshold(
-    y_train, y_prob_train, 
+    y_train, y_prob_train,
     metric="f1", method="coord_ascent"
 )
 predictions_coord = result_coord.predict(y_prob_test)
@@ -232,7 +243,7 @@ print("   • Different optimization metrics per class")
 print("   • Useful when classes have different priorities")
 print()
 print("💰 Business Costs:")
-print("   • Multiclass utility optimization") 
+print("   • Multiclass utility optimization")
 print("   • Different costs for different error types")
 print()
 print("🔄 Cross-Validation:")

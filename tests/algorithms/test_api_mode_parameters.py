@@ -21,9 +21,7 @@ class TestModeParameter:
 
         # These should be equivalent
         result1 = get_optimal_threshold(y_true, y_prob, metric="f1")
-        result2 = get_optimal_threshold(
-            y_true, y_prob, metric="f1", mode="empirical"
-        )
+        result2 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="empirical")
 
         assert abs(result1.threshold - result2.threshold) < 1e-10
 
@@ -53,18 +51,20 @@ class TestModeParameter:
         result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
         assert hasattr(result1, "threshold") and hasattr(result1, "score")
         threshold, f1_score = result1.threshold, result1.score
-        assert isinstance(threshold, (float, np.number)) or (isinstance(threshold, np.ndarray) and threshold.size == 1)
+        assert isinstance(threshold, float | np.number) or (
+            isinstance(threshold, np.ndarray) and threshold.size == 1
+        )
         assert isinstance(f1_score, float)
         assert 0 <= threshold <= 1
 
         # Should also work with f1 (which is F-beta with beta=1)
-        result2 = get_optimal_threshold(
-            y_true, y_prob, metric="f1", mode="expected"
-        )
+        result2 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
         assert hasattr(result2, "threshold") and hasattr(result2, "score")
-        
+
         # Should NOT work with non-F-beta metrics
-        with pytest.raises(ValueError, match="mode='expected' currently supports F-beta only"):
+        with pytest.raises(
+            ValueError, match="mode='expected' currently supports F-beta only"
+        ):
             get_optimal_threshold(y_true, y_prob, metric="precision", mode="expected")
 
     def test_mode_expected_supports_multiclass(self):
@@ -75,7 +75,7 @@ class TestModeParameter:
 
         # Should work with multiclass and return an OptimizationResult
         result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        
+
         # Check that it's an OptimizationResult with proper attributes
         assert hasattr(result1, "thresholds")
         assert hasattr(result1, "score")
@@ -157,9 +157,7 @@ class TestMethodEquivalence:
             y_true, y_prob, metric="f1", method="unique_scan"
         )
 
-        result2 = get_optimal_threshold(
-            y_true, y_prob, metric="f1", method="sort_scan"
-        )
+        result2 = get_optimal_threshold(y_true, y_prob, metric="f1", method="sort_scan")
 
         # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
         from optimal_cutoffs.metrics import compute_metric_at_threshold
@@ -170,22 +168,18 @@ class TestMethodEquivalence:
         score_sort = compute_metric_at_threshold(
             y_true, y_prob, result2.threshold, "f1"
         )
-        assert abs(score_unique - score_sort) < 1e-10, (
-            f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
-        )
+        assert (
+            abs(score_unique - score_sort) < 1e-10
+        ), f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
 
     def test_unique_scan_vs_sort_scan_on_piecewise_metrics(self):
         """Test that unique_scan gives same results as sort_scan for piecewise metrics."""
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
-        get_optimal_threshold(
-            y_true, y_prob, metric="f1", method="unique_scan"
-        )
+        get_optimal_threshold(y_true, y_prob, metric="f1", method="unique_scan")
 
-        result2 = get_optimal_threshold(
-            y_true, y_prob, metric="f1", method="sort_scan"
-        )
+        result2 = get_optimal_threshold(y_true, y_prob, metric="f1", method="sort_scan")
 
         # Both methods should achieve the same optimal score (thresholds may differ on plateaus)
         from optimal_cutoffs.metrics import compute_metric_at_threshold
@@ -196,9 +190,9 @@ class TestMethodEquivalence:
         score_sort = compute_metric_at_threshold(
             y_true, y_prob, result2.threshold, "f1"
         )
-        assert abs(score_unique - score_sort) < 1e-10, (
-            f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
-        )
+        assert (
+            abs(score_unique - score_sort) < 1e-10
+        ), f"Score mismatch: unique_scan={score_unique:.10f}, sort_scan={score_sort:.10f}"
 
 
 class TestCVDefaultMethods:
@@ -214,8 +208,12 @@ class TestCVDefaultMethods:
 
         assert len(thresholds) == 3
         assert len(scores) == 3
-        assert all(isinstance(t, (int, float, np.number)) or (isinstance(t, np.ndarray) and t.size == 1) for t in thresholds)
-        assert all(isinstance(s, (int, float, np.number)) for s in scores)
+        assert all(
+            isinstance(t, int | float | np.number)
+            or (isinstance(t, np.ndarray) and t.size == 1)
+            for t in thresholds
+        )
+        assert all(isinstance(s, int | float | np.number) for s in scores)
 
     def test_nested_cv_threshold_optimization_default_method(self):
         """Test that nested_cv_threshold_optimization uses 'auto' by default."""
@@ -229,8 +227,12 @@ class TestCVDefaultMethods:
 
         assert len(thresholds) == 3
         assert len(scores) == 3
-        assert all(isinstance(t, (int, float, np.number)) or (isinstance(t, np.ndarray) and t.size == 1) for t in thresholds)
-        assert all(isinstance(s, (int, float, np.number)) for s in scores)
+        assert all(
+            isinstance(t, int | float | np.number)
+            or (isinstance(t, np.ndarray) and t.size == 1)
+            for t in thresholds
+        )
+        assert all(isinstance(s, int | float | np.number) for s in scores)
 
 
 class TestGoldenTests:
@@ -260,9 +262,7 @@ class TestGoldenTests:
             y_true, y_prob, metric="f1", method="unique_scan"
         )
 
-        result2 = get_optimal_threshold(
-            y_true, y_prob, metric="f1", method="minimize"
-        )
+        result2 = get_optimal_threshold(y_true, y_prob, metric="f1", method="minimize")
 
         # Different methods may give slightly different results, but should be close
         # Relaxed tolerance since methods may have significant differences in edge cases
@@ -279,8 +279,12 @@ class TestGoldenTests:
         result2 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
 
         # Both should return tuples
-        assert hasattr(result1, "threshold") and hasattr(result1, "score")  # Expected mode returns OptimizationResult
-        assert hasattr(result2, "threshold") and hasattr(result2, "score")  # Expected mode returns OptimizationResult
+        assert hasattr(result1, "threshold") and hasattr(
+            result1, "score"
+        )  # Expected mode returns OptimizationResult
+        assert hasattr(result2, "threshold") and hasattr(
+            result2, "score"
+        )  # Expected mode returns OptimizationResult
 
         # Extract thresholds and compare
         _threshold1, f1_score1 = result2.threshold, result2.score
@@ -307,9 +311,7 @@ class TestErrorMessages:
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9])
 
         # Should work with F1 metric (the only supported F-beta metric currently)
-        result1 = get_optimal_threshold(
-            y_true, y_prob, metric="f1", mode="expected"
-        )
+        result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
         threshold = result1.threshold
         assert hasattr(result1, "threshold") and hasattr(result1, "score")
         threshold, f1_score = result1.threshold, result1.score
@@ -318,10 +320,10 @@ class TestErrorMessages:
 
         # Test that unsupported metrics raise appropriate errors
         for metric in ["accuracy", "precision", "recall", "specificity", "jaccard"]:
-            with pytest.raises(ValueError, match="mode='expected' currently supports F-beta only"):
-                get_optimal_threshold(
-                    y_true, y_prob, metric=metric, mode="expected"
-                )
+            with pytest.raises(
+                ValueError, match="mode='expected' currently supports F-beta only"
+            ):
+                get_optimal_threshold(y_true, y_prob, metric=metric, mode="expected")
 
     def test_mode_expected_multiclass_support(self):
         """Test that mode='expected' supports multiclass classification."""
@@ -331,7 +333,7 @@ class TestErrorMessages:
 
         # Should work with multiclass and return an OptimizationResult
         result1 = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
-        
+
         # Check that it's an OptimizationResult with proper attributes
         assert hasattr(result1, "thresholds")
         assert hasattr(result1, "score")

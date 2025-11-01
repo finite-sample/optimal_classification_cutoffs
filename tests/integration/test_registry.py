@@ -50,7 +50,9 @@ class TestRegistryIntegration:
         """Test error when requesting non-existent vectorized metric."""
         # Test should verify that unknown metrics raise errors
         with pytest.raises(ValueError, match="Unknown metric"):
-            get_optimal_threshold(self.y_true, self.pred_prob, metric="custom_metric", method="sort_scan")
+            get_optimal_threshold(
+                self.y_true, self.pred_prob, metric="custom_metric", method="sort_scan"
+            )
 
     def test_sample_weights_with_sort_scan(self):
         """Test sort_scan method with sample weights."""
@@ -118,9 +120,7 @@ class TestBackwardCompatibility:
         assert 0.0 <= threshold <= 1.0
 
         # Should be equivalent to explicit auto method
-        result = get_optimal_threshold(
-            y_true, pred_prob, metric="f1", method="auto"
-        )
+        result = get_optimal_threshold(y_true, pred_prob, metric="f1", method="auto")
         assert threshold == threshold
 
     def test_existing_api_unchanged(self):

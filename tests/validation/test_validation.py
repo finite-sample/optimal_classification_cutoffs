@@ -71,6 +71,7 @@ class TestBasicInputValidation:
 
         # Suppress probability sum warning for this error condition test
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             with pytest.raises(ValueError, match="Shape mismatch"):
@@ -105,6 +106,7 @@ class TestBasicInputValidation:
         # Labels outside valid range (has label 3 for 3-class problem)
         # Suppress probability sum warning for this error condition test
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             with pytest.raises(ValueError, match="Found label 3 but n_classes=3"):
@@ -176,21 +178,15 @@ class TestBasicInputValidation:
 
         # NaN values
         with pytest.raises(ValueError, match="Sample weights contain NaN values"):
-            validate_inputs(
-                true_labels, pred_probs, weights=[1.0, np.nan, 1.5, 0.5]
-            )
+            validate_inputs(true_labels, pred_probs, weights=[1.0, np.nan, 1.5, 0.5])
 
         # Negative values
         with pytest.raises(ValueError, match="Sample weights must be non-negative"):
-            validate_inputs(
-                true_labels, pred_probs, weights=[1.0, -1.0, 1.5, 0.5]
-            )
+            validate_inputs(true_labels, pred_probs, weights=[1.0, -1.0, 1.5, 0.5])
 
         # All zeros
         with pytest.raises(ValueError, match="Sample weights sum to zero"):
-            validate_inputs(
-                true_labels, pred_probs, weights=[0.0, 0.0, 0.0, 0.0]
-            )
+            validate_inputs(true_labels, pred_probs, weights=[0.0, 0.0, 0.0, 0.0])
 
 
 class TestBinaryClassificationValidation:
@@ -276,8 +272,8 @@ class TestMulticlassValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)  # Normalize to probabilities
 
         # Function signature is (labels, probs, weights), not (probs, labels)
-        validated_labels, validated_probs, validated_weights = validate_multiclass_classification(
-            labels, probs
+        validated_labels, validated_probs, validated_weights = (
+            validate_multiclass_classification(labels, probs)
         )
         assert np.array_equal(validated_labels, labels)
         assert validated_probs.shape == (6, 3)
@@ -301,8 +297,8 @@ class TestMulticlassValidation:
 
         # Test with valid probabilities
         valid_probs = np.array([[0.1, 0.5, 0.4], [0.3, 0.2, 0.5], [0.4, 0.3, 0.3]])
-        validated_labels, validated_probs, validated_weights = validate_multiclass_classification(
-            labels, valid_probs
+        validated_labels, validated_probs, validated_weights = (
+            validate_multiclass_classification(labels, valid_probs)
         )
         assert np.array_equal(validated_labels, labels)
 
@@ -312,6 +308,7 @@ class TestMulticlassValidation:
         labels = np.array([[0, 1], [1, 2]])  # 2D instead of 1D
         # Suppress probability sum warning for this error condition test
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             probs = np.random.rand(2, 3)
@@ -321,7 +318,9 @@ class TestMulticlassValidation:
         # Wrong probability dimensions - API now accepts 1D probs for binary case
         # Let's test something that actually fails
         labels = np.array([0, 1, 2])  # 3 labels
-        probs = np.array([0.5, 0.3])  # Only 2 probs - this causes n_classes=2 but max label=2
+        probs = np.array(
+            [0.5, 0.3]
+        )  # Only 2 probs - this causes n_classes=2 but max label=2
 
         # This should fail due to label/classes mismatch
         with pytest.raises(ValueError, match="Found label 2 but n_classes=2"):
@@ -331,6 +330,7 @@ class TestMulticlassValidation:
         labels = np.array([0, 1, 2])
         # Suppress probability sum warning for this error condition test
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             probs = np.random.rand(5, 3)  # 5 samples vs 3 labels
@@ -379,9 +379,7 @@ class TestParameterValidation:
             validate_threshold(1.1)
 
         # Invalid: wrong length for multiclass
-        with pytest.raises(
-            ValueError, match="Expected 3 thresholds, got 2"
-        ):
+        with pytest.raises(ValueError, match="Expected 3 thresholds, got 2"):
             validate_threshold([0.5, 0.7], n_classes=3)
 
     def test_validate_metric_name(self):
@@ -413,7 +411,14 @@ class TestParameterValidation:
     def test_validate_optimization_method(self):
         """Test optimization method validation."""
         # Valid optimization methods
-        for method in ["auto", "unique_scan", "sort_scan", "minimize", "gradient", "coord_ascent"]:
+        for method in [
+            "auto",
+            "unique_scan",
+            "sort_scan",
+            "minimize",
+            "gradient",
+            "coord_ascent",
+        ]:
             _validate_optimization_method(method)
 
         # Invalid optimization method
@@ -491,9 +496,7 @@ class TestPublicAPIValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)
 
         # Should work with valid data
-        result = get_optimal_multiclass_thresholds(
-            labels, probs, method="unique_scan"
-        )
+        result = get_optimal_multiclass_thresholds(labels, probs, method="unique_scan")
         assert len(result.thresholds) == 3
 
 
@@ -647,6 +650,6 @@ class TestEdgeCasesAndRobustness:
         assert 0 <= result.threshold <= 1
 
         # Very close to boundaries
-        y_prob = [1e-10, 1-1e-10, 1e-10, 1-1e-10]
+        y_prob = [1e-10, 1 - 1e-10, 1e-10, 1 - 1e-10]
         result = get_optimal_threshold(y_true, y_prob)
         assert 0 <= result.threshold <= 1

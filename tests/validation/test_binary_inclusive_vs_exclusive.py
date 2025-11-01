@@ -34,17 +34,17 @@ class TestComparisonOperatorSemantics:
         expected_exclusive = np.array([False, False, False, True])
         expected_inclusive = np.array([False, True, True, True])
 
-        assert np.array_equal(pred_exclusive, expected_exclusive), (
-            f"Exclusive '>' failed: expected {expected_exclusive}, got {pred_exclusive}"
-        )
-        assert np.array_equal(pred_inclusive, expected_inclusive), (
-            f"Inclusive '>=' failed: expected {expected_inclusive}, got {pred_inclusive}"
-        )
+        assert np.array_equal(
+            pred_exclusive, expected_exclusive
+        ), f"Exclusive '>' failed: expected {expected_exclusive}, got {pred_exclusive}"
+        assert np.array_equal(
+            pred_inclusive, expected_inclusive
+        ), f"Inclusive '>=' failed: expected {expected_inclusive}, got {pred_inclusive}"
 
         # Should be different when there are ties
-        assert not np.array_equal(pred_exclusive, pred_inclusive), (
-            "Exclusive and inclusive should differ when there are ties at threshold"
-        )
+        assert not np.array_equal(
+            pred_exclusive, pred_inclusive
+        ), "Exclusive and inclusive should differ when there are ties at threshold"
 
     def test_no_ties_same_result(self):
         """When no probabilities equal threshold, both operators should give same result."""
@@ -55,9 +55,9 @@ class TestComparisonOperatorSemantics:
         pred_inclusive = probs >= threshold
 
         # Should be identical when no ties
-        assert np.array_equal(pred_exclusive, pred_inclusive), (
-            f"Should be identical with no ties: exclusive={pred_exclusive}, inclusive={pred_inclusive}"
-        )
+        assert np.array_equal(
+            pred_exclusive, pred_inclusive
+        ), f"Should be identical with no ties: exclusive={pred_exclusive}, inclusive={pred_inclusive}"
 
     def test_all_tied_at_threshold(self):
         """When all probabilities equal threshold, operators should give different results."""
@@ -86,7 +86,7 @@ class TestOptimizationWithTies:
         result_inclusive = get_optimal_threshold(
             labels, probs, metric="f1", method="sort_scan", comparison=">="
         )
-        
+
         threshold_exclusive = result_exclusive.threshold
         threshold_inclusive = result_inclusive.threshold
 
@@ -105,10 +105,14 @@ class TestOptimizationWithTies:
 
         # Verify both produce valid F1 scores
         f1_exclusive = f1_score(
-            *confusion_matrix_at_threshold(labels, probs, threshold_exclusive, comparison=">")
+            *confusion_matrix_at_threshold(
+                labels, probs, threshold_exclusive, comparison=">"
+            )
         )
         f1_inclusive = f1_score(
-            *confusion_matrix_at_threshold(labels, probs, threshold_inclusive, comparison=">=")
+            *confusion_matrix_at_threshold(
+                labels, probs, threshold_inclusive, comparison=">="
+            )
         )
 
         assert 0 <= f1_exclusive <= 1, f"Exclusive F1 {f1_exclusive} out of range"
@@ -135,7 +139,7 @@ class TestOptimizationWithTies:
                 result_inclusive = get_optimal_threshold(
                     labels, probs, metric=metric, method="sort_scan", comparison=">="
                 )
-                
+
                 threshold_exclusive = result_exclusive.threshold
                 threshold_inclusive = result_inclusive.threshold
 
@@ -188,7 +192,7 @@ class TestOptimizationWithTies:
             result_inclusive = get_optimal_threshold(
                 labels, probs, metric=metric, method="sort_scan", comparison=">="
             )
-            
+
             threshold_exclusive = result_exclusive.threshold
             threshold_inclusive = result_inclusive.threshold
 
@@ -238,10 +242,10 @@ class TestComparisonThreading:
         result_inclusive = get_optimal_threshold(
             labels, probs, metric="f1", method="sort_scan", comparison=">="
         )
-        
+
         threshold_exclusive = result_exclusive.threshold
         threshold_inclusive = result_inclusive.threshold
-        
+
         assert 0 <= threshold_exclusive <= 1
         assert 0 <= threshold_inclusive <= 1
 
@@ -364,7 +368,7 @@ class TestEdgeCasesWithComparison:
                 method="sort_scan",
                 comparison=comparison,
             )
-            
+
             threshold = result.threshold
 
             pred = (
@@ -376,9 +380,7 @@ class TestEdgeCasesWithComparison:
             # Predictions should be consistent based on threshold and comparison
             if threshold > 0:
                 # No probability can be > or >= a positive threshold
-                assert not pred.any(), (
-                    f"All probs = 0, threshold = {threshold} > 0 should predict all negative"
-                )
+                assert not pred.any(), f"All probs = 0, threshold = {threshold} > 0 should predict all negative"
             elif threshold == 0:
                 if comparison == ">":
                     # 0 > 0 is False
@@ -399,7 +401,7 @@ class TestEdgeCasesWithComparison:
                 method="sort_scan",
                 comparison=comparison,
             )
-            
+
             threshold = result.threshold
 
             pred = (
@@ -411,9 +413,7 @@ class TestEdgeCasesWithComparison:
             # Predictions should be consistent
             if threshold < 1:
                 # All probabilities should be > or >= a threshold < 1
-                assert pred.all(), (
-                    f"All probs = 1, threshold = {threshold} < 1 should predict all positive"
-                )
+                assert pred.all(), f"All probs = 1, threshold = {threshold} < 1 should predict all positive"
             elif threshold == 1:
                 if comparison == ">":
                     # 1 > 1 is False
@@ -440,6 +440,6 @@ class TestEdgeCasesWithComparison:
         assert np.array_equal(pred_inclusive, expected_inclusive)
 
         # Verify different predictions
-        assert not np.array_equal(pred_exclusive, pred_inclusive), (
-            "Should differ when probability equals threshold"
-        )
+        assert not np.array_equal(
+            pred_exclusive, pred_inclusive
+        ), "Should differ when probability equals threshold"

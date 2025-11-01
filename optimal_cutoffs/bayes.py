@@ -117,6 +117,9 @@ class BayesOptimal:
     def compute_threshold(self) -> float:
         """Compute optimal threshold for binary case (only valid when D > 0).
 
+        Uses the correct formula:
+        τ* = (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)]
+
         Returns
         -------
         float
@@ -130,7 +133,7 @@ class BayesOptimal:
         if not self.is_binary:
             raise ValueError("Thresholds only defined for binary problems")
 
-        _, B, D = self._binary_params()
+        A, B, D = self._binary_params()
 
         # Only valid for D > 0; for D <= 0 callers must use the margin-based decision.
         if D <= 1e-12:
@@ -355,25 +358,75 @@ def bayes_optimal_threshold(
 
 
 def bayes_optimal_decisions(
-    probabilities: NDArray[np.float64], utility_matrix: NDArray[np.float64]
+    probabilities: NDArray[np.float64],
+    utility_matrix: NDArray[np.float64] | None = None,
+    cost_matrix: NDArray[np.float64] | None = None,
 ) -> OptimizationResult:
-    """Compute optimal decisions from utility matrix.
+    """Compute optimal decisions from utility or cost matrix.
+
+    For general cost matrices, per-class thresholds are NOT optimal!
+    This function implements the exact Bayes rule: argmin_j Σ_i p_i * C(i,j)
+
+    This is the theoretically correct approach for arbitrary cost structures
+    where costs depend on both true class i and predicted class j.
 
     Parameters
     ----------
     probabilities : array of shape (n_samples, n_classes)
-        Class probabilities
-    utility_matrix : array of shape (n_decisions, n_classes)
-        Utility matrix U[d,y] = utility(decision=d, true=y)
+        Class probabilities (must be calibrated)
+    utility_matrix : array of shape (n_decisions, n_classes), optional
+        Utility matrix U[d,y] = utility(decision=d, true=y).
+        Higher values = better outcomes.
+    cost_matrix : array of shape (n_decisions, n_classes), optional
+        Cost matrix C[d,y] = cost(decision=d, true=y).
+        Lower values = better outcomes.
 
     Returns
     -------
     OptimizationResult
         Optimization result with decision strategy and predict function
+
+    Examples
+    --------
+    >>> # Asymmetric costs: misclassifying car as dog is expensive
+    >>> cost_matrix = np.array([
+    ...     [0,  10,  50],   # True dog: [predict dog, cat, car]
+    ...     [10,  0,  40],   # True cat
+    ...     [100, 90,  0],   # True car
+    ... ])
+    >>> result = bayes_optimal_decisions(y_prob, cost_matrix=cost_matrix)
+    >>> y_pred = result.predict(y_prob)  # Uses direct Bayes rule
+
+    Notes
+    -----
+    **When to use this vs thresholds:**
+
+    - Use this function when costs have GENERAL structure (e.g., car→dog costs
+      more than car→cat)
+    - Use threshold-based methods when costs have OvR structure (each class
+      has independent FP/FN costs)
+
+    **Complexity:** O(K²) per sample vs O(K) for thresholds
+
+    **Why thresholds don't work:** The Bayes rule depends on the full
+    probability vector p, not individual components p_j. Margin rules like
+    argmax(p_j - τ_j) cannot capture cost correlations between classes.
     """
+    # Validate input: exactly one of utility_matrix or cost_matrix
+    if utility_matrix is None and cost_matrix is None:
+        raise ValueError("Must provide either utility_matrix or cost_matrix")
+    if utility_matrix is not None and cost_matrix is not None:
+        raise ValueError("Provide either utility_matrix or cost_matrix, not both")
+
     # Convert to arrays
     probs = np.asarray(probabilities, dtype=np.float64)
-    utility = np.asarray(utility_matrix, dtype=np.float64)
+
+    if utility_matrix is not None:
+        utility = np.asarray(utility_matrix, dtype=np.float64)
+    else:
+        utility = -np.asarray(
+            cost_matrix, dtype=np.float64
+        )  # Convert costs to utilities
 
     # Validate shapes
     if probs.ndim != 2:
@@ -389,14 +442,14 @@ def bayes_optimal_decisions(
     n_decisions = utility.shape[0]
     n_classes = utility.shape[1]
 
-    # Compute expected utilities: E[U|x] = Σ_y U(d,y) P(y|x)
+    # Compute expected utilities/costs: E[U|x] = Σ_y U(d,y) P(y|x)
     expected = (
         probs @ utility.T
     )  # (n_samples, n_classes) @ (n_classes, n_decisions) -> (n_samples, n_decisions)
 
-    # Compute maximum expected utility for each sample as "scores"
-    max_expected_utilities = np.max(expected, axis=1)
-    mean_expected_utility = np.mean(max_expected_utilities)
+    # Always maximize utility (whether provided directly or converted from costs)
+    optimal_values = np.max(expected, axis=1)
+    mean_value = np.mean(optimal_values)
 
     # Create prediction function (closure captures utility matrix)
     def predict_bayes_decisions(probabilities_new):
@@ -406,20 +459,22 @@ def bayes_optimal_decisions(
         if p.shape[1] != n_classes:
             raise ValueError(f"Expected {n_classes} classes, got {p.shape[1]}")
 
-        # Compute expected utilities and return argmax decisions
+        # Compute expected utilities and return optimal decisions (always maximize utility)
         expected_new = p @ utility.T
         return np.argmax(expected_new, axis=1).astype(np.int32)
 
     # For utility-based decisions, we don't have traditional "thresholds",
     # but we can use zeros as placeholders since the predict function handles everything
     thresholds = np.zeros(n_decisions, dtype=np.float64)
-    scores = np.full(n_decisions, mean_expected_utility, dtype=np.float64)
+    scores = np.full(n_decisions, mean_value, dtype=np.float64)
+
+    metric_name = "expected_cost" if cost_matrix is not None else "expected_utility"
 
     return OptimizationResult(
         thresholds=thresholds,
         scores=scores,
         predict=predict_bayes_decisions,
-        metric="expected_utility",
+        metric=metric_name,
         n_classes=n_decisions,
     )
 
@@ -427,25 +482,54 @@ def bayes_optimal_decisions(
 def bayes_thresholds_from_costs(
     fp_costs: NDArray[np.float64] | list[float],
     fn_costs: NDArray[np.float64] | list[float],
+    *,
+    use_weighted_margin: bool = True,
 ) -> OptimizationResult:
-    """Compute per-class Bayes thresholds from costs (vectorized).
+    """Compute per-class Bayes thresholds from OvR costs (vectorized).
+
+    For OvR cost structure where each class j has:
+    - False positive cost: c_j
+    - False negative cost: r_j
+
+    The optimal thresholds are: τ_j = c_j / (c_j + r_j)
+
+    IMPORTANT: When cost totals (c_j + r_j) differ across classes, the correct
+    Bayes decision rule is the WEIGHTED margin:
+    ŷ = argmax_j [(c_j + r_j) * (p_j - τ_j)]
+
+    The unweighted margin p_j - τ_j is only optimal when all cost totals are equal.
 
     Parameters
     ----------
     fp_costs : array-like
-        False positive costs per class (can be positive or negative)
+        False positive costs per class (positive values)
     fn_costs : array-like
-        False negative costs per class (can be positive or negative)
+        False negative costs per class (positive values)
+    use_weighted_margin : bool, default=True
+        If True, prediction function uses correct weighted margin rule.
+        If False, uses unweighted margin (only optimal when cost totals are equal).
 
     Returns
     -------
     OptimizationResult
-        Optimization result with per-class thresholds and predict function
+        Optimization result with per-class thresholds and Bayes-optimal predict function
 
     Notes
     -----
-    Uses the formula: threshold = |fp_cost| / (|fp_cost| + |fn_cost|)
-    Costs can be negative (representing utilities) or positive.
+    This implements the exact Bayes rule for OvR cost structure:
+    C(i,j) = c_j if i ≠ j, else 0 (cost for predicting j when true class is i ≠ j)
+
+    Examples
+    --------
+    >>> # Different cost structures
+    >>> fp_costs = [1, 5, 2]  # Class 1 has high FP cost
+    >>> fn_costs = [1, 1, 8]  # Class 2 has high FN cost
+    >>> result = bayes_thresholds_from_costs(fp_costs, fn_costs)
+    >>> result.thresholds  # [0.5, 0.833, 0.2]
+    >>>
+    >>> # Cost totals: [2, 6, 10] - differ significantly!
+    >>> # Must use weighted margin for Bayes optimality
+    >>> pred = result.predict(y_prob)  # Uses weighted margin automatically
     """
     fp = np.asarray(fp_costs, dtype=np.float64)
     fn = np.asarray(fn_costs, dtype=np.float64)
@@ -470,7 +554,9 @@ def bayes_thresholds_from_costs(
     # Compute expected cost as "score" (negative values for costs)
     expected_costs = -(fp_abs + fn_abs)  # Negative for minimization
 
-    # Create prediction function for per-class thresholds
+    # Create prediction function based on margin rule choice
+    cost_totals = fp_abs + fn_abs  # (c_j + r_j) for each class
+
     def predict_multiclass_bayes(probs):
         p = np.asarray(probs)
         if p.ndim != 2:
@@ -478,15 +564,23 @@ def bayes_thresholds_from_costs(
         if p.shape[1] != n_classes:
             raise ValueError(f"Expected {n_classes} classes, got {p.shape[1]}")
 
-        # Apply per-class thresholds and predict highest valid probability
-        valid = p >= thresholds[None, :]
-        masked = np.where(valid, p, -np.inf)
-        predictions = np.argmax(masked, axis=1).astype(np.int32)
+        if use_weighted_margin:
+            # Correct Bayes rule: argmax_j [(c_j + r_j) * (p_j - τ_j)]
+            # Equivalently: argmax_j [(c_j + r_j) * p_j - c_j]
+            weighted_scores = cost_totals[None, :] * p - fp_abs[None, :]
+            predictions = np.argmax(weighted_scores, axis=1).astype(np.int32)
+        else:
+            # Unweighted margin (only optimal when all cost totals are equal)
+            margins = p - thresholds[None, :]
+            # Fall back to argmax when all margins negative
+            valid = margins > 0
+            masked_margins = np.where(valid, margins, -np.inf)
+            predictions = np.argmax(masked_margins, axis=1).astype(np.int32)
 
-        # For samples where no class is above threshold, predict highest probability
-        no_valid = np.all(~valid, axis=1)
-        if np.any(no_valid):
-            predictions[no_valid] = np.argmax(p[no_valid], axis=1)
+            # For samples where no class has positive margin, use argmax
+            no_valid = ~np.any(valid, axis=1)
+            if np.any(no_valid):
+                predictions[no_valid] = np.argmax(p[no_valid], axis=1)
 
         return predictions
 
@@ -529,19 +623,24 @@ def optimize_bayes_thresholds(
     if labels is None:
         # For Bayes mode, only validate predictions and infer problem type
         from .validation import infer_problem_type, validate_probabilities
+
         problem_type = infer_problem_type(predictions)
-        
+
         if problem_type == "binary":
-            predictions = validate_probabilities(predictions, binary=True, require_proba=True)
+            predictions = validate_probabilities(
+                predictions, binary=True, require_proba=True
+            )
         else:
-            predictions = validate_probabilities(predictions, binary=False, require_proba=True)
-            
+            predictions = validate_probabilities(
+                predictions, binary=False, require_proba=True
+            )
+
         # Handle sample weights
         if weights is not None:
             weights = np.asarray(weights, dtype=np.float64)
             if len(weights) != len(predictions):
                 raise ValueError("Sample weights must match number of predictions")
-        
+
         labels = None  # Keep labels as None for Bayes mode
     else:
         labels, predictions, weights, problem_type = validate_classification(
@@ -571,7 +670,7 @@ def optimize_bayes_thresholds(
     # Create prediction function based on problem type
     if problem_type == "binary":
         threshold = float(thresholds[0])
-        
+
         def predict_binary(probs):
             p = np.asarray(probs)
             if p.ndim == 2 and p.shape[1] == 2:
@@ -579,13 +678,16 @@ def optimize_bayes_thresholds(
             elif p.ndim == 2 and p.shape[1] == 1:
                 p = p.ravel()
             return (p >= threshold).astype(np.int32)
-        
+
         predict_fn = predict_binary
     else:
+
         def predict_multiclass(probs):
             p = np.asarray(probs)
             if p.ndim != 2 or p.shape[1] != len(thresholds):
-                raise ValueError("Multiclass probabilities must be (n_samples, n_classes)")
+                raise ValueError(
+                    "Multiclass probabilities must be (n_samples, n_classes)"
+                )
 
             mask = p >= thresholds[None, :]
             masked = np.where(mask, p, -np.inf)
@@ -595,7 +697,7 @@ def optimize_bayes_thresholds(
                 # Fallback: pure argmax of probabilities
                 pred[none_pass] = np.argmax(p[none_pass], axis=1)
             return pred.astype(np.int32)
-        
+
         predict_fn = predict_multiclass
 
     return OptimizationResult(

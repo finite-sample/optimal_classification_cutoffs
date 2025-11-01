@@ -79,9 +79,9 @@ class TestCoordinateAscentCore:
 
         # Check monotone ascent in history
         for i in range(1, len(history)):
-            assert history[i] >= history[i - 1] - 1e-12, (
-                f"Non-monotone at step {i}: {history[i - 1]} -> {history[i]}"
-            )
+            assert (
+                history[i] >= history[i - 1] - 1e-12
+            ), f"Non-monotone at step {i}: {history[i - 1]} -> {history[i]}"
 
         # Verify final result
         assert len(tau) == C
@@ -135,7 +135,9 @@ class TestCoordinateAscentCore:
         )
 
         assert len(tau) == 2
-        assert all(not np.isnan(t) and not np.isinf(t) for t in tau)  # Check for valid values
+        assert all(
+            not np.isnan(t) and not np.isinf(t) for t in tau
+        )  # Check for valid values
         assert len(history) >= 1
 
     def test_coord_ascent_initialization_strategies(self):
@@ -160,7 +162,9 @@ class TestCoordinateAscentCore:
         # Test invalid tolerance (replacing init validation)
         if NUMBA_AVAILABLE:
             # When Numba is available, invalid types cause compilation errors
-            with pytest.raises((ValueError, TypeError, Exception)):  # Include compilation errors
+            with pytest.raises(
+                (ValueError, TypeError, Exception)
+            ):  # Include compilation errors
                 coordinate_ascent_kernel(
                     y_true_int32,
                     P_float64,
@@ -197,7 +201,7 @@ class TestCoordinateAscentIntegration:
         tau = result.thresholds
 
         assert len(tau) == C
-        assert all(isinstance(t, (float, np.floating)) for t in tau)
+        assert all(isinstance(t, float | np.floating) for t in tau)
 
     def test_coord_ascent_unsupported_features(self):
         """Test that unsupported features raise appropriate errors."""

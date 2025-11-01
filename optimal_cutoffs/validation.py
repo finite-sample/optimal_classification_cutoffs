@@ -31,7 +31,7 @@ def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
     # Handle None input gracefully
     if labels is None:
         raise ValueError("Labels cannot be None")
-    
+
     # Try conversion to int8, but catch potential overflow/conversion errors
     try:
         arr = np.asarray(labels, dtype=np.int8)
@@ -49,19 +49,18 @@ def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
         raise ValueError("Labels contain non-finite values (NaN or inf)")
 
     unique = np.unique(arr)
-    if not (np.array_equal(unique, [0, 1]) or 
-            np.array_equal(unique, [0]) or 
-            np.array_equal(unique, [1])):
-        raise ValueError(
-            f"Labels must be binary (0 or 1), got unique values: {unique}"
-        )
+    if not (
+        np.array_equal(unique, [0, 1])
+        or np.array_equal(unique, [0])
+        or np.array_equal(unique, [1])
+    ):
+        raise ValueError(f"Labels must be binary (0 or 1), got unique values: {unique}")
 
     return arr
 
 
 def validate_multiclass_labels(
-    labels: ArrayLike, 
-    n_classes: int | None = None
+    labels: ArrayLike, n_classes: int | None = None
 ) -> NDArray[np.int32]:
     """Validate and return multiclass labels as int32 array.
 
@@ -106,9 +105,7 @@ def validate_multiclass_labels(
 
 
 def validate_probabilities(
-    probs: ArrayLike, 
-    binary: bool = False, 
-    require_proba: bool = True
+    probs: ArrayLike, binary: bool = False, require_proba: bool = True
 ) -> NDArray[np.float64]:
     """Validate and return probabilities or scores as float64 array.
 
@@ -147,14 +144,10 @@ def validate_probabilities(
     # Check shape
     if binary:
         if arr.ndim != 1:
-            raise ValueError(
-                f"Binary probabilities must be 1D, got shape {arr.shape}"
-            )
+            raise ValueError(f"Binary probabilities must be 1D, got shape {arr.shape}")
     else:
         if arr.ndim not in {1, 2}:
-            raise ValueError(
-                f"Probabilities must be 1D or 2D, got {arr.ndim}D"
-            )
+            raise ValueError(f"Probabilities must be 1D or 2D, got {arr.ndim}D")
 
     # Check range [0, 1] if probabilities are required
     if require_proba:
@@ -169,6 +162,7 @@ def validate_probabilities(
         row_sums = np.sum(arr, axis=1)
         if not np.allclose(row_sums, 1.0, rtol=1e-3):
             import warnings
+
             warnings.warn(
                 f"Probability rows don't sum to 1 (range: "
                 f"[{row_sums.min():.3f}, {row_sums.max():.3f}])",
@@ -179,10 +173,7 @@ def validate_probabilities(
     return arr
 
 
-def validate_weights(
-    weights: ArrayLike, 
-    n_samples: int
-) -> NDArray[np.float64]:
+def validate_weights(weights: ArrayLike, n_samples: int) -> NDArray[np.float64]:
     """Validate and return sample weights as float64 array.
 
     Parameters
@@ -208,9 +199,7 @@ def validate_weights(
         raise ValueError(f"Weights must be 1D, got shape {arr.shape}")
 
     if len(arr) != n_samples:
-        raise ValueError(
-            f"Length mismatch: {n_samples} samples vs {len(arr)} weights"
-        )
+        raise ValueError(f"Length mismatch: {n_samples} samples vs {len(arr)} weights")
 
     if not np.all(np.isfinite(arr)):
         if np.any(np.isnan(arr)):
@@ -280,9 +269,7 @@ def validate_threshold(
 
     # Check count
     if n_classes is not None and len(arr) != n_classes:
-        raise ValueError(
-            f"Expected {n_classes} thresholds, got {len(arr)}"
-        )
+        raise ValueError(f"Expected {n_classes} thresholds, got {len(arr)}")
 
     return arr
 
@@ -379,7 +366,9 @@ def validate_multiclass_classification(
         If inputs are invalid or shapes don't match
     """
     # Validate probabilities
-    probs = validate_probabilities(probabilities, binary=False, require_proba=require_proba)
+    probs = validate_probabilities(
+        probabilities, binary=False, require_proba=require_proba
+    )
 
     # Determine n_classes from probability matrix
     if probs.ndim == 2:
@@ -395,8 +384,7 @@ def validate_multiclass_classification(
     n_samples = len(labels)
     if probs.ndim == 2 and probs.shape[0] != n_samples:
         raise ValueError(
-            f"Shape mismatch: {n_samples} labels vs "
-            f"{probs.shape[0]} probability rows"
+            f"Shape mismatch: {n_samples} labels vs {probs.shape[0]} probability rows"
         )
     elif probs.ndim == 1 and len(probs) != n_samples:
         raise ValueError(
@@ -530,7 +518,7 @@ def validate_inputs(
 
     # Try to infer problem type
     pred_arr = np.asarray(predictions)
-    
+
     if pred_arr.ndim == 1:
         # Binary case
         return validate_binary_classification(
@@ -577,9 +565,7 @@ def validate_choice(value: str, choices: set[str], name: str) -> str:
     """
     if value not in choices:
         sorted_choices = sorted(choices)
-        raise ValueError(
-            f"Invalid {name} '{value}'. Must be one of: {sorted_choices}"
-        )
+        raise ValueError(f"Invalid {name} '{value}'. Must be one of: {sorted_choices}")
     return value
 
 
@@ -614,11 +600,7 @@ def _validate_metric_name(metric_name: str) -> None:
 
 def _validate_averaging_method(average: str) -> None:
     """Validate averaging method for multiclass metrics."""
-    validate_choice(
-        average,
-        {"macro", "micro", "weighted", "none"},
-        "averaging method"
-    )
+    validate_choice(average, {"macro", "micro", "weighted", "none"}, "averaging method")
 
 
 def _validate_optimization_method(method: str) -> None:
@@ -626,7 +608,7 @@ def _validate_optimization_method(method: str) -> None:
     validate_choice(
         method,
         {"auto", "unique_scan", "sort_scan", "minimize", "gradient", "coord_ascent"},
-        "optimization method"
+        "optimization method",
     )
 
 
@@ -645,22 +627,22 @@ def _validate_threshold(threshold: float | ArrayLike) -> None:
 
 def _validate_threshold_inputs(
     y_true: ArrayLike,
-    pred_proba: ArrayLike, 
+    pred_proba: ArrayLike,
     threshold: float,
     sample_weight: ArrayLike | None = None,
     comparison: str = ">",
-    require_proba: bool = True
+    require_proba: bool = True,
 ) -> tuple[NDArray[np.int8], NDArray[np.float64], NDArray[np.float64] | None]:
     """Unified validation helper for threshold-based operations.
-    
+
     This function consolidates common validation patterns used across
     confusion matrix computation and threshold optimization functions.
-    
+
     Parameters
     ----------
     y_true : array-like
         True binary labels
-    pred_proba : array-like  
+    pred_proba : array-like
         Predicted probabilities or scores
     threshold : float
         Decision threshold
@@ -670,12 +652,12 @@ def _validate_threshold_inputs(
         Comparison operator
     require_proba : bool, default=True
         Whether to enforce [0,1] probability range
-        
+
     Returns
     -------
     tuple
         (validated_labels, validated_proba, validated_weights)
-        
+
     Raises
     ------
     ValueError
@@ -685,16 +667,16 @@ def _validate_threshold_inputs(
     y_true_val, pred_proba_val, sample_weight_val = validate_binary_classification(
         y_true, pred_proba, sample_weight, require_proba=require_proba
     )
-    
-    # Validate threshold  
+
+    # Validate threshold
     if require_proba:
         validate_threshold(threshold, allow_epsilon_outside=False)
     else:
         # For scores, just check it's a finite number
         if not np.isfinite(threshold):
             raise ValueError(f"Threshold must be finite, got {threshold}")
-    
+
     # Validate comparison operator
     _validate_comparison_operator(comparison)
-    
+
     return y_true_val, pred_proba_val, sample_weight_val

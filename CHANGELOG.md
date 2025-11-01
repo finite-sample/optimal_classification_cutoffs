@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-01-01
+
+### Added
+- **Mathematical Taxonomy Implementation**: Complete restructuring around mathematical problem types
+- **New Module Organization**: `binary.py`, `multilabel.py`, `multiclass.py`, `bayes.py` modules
+- **Problem-Type Based API**: Direct functions that encourage understanding of mathematical principles
+- **Enhanced Bayes Optimization**: Proper weighted margin rule for multiclass cost matrices
+- **Coordinate Ascent Algorithm**: Single-label consistent multiclass optimization
+- **Expected Metric Optimization**: Enhanced Dinkelbach algorithm for calibrated probabilities
+
+### Fixed
+- **Binary Utility Formula**: Corrected threshold calculation: `τ* = (u_tn - u_fp) / [(u_tp - u_fn) + (u_tn - u_fp)]`
+- **Multiclass Margin Rule**: Added weighted margin when cost totals differ across classes
+- **Mathematical Correctness**: All algorithms now properly implement theoretical foundations
+
+### Changed
+- **BREAKING**: Complete API restructuring around mathematical taxonomy
+- **Legacy Compatibility**: Old function names mapped to new implementations
+- **Method Name Mapping**: Legacy methods like `sort_scan` → `auto`, `unique_scan` → `independent`
+- **Enhanced Validation**: Stricter input requirements with clear error messages
+- **Modern Python**: Updated to use union syntax (`X | Y`) for isinstance calls
+
+### Performance
+- **O(n log n) Algorithms**: Maintained optimal complexity for piecewise metrics
+- **Vectorized Operations**: Enhanced performance for large datasets
+- **Memory Efficiency**: Reduced allocations in critical paths
+
+### Documentation
+- **Educational Focus**: API designed to teach mathematical concepts
+- **Comprehensive Examples**: Updated README with taxonomy-based examples
+- **Mathematical Formulas**: Proper documentation of underlying theory
+
 ## [0.6.1] - 2025-01-01
 
 ### Fixed
@@ -160,7 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 - **Legacy Parameters**: Several parameters deprecated with clear migration paths
   - `bayes=True` → use `mode="bayes"` instead
-  - `method="dinkelbach"` → use `mode="expected"` instead  
+  - `method="dinkelbach"` → use `mode="expected"` instead
   - `method="smart_brute"` → use `method="unique_scan"` instead
   - `objective` parameter in `ThresholdOptimizer` → use `metric` instead
 - All deprecations emit `DeprecationWarning` with migration instructions
@@ -263,7 +295,7 @@ thresholds, scores = cv_threshold_optimization(y, p)  # Uses method="auto"
 - **MyPy Compliance**: Fixed type annotation issues in metric factory functions
 - **Test Reliability**: Fixed 4 failing tests related to numerical precision and edge cases:
   - `test_sortscan_matches_bruteforce_accuracy` - Enhanced tolerance for boundary cases
-  - `test_sortscan_matches_bruteforce_precision` - Improved edge case handling  
+  - `test_sortscan_matches_bruteforce_precision` - Improved edge case handling
   - `test_coord_ascent_unsupported_features` - Fixed regex pattern matching
   - `test_piecewise_matches_brute_force` - Added degenerate case filtering
 - **Documentation Links**: Fixed broken figure link in README.md
@@ -291,6 +323,6 @@ threshold = get_optimal_threshold(None, p, utility={"fp": -1, "fn": -5}, bayes=T
 ### Previous Release
 - O(n log n) sort-and-scan optimization
 - Multiclass support with One-vs-Rest
-- Cross-validation utilities  
+- Cross-validation utilities
 - Comprehensive test suite
 - Scikit-learn compatible API

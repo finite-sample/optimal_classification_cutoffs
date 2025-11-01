@@ -3,11 +3,11 @@
 ================================================================
 
 **ROI**: Turn model into profit center with cost-aware thresholds
-**Time**: 10 minutes to understand real business impact  
+**Time**: 10 minutes to understand real business impact
 **Next**: See 03_multiclass.py for advanced scenarios
 
-This example shows how to optimize for business metrics (dollars) rather than 
-statistical metrics (F1, accuracy). Real applications have different costs for 
+This example shows how to optimize for business metrics (dollars) rather than
+statistical metrics (F1, accuracy). Real applications have different costs for
 different types of errors.
 """
 
@@ -39,7 +39,7 @@ X, y = make_classification(
     n_classes=2,
     weights=[0.98, 0.02],  # 98% legitimate, 2% fraud (realistic rate)
     flip_y=0.01,
-    random_state=42
+    random_state=42,
 )
 
 X_train, X_test, y_train, y_test = train_test_split(
@@ -65,15 +65,15 @@ print("💸 BUSINESS COST MATRIX")
 print("-" * 25)
 
 business_costs = {
-    "tp": 500 - 25,    # Catch fraud: Save $500, pay $25 investigation = +$475
-    "tn": 0,           # Legitimate passes: $0 cost  
-    "fp": -50 - 25,    # Block legitimate: $50 friction + $25 investigation = -$75
-    "fn": -500,        # Miss fraud: $500 chargeback = -$500
+    "tp": 500 - 25,  # Catch fraud: Save $500, pay $25 investigation = +$475
+    "tn": 0,  # Legitimate passes: $0 cost
+    "fp": -50 - 25,  # Block legitimate: $50 friction + $25 investigation = -$75
+    "fn": -500,  # Miss fraud: $500 chargeback = -$500
 }
 
 print("True Positive (catch fraud):     +$475 (save $500, pay $25 investigation)")
 print("True Negative (legitimate ok):   +$0   (no cost)")
-print("False Positive (block good):     -$75  ($50 friction + $25 investigation)")  
+print("False Positive (block good):     -$75  ($50 friction + $25 investigation)")
 print("False Negative (miss fraud):     -$500 (full chargeback loss)")
 print()
 
@@ -91,10 +91,10 @@ cm_f1 = confusion_matrix(y_test, y_pred_f1)
 tn, fp, fn, tp = cm_f1.ravel()
 
 business_value_f1 = (
-    tp * business_costs["tp"] +
-    tn * business_costs["tn"] + 
-    fp * business_costs["fp"] +
-    fn * business_costs["fn"]
+    tp * business_costs["tp"]
+    + tn * business_costs["tn"]
+    + fp * business_costs["fp"]
+    + fn * business_costs["fn"]
 )
 
 print(f"F1-Optimal threshold: {result_f1.threshold:.3f}")
@@ -117,10 +117,10 @@ cm_business = confusion_matrix(y_test, y_pred_business)
 tn, fp, fn, tp = cm_business.ravel()
 
 business_value_business = (
-    tp * business_costs["tp"] +
-    tn * business_costs["tn"] +
-    fp * business_costs["fp"] +
-    fn * business_costs["fn"]
+    tp * business_costs["tp"]
+    + tn * business_costs["tn"]
+    + fp * business_costs["fp"]
+    + fn * business_costs["fn"]
 )
 
 print(f"Business-Optimal threshold: {result_business.threshold:.3f}")
@@ -140,10 +140,10 @@ cm_default = confusion_matrix(y_test, y_pred_default)
 tn, fp, fn, tp = cm_default.ravel()
 
 business_value_default = (
-    tp * business_costs["tp"] +
-    tn * business_costs["tn"] +
-    fp * business_costs["fp"] +
-    fn * business_costs["fn"]
+    tp * business_costs["tp"]
+    + tn * business_costs["tn"]
+    + fp * business_costs["fp"]
+    + fn * business_costs["fn"]
 )
 
 print("Default threshold: 0.500")
@@ -161,7 +161,7 @@ print("=" * 35)
 methods = [
     ("Default (0.5)", business_value_default),
     ("F1-Optimized", business_value_f1),
-    ("Business-Optimized", business_value_business)
+    ("Business-Optimized", business_value_business),
 ]
 
 best_value = max(value for _, value in methods)
@@ -176,7 +176,11 @@ for name, value in methods:
 print()
 
 total_improvement = business_value_business - business_value_default
-improvement_pct = (business_value_business / business_value_default - 1) * 100 if business_value_default != 0 else 0
+improvement_pct = (
+    (business_value_business / business_value_default - 1) * 100
+    if business_value_default != 0
+    else 0
+)
 
 print(f"💰 TOTAL BUSINESS IMPACT: ${total_improvement:+,}")
 if improvement_pct > 0:
@@ -184,12 +188,12 @@ if improvement_pct > 0:
 print()
 
 # =============================================================================
-# KEY INSIGHTS  
+# KEY INSIGHTS
 # =============================================================================
 print("💡 KEY INSIGHTS")
 print("=" * 20)
 print("1. F1 optimization ≠ Business optimization")
-print("2. Different errors have different costs") 
+print("2. Different errors have different costs")
 print("3. Business-aware thresholds maximize profit")
 print("4. Small threshold changes = Big business impact")
 print(f"5. This example: ${total_improvement:+,} improvement!")
@@ -203,7 +207,7 @@ print("=" * 20)
 print("""
 # Define your business costs:
 costs = {
-    "tp": 475,   # Value of catching fraud  
+    "tp": 475,   # Value of catching fraud
     "tn": 0,     # No cost for legitimate
     "fp": -75,   # Cost of false alarm
     "fn": -500,  # Cost of missed fraud
@@ -226,7 +230,7 @@ print("✅ When optimizing for revenue, not just accuracy")
 print()
 print("Examples:")
 print("• Fraud detection (chargebacks vs investigation costs)")
-print("• Medical diagnosis (missed diagnosis vs unnecessary tests)")  
+print("• Medical diagnosis (missed diagnosis vs unnecessary tests)")
 print("• Marketing (ad spend vs conversion value)")
 print("• Quality control (defect costs vs inspection costs)")
 print()

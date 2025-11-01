@@ -27,7 +27,7 @@ X, y = make_classification(
     n_classes=2,
     weights=[0.9, 0.1],  # 90% negative, 10% positive (imbalanced)
     flip_y=0.02,  # Add some noise
-    random_state=42
+    random_state=42,
 )
 
 # Split and train a model
@@ -39,7 +39,9 @@ model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 y_prob = model.predict_proba(X_test)[:, 1]
 
-print(f"📊 Test set: {len(y_test)} samples, {y_test.sum()} positive ({y_test.mean():.1%})")
+print(
+    f"📊 Test set: {len(y_test)} samples, {y_test.sum()} positive ({y_test.mean():.1%})"
+)
 print()
 
 # =============================================================================
@@ -69,7 +71,7 @@ print("-" * 45)
 # Line 1: Find optimal threshold
 result = get_optimal_threshold(y_train, model.predict_proba(X_train)[:, 1], metric="f1")
 
-# Line 2: Get the threshold value  
+# Line 2: Get the threshold value
 optimal_threshold = result.threshold
 
 # Line 3: Make predictions
@@ -83,9 +85,15 @@ accuracy_optimal = accuracy_score(y_test, y_pred_optimal)
 
 print(f"Optimal threshold: {optimal_threshold:.3f}")
 print(f"F1 Score:   {f1_optimal:.3f} (↑ {(f1_optimal/f1_default-1)*100:+.1f}%)")
-print(f"Precision:  {precision_optimal:.3f} (↑ {(precision_optimal/precision_default-1)*100:+.1f}%)")
-print(f"Recall:     {recall_optimal:.3f} (↑ {(recall_optimal/recall_default-1)*100:+.1f}%)")
-print(f"Accuracy:   {accuracy_optimal:.3f} (↑ {(accuracy_optimal/accuracy_default-1)*100:+.1f}%)")
+print(
+    f"Precision:  {precision_optimal:.3f} (↑ {(precision_optimal/precision_default-1)*100:+.1f}%)"
+)
+print(
+    f"Recall:     {recall_optimal:.3f} (↑ {(recall_optimal/recall_default-1)*100:+.1f}%)"
+)
+print(
+    f"Accuracy:   {accuracy_optimal:.3f} (↑ {(accuracy_optimal/accuracy_default-1)*100:+.1f}%)"
+)
 print()
 
 # =============================================================================
@@ -140,7 +148,7 @@ predictions = result.predict(y_prob_test)
 print("🚀 NEXT STEPS")
 print("=" * 15)
 print("• 02_business_value.py → See dollar impact ($50K+ saved)")
-print("• 03_multiclass.py → Handle 3+ classes") 
+print("• 03_multiclass.py → Handle 3+ classes")
 print("• 04_interactive_demo.ipynb → Understand why this works")
 print()
 print("Questions? See: https://github.com/finite-sample/optimal-classification-cutoffs")

@@ -98,7 +98,7 @@ if NUMBA_AVAILABLE:
         inclusive: bool,
     ) -> tuple[float, float]:
         """Numba sort-and-scan for F1. Honors inclusive operator at boundaries.
-        
+
         Note: weights must be a valid array (use np.ones for uniform weights).
         """
         n = labels.shape[0]
@@ -159,8 +159,8 @@ if NUMBA_AVAILABLE:
 
     @jit(nopython=True, fastmath=True, cache=True)
     def coordinate_ascent_kernel(
-        y_true: np.ndarray,        # (n,) int32
-        probs: np.ndarray,         # (n, k) float64 (C-contig)
+        y_true: np.ndarray,  # (n,) int32
+        probs: np.ndarray,  # (n, k) float64 (C-contig)
         weights: np.ndarray | None,  # (n,) float64 or None
         max_iter: int,
         tol: float,
@@ -390,7 +390,7 @@ else:
         inclusive: bool,
     ) -> tuple[float, float]:
         """Python fallback for sort_scan_kernel.
-        
+
         Note: weights must be a valid array (use np.ones for uniform weights).
         """
         n = len(labels)
@@ -426,7 +426,9 @@ else:
                 if i < n - 1:
                     best_threshold = 0.5 * (sorted_scores[i] + sorted_scores[i + 1])
                 else:
-                    best_threshold = float(sorted_scores[i] - (eps if inclusive else 0.0))
+                    best_threshold = float(
+                        sorted_scores[i] - (eps if inclusive else 0.0)
+                    )
 
         return best_threshold, best_score
 
@@ -618,7 +620,11 @@ def optimize_sort_scan(
             p = p[:, 1]
         elif p.ndim == 2 and p.shape[1] == 1:
             p = p.ravel()
-        return (p >= threshold).astype(np.int32) if operator == ">=" else (p > threshold).astype(np.int32)
+        return (
+            (p >= threshold).astype(np.int32)
+            if operator == ">="
+            else (p > threshold).astype(np.int32)
+        )
 
     return OptimizationResult(
         thresholds=np.array([threshold], dtype=float),
@@ -651,7 +657,9 @@ def _generic_sort_scan(
     boundary_thresholds = np.array(
         [sorted_scores[0] - eps, sorted_scores[-1] + eps], dtype=float
     )
-    all_thresholds = np.unique(np.concatenate([np.unique(sorted_scores), boundary_thresholds]))
+    all_thresholds = np.unique(
+        np.concatenate([np.unique(sorted_scores), boundary_thresholds])
+    )
 
     best_threshold = float(all_thresholds[0])
     best_score = -np.inf
@@ -680,7 +688,7 @@ def optimize_scipy(
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS
-    
+
     # All metric functions now available through registry
     metric_fn = METRICS[metric].fn
 
@@ -690,7 +698,7 @@ def optimize_scipy(
         score = metric_fn(tp, tn, fp, fn)
         return -score
 
-    eps = 1e-10  # default tolerance for boundary conditions  
+    eps = 1e-10  # default tolerance for boundary conditions
     score_min, score_max = float(np.min(scores)), float(np.max(scores))
     bounds = (score_min - eps, score_max + eps)
 
@@ -712,7 +720,11 @@ def optimize_scipy(
             p = p[:, 1]
         elif p.ndim == 2 and p.shape[1] == 1:
             p = p.ravel()
-        return (p >= optimal_threshold).astype(np.int32) if operator == ">=" else (p > optimal_threshold).astype(np.int32)
+        return (
+            (p >= optimal_threshold).astype(np.int32)
+            if operator == ">="
+            else (p > optimal_threshold).astype(np.int32)
+        )
 
     return OptimizationResult(
         thresholds=np.array([optimal_threshold], dtype=float),
@@ -737,7 +749,7 @@ def optimize_gradient(
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS, is_piecewise_metric
-    
+
     # All metric functions now available through registry
     metric_fn = METRICS[metric].fn
 
@@ -761,7 +773,9 @@ def optimize_gradient(
 
     for _ in range(max_iter):
         h = 1e-8
-        grad = (evaluate_metric(threshold + h) - evaluate_metric(threshold - h)) / (2.0 * h)
+        grad = (evaluate_metric(threshold + h) - evaluate_metric(threshold - h)) / (
+            2.0 * h
+        )
         if abs(grad) < tol:
             break
         threshold += learning_rate * grad
@@ -775,7 +789,11 @@ def optimize_gradient(
             p = p[:, 1]
         elif p.ndim == 2 and p.shape[1] == 1:
             p = p.ravel()
-        return (p >= threshold).astype(np.int32) if operator == ">=" else (p > threshold).astype(np.int32)
+        return (
+            (p >= threshold).astype(np.int32)
+            if operator == ">="
+            else (p > threshold).astype(np.int32)
+        )
 
     return OptimizationResult(
         thresholds=np.array([threshold], dtype=float),
@@ -821,15 +839,23 @@ def find_optimal_threshold_multiclass(
     if method == "coord_ascent":
         # Coordinate ascent supports weights now. Metric fixed to macro-F1.
         if metric != "f1":
-            raise NotImplementedError("Coordinate ascent currently supports 'f1' metric only.")
+            raise NotImplementedError(
+                "Coordinate ascent currently supports 'f1' metric only."
+            )
         if comparison != ">":
             # Argmax over shifted scores doesn't meaningfully support '>=' semantics
-            raise NotImplementedError("Coordinate ascent uses argmax(P - tau); '>' is required.")
+            raise NotImplementedError(
+                "Coordinate ascent uses argmax(P - tau); '>' is required."
+            )
 
         # Convert types for Numba (or Python fallback)
         true_labs_int32 = np.asarray(true_labs, dtype=np.int32)
         pred_prob_float64 = np.asarray(pred_prob, dtype=np.float64, order="C")
-        weights = None if sample_weight is None else np.asarray(sample_weight, dtype=np.float64)
+        weights = (
+            None
+            if sample_weight is None
+            else np.asarray(sample_weight, dtype=np.float64)
+        )
 
         thresholds, best_score, _ = coordinate_ascent_kernel(
             true_labs_int32, pred_prob_float64, weights, max_iter=30, tol=1e-12
@@ -854,7 +880,9 @@ def find_optimal_threshold_multiclass(
     if method == "auto":
         from .metrics import is_piecewise_metric
 
-        optimize_fn = optimize_sort_scan if is_piecewise_metric(metric) else optimize_scipy
+        optimize_fn = (
+            optimize_sort_scan if is_piecewise_metric(metric) else optimize_scipy
+        )
     elif method == "sort_scan":
         optimize_fn = optimize_sort_scan
     elif method == "scipy":
@@ -869,17 +897,30 @@ def find_optimal_threshold_multiclass(
     if average == "micro":
         # Build flat labels by vectorization
         classes = np.arange(n_classes)
-        true_binary_flat = (np.repeat(true_labs, n_classes) == np.tile(classes, n_samples)).astype(np.int8)
+        true_binary_flat = (
+            np.repeat(true_labs, n_classes) == np.tile(classes, n_samples)
+        ).astype(np.int8)
         pred_prob_flat = pred_prob.ravel()
 
         # Flattened weights if provided
-        sample_weight_flat = None if sample_weight is None else np.repeat(sample_weight, n_classes)
+        sample_weight_flat = (
+            None if sample_weight is None else np.repeat(sample_weight, n_classes)
+        )
 
         # Create wrapper to pass tolerance for supported functions
         if optimize_fn in (optimize_scipy, optimize_gradient):
-            result = optimize_fn(true_binary_flat, pred_prob_flat, metric, sample_weight_flat, operator, tol=tolerance)
+            result = optimize_fn(
+                true_binary_flat,
+                pred_prob_flat,
+                metric,
+                sample_weight_flat,
+                operator,
+                tol=tolerance,
+            )
         else:
-            result = optimize_fn(true_binary_flat, pred_prob_flat, metric, sample_weight_flat, operator)
+            result = optimize_fn(
+                true_binary_flat, pred_prob_flat, metric, sample_weight_flat, operator
+            )
         optimal_threshold = result.thresholds[0]
 
         def predict_multiclass_micro(probs):
@@ -942,7 +983,11 @@ def find_optimal_threshold_multiclass(
         p = np.asarray(probs)
         if p.ndim != 2:
             raise ValueError("Multiclass requires 2D probabilities")
-        valid = p >= optimal_thresholds[None, :] if operator == ">=" else p > optimal_thresholds[None, :]
+        valid = (
+            p >= optimal_thresholds[None, :]
+            if operator == ">="
+            else p > optimal_thresholds[None, :]
+        )
         masked = np.where(valid, p, -np.inf)
         preds = np.argmax(masked, axis=1).astype(np.int32)
         no_valid = ~np.isfinite(np.max(masked, axis=1))
@@ -986,13 +1031,17 @@ def find_optimal_threshold(
         if is_piecewise_metric(metric):
             return optimize_sort_scan(labels, scores, metric, weights, operator)
         else:
-            return optimize_scipy(labels, scores, metric, weights, operator, tol=tolerance)
+            return optimize_scipy(
+                labels, scores, metric, weights, operator, tol=tolerance
+            )
     elif strategy == "sort_scan":
         return optimize_sort_scan(labels, scores, metric, weights, operator)
     elif strategy == "scipy":
         return optimize_scipy(labels, scores, metric, weights, operator, tol=tolerance)
     elif strategy == "gradient":
-        return optimize_gradient(labels, scores, metric, weights, operator, tol=tolerance)
+        return optimize_gradient(
+            labels, scores, metric, weights, operator, tol=tolerance
+        )
     else:
         return optimize_sort_scan(labels, scores, metric, weights, operator)
 
@@ -1012,6 +1061,6 @@ def get_performance_info() -> dict[str, Any]:
             else getattr(__import__("numba"), "__version__", "unknown")
         ),
         "expected_speedup": "10-100x" if NUMBA_AVAILABLE else "1x (Python fallback)",
-        "parallel_processing": False,          # explicit: no prange in reductions
+        "parallel_processing": False,  # explicit: no prange in reductions
         "fastmath_enabled": NUMBA_AVAILABLE,
     }

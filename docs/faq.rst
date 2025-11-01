@@ -33,7 +33,7 @@ A: Yes, as long as your classifier outputs probabilities or scores. The library 
 
 **Q: What's the difference between binary and multiclass optimization?**
 
-A: 
+A:
 
 - **Binary**: Finds a single optimal threshold for the positive class
 - **Multiclass**: Finds per-class thresholds using One-vs-Rest strategy, then applies sophisticated decision rules for final predictions
@@ -48,11 +48,11 @@ Technical Questions
 A: Use ``method='auto'`` (default) for most cases. It automatically selects the best algorithm:
 
 - **sort_scan**: O(n log n) exact algorithm for piecewise metrics (F1, accuracy, precision, recall)
-- **smart_brute**: Evaluates all unique probability values, guaranteed exact result  
+- **smart_brute**: Evaluates all unique probability values, guaranteed exact result
 - **minimize**: Uses scipy optimization with enhanced fallbacks
 
 For specific needs:
-- **Large datasets**: ``method='sort_scan'`` 
+- **Large datasets**: ``method='sort_scan'``
 - **Highest precision**: ``method='smart_brute'``
 - **Non-piecewise metrics**: ``method='minimize'``
 
@@ -75,8 +75,8 @@ A: Use the ``comparison`` parameter:
 
    # Exclusive: prediction = 1 if prob > threshold
    threshold = get_optimal_threshold(y, prob, comparison='>')
-   
-   # Inclusive: prediction = 1 if prob >= threshold  
+
+   # Inclusive: prediction = 1 if prob >= threshold
    threshold = get_optimal_threshold(y, prob, comparison='>=')
 
 The choice affects how samples with probabilities exactly equal to the threshold are classified.
@@ -101,11 +101,11 @@ A: For best results, yes. Well-calibrated probabilities ensure that the threshol
 .. code-block:: python
 
    from sklearn.calibration import CalibratedClassifierCV
-   
+
    # Apply calibration before threshold optimization
    calibrated_clf = CalibratedClassifierCV(base_classifier, method='isotonic')
    calibrated_clf.fit(X_train, y_train)
-   
+
    y_prob = calibrated_clf.predict_proba(X_test)[:, 1]
    threshold = get_optimal_threshold(y_train, y_prob_train, metric='f1')
 
@@ -114,7 +114,7 @@ A: For best results, yes. Well-calibrated probabilities ensure that the threshol
 A: General guidelines:
 
 - **Minimum**: ~100 samples per class for basic optimization
-- **Recommended**: ~1000 samples per class for stable results  
+- **Recommended**: ~1000 samples per class for stable results
 - **Cross-validation**: Use CV with smaller datasets to get robust estimates
 
 For very small datasets, consider using cross-validation or bootstrap methods.
@@ -126,12 +126,12 @@ A: Yes, all optimization methods support sample weights:
 .. code-block:: python
 
    from sklearn.utils.class_weight import compute_sample_weight
-   
+
    # Automatic balancing
    weights = compute_sample_weight('balanced', y_train)
-   
+
    threshold = get_optimal_threshold(
-       y_train, y_prob, metric='f1', 
+       y_train, y_prob, metric='f1',
        sample_weight=weights
    )
 
@@ -143,7 +143,7 @@ A: Monitor threshold performance and retrain when needed:
 
    # Regularly check if optimal threshold has drifted
    current_optimal = get_optimal_threshold(y_recent, y_prob_recent, metric='f1')
-   
+
    if abs(current_optimal - production_threshold) > 0.05:
        print("Threshold drift detected - consider retraining")
 
@@ -161,19 +161,19 @@ A: Define utilities for each outcome type:
    # Example: Medical diagnosis
    medical_utilities = {
        "tp": 1000,    # Benefit: Early detection saves $1000
-       "tn": 0,       # No additional cost for correct negative  
+       "tn": 0,       # No additional cost for correct negative
        "fp": -200,    # Cost: Unnecessary procedure costs $200
        "fn": -5000    # Cost: Missed diagnosis costs $5000
    }
-   
+
    threshold = get_optimal_threshold(
-       y_true, y_prob, 
+       y_true, y_prob,
        utility=medical_utilities
    )
 
 **Q: What's the difference between empirical and Bayes-optimal thresholds?**
 
-A: 
+A:
 
 - **Empirical**: Optimizes threshold based on your training data (accounts for model miscalibration)
 - **Bayes-optimal**: Theoretical optimum for perfectly calibrated probabilities (no training data needed)
@@ -182,8 +182,8 @@ A:
 
    # Empirical (default)
    threshold_emp = get_optimal_threshold(y_true, y_prob, utility=costs)
-   
-   # Bayes-optimal  
+
+   # Bayes-optimal
    threshold_bayes = get_optimal_threshold(None, y_prob, utility=costs, bayes=True)
 
 Use empirical for real models; use Bayes-optimal for theoretical analysis or when you trust calibration.
@@ -197,18 +197,18 @@ A: Not directly in the current version, but you can optimize each class separate
    def multiclass_different_costs(y_true, y_prob, class_costs):
        n_classes = y_prob.shape[1]
        thresholds = []
-       
+
        for class_idx in range(n_classes):
            # Convert to binary problem
            y_binary = (y_true == class_idx).astype(int)
            y_prob_binary = y_prob[:, class_idx]
-           
+
            # Use class-specific costs
            costs = class_costs[class_idx]
-           
+
            threshold = get_optimal_threshold(y_binary, y_prob_binary, utility=costs)
            thresholds.append(threshold)
-       
+
        return np.array(thresholds)
 
 This feature is planned for future releases.
@@ -224,11 +224,11 @@ A: You're trying to use ``method='sort_scan'`` with a metric that doesn't have a
 
    # This will fail if 'custom_metric' lacks vectorized version
    threshold = get_optimal_threshold(y, prob, metric='custom_metric', method='sort_scan')
-   
+
    # Solutions:
    # 1. Use different method
    threshold = get_optimal_threshold(y, prob, metric='custom_metric', method='smart_brute')
-   
+
    # 2. Register vectorized version of your metric
    from optimal_cutoffs.metrics import register_metric
    register_metric('custom_metric', custom_func, vectorized_func=custom_vectorized)
@@ -241,12 +241,12 @@ A: Multiclass optimization requires class labels to be ``[0, 1, 2, ..., n_classe
 
    # Bad: labels are [1, 2, 3, 4]
    y_bad = np.array([1, 2, 3, 4, 1, 2])
-   
-   # Good: labels are [0, 1, 2, 3]  
+
+   # Good: labels are [0, 1, 2, 3]
    from sklearn.preprocessing import LabelEncoder
    le = LabelEncoder()
    y_good = le.fit_transform(y_bad)
-   
+
    threshold = get_optimal_threshold(y_good, y_prob, metric='f1')
 
 **Q: The optimization is very slow - how can I speed it up?**
@@ -257,12 +257,12 @@ A: Several strategies:
 
    # 1. Use faster method for large datasets
    threshold = get_optimal_threshold(y, prob, metric='f1', method='sort_scan')
-   
+
    # 2. Reduce data size with sampling
    from sklearn.model_selection import train_test_split
    y_sample, _, prob_sample, _ = train_test_split(y, prob, test_size=0.7, stratify=y)
    threshold = get_optimal_threshold(y_sample, prob_sample, metric='f1')
-   
+
    # 3. Use simpler comparison operator
    threshold = get_optimal_threshold(y, prob, metric='f1', comparison='>')  # Slightly faster than '>='
 
@@ -273,13 +273,13 @@ A: Some variance is expected, but high variance suggests:
 .. code-block:: python
 
    from optimal_cutoffs import cv_threshold_optimization
-   
+
    # Check CV results
    thresholds, scores = cv_threshold_optimization(y, prob, metric='f1', cv=10)
-   
+
    print(f"Threshold std: {np.std(thresholds):.3f}")
    print(f"Score std: {np.std(scores):.3f}")
-   
+
    # High variance solutions:
    # 1. Increase data size
    # 2. Use more folds: cv=10 or cv=20
@@ -297,20 +297,20 @@ A: Use the ``ThresholdOptimizer`` class:
 
    from sklearn.pipeline import Pipeline
    from optimal_cutoffs import ThresholdOptimizer
-   
+
    # Note: This requires custom pipeline components to extract probabilities
    # See examples for full implementation
-   
+
    # Simpler approach: Apply threshold optimization after pipeline
    pipeline = Pipeline([('scaler', StandardScaler()), ('clf', LogisticRegression())])
    pipeline.fit(X_train, y_train)
-   
+
    y_prob = pipeline.predict_proba(X_train)[:, 1]
    optimizer = ThresholdOptimizer(metric='f1')
    optimizer.fit(y_train, y_prob)
-   
+
    # For predictions
-   y_prob_test = pipeline.predict_proba(X_test)[:, 1]  
+   y_prob_test = pipeline.predict_proba(X_test)[:, 1]
    y_pred = optimizer.predict(y_prob_test)
 
 **Q: Can I save and load optimized thresholds?**
@@ -321,12 +321,12 @@ A: Yes, use pickle or joblib:
 
    import joblib
    from optimal_cutoffs import ThresholdOptimizer
-   
+
    # Save
    optimizer = ThresholdOptimizer(metric='f1')
    optimizer.fit(y_train, y_prob_train)
    joblib.dump(optimizer, 'threshold_optimizer.pkl')
-   
+
    # Load
    loaded_optimizer = joblib.load('threshold_optimizer.pkl')
    y_pred = loaded_optimizer.predict(y_prob_test)
@@ -339,16 +339,16 @@ A: Extract probabilities from your model and apply threshold optimization:
 
    # PyTorch example
    import torch
-   
+
    model.eval()
    with torch.no_grad():
        outputs = model(X_test_tensor)
        y_prob = torch.softmax(outputs, dim=1).cpu().numpy()
-   
+
    # For binary classification, use column 1
    threshold = get_optimal_threshold(y_test, y_prob[:, 1], metric='f1')
-   
-   # TensorFlow/Keras example  
+
+   # TensorFlow/Keras example
    y_prob = model.predict(X_test)
    threshold = get_optimal_threshold(y_test, y_prob, metric='f1')
 

@@ -15,7 +15,9 @@ from optimal_cutoffs.metrics import get_metric_function
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 
 
-def generate_test_data(n_samples: int, random_state: int = 42) -> tuple[np.ndarray, np.ndarray]:
+def generate_test_data(
+    n_samples: int, random_state: int = 42
+) -> tuple[np.ndarray, np.ndarray]:
     """Generate binary classification test data."""
     rng = np.random.RandomState(random_state)
     y_true = rng.randint(0, 2, n_samples)
@@ -50,7 +52,7 @@ class TestAlgorithmicComplexity:
         # Extract results from OptimizationResult
         threshold = result.threshold
         score = result.score
-        k_star = result.diagnostics.get('k_star', 0) if result.diagnostics else 0
+        k_star = result.diagnostics.get("k_star", 0) if result.diagnostics else 0
 
         # Verify valid results
         assert 0.0 <= threshold <= 1.0
@@ -59,9 +61,9 @@ class TestAlgorithmicComplexity:
 
         # Performance should scale reasonably
         expected_max_time = n_samples * np.log(n_samples) * 1e-6  # Generous bound
-        assert execution_time < max(0.1, expected_max_time), (
-            f"Execution time {execution_time:.6f}s exceeded expected bound for {n_samples} samples"
-        )
+        assert (
+            execution_time < max(0.1, expected_max_time)
+        ), f"Execution time {execution_time:.6f}s exceeded expected bound for {n_samples} samples"
 
     @pytest.mark.slow
     @pytest.mark.parametrize("n_samples", [1000, 5000, 10000])
@@ -81,7 +83,9 @@ class TestAlgorithmicComplexity:
                 if method == "sort_scan":
                     # Direct sort_scan call
                     f1_vectorized = get_metric_function("f1")
-                    result = optimal_threshold_sortscan(y_true, pred_prob, f1_vectorized)
+                    result = optimal_threshold_sortscan(
+                        y_true, pred_prob, f1_vectorized
+                    )
                     threshold = result.threshold
                 else:
                     # High-level interface
@@ -125,9 +129,9 @@ class TestAlgorithmicComplexity:
                 results[method] = result.threshold
 
                 # All methods should complete in reasonable time
-                assert times[method] < 30.0, (
-                    f"Method {method} took {times[method]:.2f}s"
-                )
+                assert (
+                    times[method] < 30.0
+                ), f"Method {method} took {times[method]:.2f}s"
 
             except (ValueError, NotImplementedError):
                 # Method might not be available
@@ -158,33 +162,41 @@ class TestAlgorithmicComplexity:
 
             # Time unique_scan method
             start_time = time.time()
-            get_optimal_threshold(
-                y_true, pred_prob, metric="f1", method="unique_scan"
-            )
+            get_optimal_threshold(y_true, pred_prob, metric="f1", method="unique_scan")
             end_time = time.time()
             timing_results["unique_scan"].append(end_time - start_time)
 
         # For large datasets, sort_scan should be competitive or better
-        if len(timing_results["sort_scan"]) > 0 and timing_results["sort_scan"][-1] != float("inf"):
-            final_ratio = timing_results["sort_scan"][-1] / timing_results["unique_scan"][-1]
+        if len(timing_results["sort_scan"]) > 0 and timing_results["sort_scan"][
+            -1
+        ] != float("inf"):
+            final_ratio = (
+                timing_results["sort_scan"][-1] / timing_results["unique_scan"][-1]
+            )
             # Sort_scan should not be more than 2x slower than unique_scan
-            assert final_ratio < 2.0, f"sort_scan much slower than unique_scan: {final_ratio:.2f}x"
+            assert (
+                final_ratio < 2.0
+            ), f"sort_scan much slower than unique_scan: {final_ratio:.2f}x"
 
 
 class TestMemoryEfficiency:
     """Test memory usage characteristics."""
 
-    @pytest.mark.skipif(not hasattr(__builtins__, '__PYTEST_SETUP_DONE__'), reason="Memory tests need proper setup")
+    @pytest.mark.skipif(
+        not hasattr(__builtins__, "__PYTEST_SETUP_DONE__"),
+        reason="Memory tests need proper setup",
+    )
     def test_memory_usage_scaling(self):
         """Test that memory usage scales reasonably with dataset size."""
         import os
+
         try:
             import psutil
         except ImportError:
             pytest.skip("psutil not available for memory testing")
 
         process = psutil.Process(os.getpid())
-        
+
         # Test different dataset sizes
         sizes = [1000, 5000, 10000]
         memory_usage = []
@@ -195,7 +207,7 @@ class TestMemoryEfficiency:
 
             y_true, pred_prob = generate_test_data(n_samples, random_state=42)
             result = get_optimal_threshold(y_true, pred_prob)
-            
+
             peak = process.memory_info().rss / 1024 / 1024  # MB
             memory_usage.append(peak - baseline)
 
@@ -204,12 +216,17 @@ class TestMemoryEfficiency:
 
         # Memory usage should not grow dramatically
         if len(memory_usage) >= 2:
-            growth_ratio = memory_usage[-1] / memory_usage[0] if memory_usage[0] > 0 else 1
-            assert growth_ratio < 20, f"Memory usage growing too fast: {growth_ratio:.2f}x"
+            growth_ratio = (
+                memory_usage[-1] / memory_usage[0] if memory_usage[0] > 0 else 1
+            )
+            assert (
+                growth_ratio < 20
+            ), f"Memory usage growing too fast: {growth_ratio:.2f}x"
 
     def test_memory_cleanup(self):
         """Test that memory is properly cleaned up after optimization."""
         import os
+
         try:
             import psutil
         except ImportError:
@@ -235,9 +252,9 @@ class TestMemoryEfficiency:
         memory_increase = final_memory - baseline_memory
 
         # Should not have significant memory leaks
-        assert memory_increase < 50, (
-            f"Potential memory leak: {memory_increase:.2f}MB increase"
-        )
+        assert (
+            memory_increase < 50
+        ), f"Potential memory leak: {memory_increase:.2f}MB increase"
 
 
 class TestWorstCasePerformance:
@@ -257,7 +274,9 @@ class TestWorstCasePerformance:
         threshold = result.threshold
 
         # Should still complete quickly even with all unique values
-        assert execution_time < 1.0, f"Too slow with unique values: {execution_time:.4f}s"
+        assert (
+            execution_time < 1.0
+        ), f"Too slow with unique values: {execution_time:.4f}s"
         assert 0.0 <= threshold <= 1.0
 
     def test_extreme_class_imbalance_performance(self):
@@ -276,14 +295,16 @@ class TestWorstCasePerformance:
         threshold = result.threshold
 
         # Should handle extreme imbalance efficiently
-        assert execution_time < 2.0, f"Too slow with extreme imbalance: {execution_time:.4f}s"
+        assert (
+            execution_time < 2.0
+        ), f"Too slow with extreme imbalance: {execution_time:.4f}s"
         assert 0.0 <= threshold <= 1.0
 
     def test_many_tied_probabilities_performance(self):
         """Test performance when many probabilities are tied."""
         n_samples = 5000
         y_true = np.random.RandomState(42).randint(0, 2, n_samples)
-        
+
         # Create many tied values
         unique_probs = [0.1, 0.3, 0.5, 0.7, 0.9]
         pred_prob = np.random.RandomState(42).choice(unique_probs, n_samples)
@@ -309,16 +330,16 @@ class TestConcurrentPerformance:
         n_samples = 1000
 
         total_start_time = time.time()
-        
+
         for trial in range(n_trials):
             y_true, pred_prob = generate_test_data(n_samples, random_state=42 + trial)
             result = get_optimal_threshold(y_true, pred_prob, method="sort_scan")
-            
+
             # Each trial should produce valid results
             assert 0.0 <= result.threshold <= 1.0
 
         total_end_time = time.time()
-        
+
         # Average time per optimization should be reasonable
         average_time = (total_end_time - total_start_time) / n_trials
         assert average_time < 0.1, f"Average optimization too slow: {average_time:.4f}s"
@@ -351,7 +372,7 @@ class TestConcurrentPerformance:
             ratio = max_time / min_time
             # Allow larger variation since some metrics have different optimization paths
             assert ratio < 1000.0, f"Extreme timing variation across metrics: {timings}"
-            
+
         # All metrics should complete in reasonable absolute time
         for metric, timing in timings.items():
             assert timing < 1.0, f"Metric {metric} too slow: {timing:.4f}s"
@@ -362,5 +383,6 @@ def performance_test_setup():
     """Set up performance testing environment."""
     # Ensure consistent timing by disabling some optimizations that could interfere
     import warnings
+
     warnings.filterwarnings("ignore", message=".*performance.*")
     yield

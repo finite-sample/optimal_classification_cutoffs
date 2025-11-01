@@ -53,4 +53,3 @@ class OptimizationResult:
             return f"OptimizationResult(threshold={self.threshold:.3f}, {self.metric}={self.score:.3f})"
         else:
             return f"OptimizationResult(n_classes={self.n_classes}, mean_{self.metric}={self.score:.3f})"
-

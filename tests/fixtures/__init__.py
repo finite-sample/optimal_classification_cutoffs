@@ -61,14 +61,14 @@ from .realistic_datasets import (
 __all__ = [
     # Data generators (simple)
     "generate_binary_data",
-    "generate_multiclass_data", 
+    "generate_multiclass_data",
     "generate_calibrated_probabilities",
     "generate_tied_probabilities",
     # Realistic datasets (sklearn-based)
     "BinaryDataset",
     "MulticlassDataset",
     "make_realistic_binary_dataset",
-    "make_imbalanced_binary_dataset", 
+    "make_imbalanced_binary_dataset",
     "make_well_separated_binary_dataset",
     "make_overlapping_binary_dataset",
     "make_realistic_multiclass_dataset",
@@ -77,7 +77,7 @@ __all__ = [
     # Standard dataset constants
     "STANDARD_BINARY",
     "IMBALANCED_BINARY",
-    "WELL_SEPARATED_BINARY", 
+    "WELL_SEPARATED_BINARY",
     "OVERLAPPING_BINARY",
     "CALIBRATED_BINARY",
     "LARGE_BINARY",

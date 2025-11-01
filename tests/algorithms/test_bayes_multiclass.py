@@ -181,7 +181,13 @@ class TestBayesThresholdFromCostsScalar:
         result_scalar_threshold = bayes_optimal_threshold(fp_cost, fn_cost)
         result_vector_thresholds = bayes_thresholds_from_costs([fp_cost], [fn_cost])
 
-        assert abs(result_scalar_threshold.threshold - result_vector_thresholds.thresholds[0]) < 1e-12
+        assert (
+            abs(
+                result_scalar_threshold.threshold
+                - result_vector_thresholds.thresholds[0]
+            )
+            < 1e-12
+        )
 
     def test_simple_threshold_computation(self):
         """Test simple threshold computation."""

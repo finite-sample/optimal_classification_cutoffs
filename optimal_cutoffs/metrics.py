@@ -24,7 +24,15 @@ from .validation import (
 class MetricInfo:
     """Complete information about a metric."""
 
-    fn: Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]
+    fn: Callable[
+        [
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+        ],
+        np.ndarray | float,
+    ]
     is_piecewise: bool = True
     maximize: bool = True
     needs_proba: bool = False
@@ -36,15 +44,50 @@ METRICS: dict[str, MetricInfo] = {}
 
 def register_metric(
     name: str | None = None,
-    func: Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float] | None = None,
+    func: Callable[
+        [
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+        ],
+        np.ndarray | float,
+    ]
+    | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
 ) -> (
-    Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]
+    Callable[
+        [
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+        ],
+        np.ndarray | float,
+    ]
     | Callable[
-        [Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]],
-        Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float],
+        [
+            Callable[
+                [
+                    np.ndarray | float,
+                    np.ndarray | float,
+                    np.ndarray | float,
+                    np.ndarray | float,
+                ],
+                np.ndarray | float,
+            ]
+        ],
+        Callable[
+            [
+                np.ndarray | float,
+                np.ndarray | float,
+                np.ndarray | float,
+                np.ndarray | float,
+            ],
+            np.ndarray | float,
+        ],
     ]
 ):
     """Register a metric function.
@@ -81,8 +124,24 @@ def register_metric(
         return func
 
     def decorator(
-        f: Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float],
-    ) -> Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]:
+        f: Callable[
+            [
+                np.ndarray | float,
+                np.ndarray | float,
+                np.ndarray | float,
+                np.ndarray | float,
+            ],
+            np.ndarray | float,
+        ],
+    ) -> Callable[
+        [
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+            np.ndarray | float,
+        ],
+        np.ndarray | float,
+    ]:
         metric_name = name or f.__name__
         METRICS[metric_name] = MetricInfo(
             fn=f,
@@ -122,7 +181,18 @@ def register_alias(alias_name: str, target_name: str) -> None:
 
 
 def register_metrics(
-    metrics: dict[str, Callable[[np.ndarray | float, np.ndarray | float, np.ndarray | float, np.ndarray | float], np.ndarray | float]],
+    metrics: dict[
+        str,
+        Callable[
+            [
+                np.ndarray | float,
+                np.ndarray | float,
+                np.ndarray | float,
+                np.ndarray | float,
+            ],
+            np.ndarray | float,
+        ],
+    ],
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
@@ -151,9 +221,7 @@ def register_metrics(
 
 
 @lru_cache(maxsize=128)
-def get_metric_function(
-    metric_name: str
-) -> Callable[..., Any]:
+def get_metric_function(metric_name: str) -> Callable[..., Any]:
     """Get metric function with caching for hot paths.
 
     Parameters
@@ -200,7 +268,7 @@ def needs_probability_scores(metric_name: str) -> bool:
 
 def has_vectorized_implementation(metric_name: str) -> bool:
     """Check if a metric has a vectorized implementation.
-    
+
     Note: Always returns True since all metrics handle both scalar and array inputs.
     """
     return metric_name in METRICS
@@ -215,7 +283,7 @@ def _safe_div(
     numerator: np.ndarray | float, denominator: np.ndarray | float
 ) -> np.ndarray | float:
     """Safe division that returns 0 when denominator is 0, handles inf/nan cases.
-    
+
     This function provides safe division for metric computation where:
     - Division by zero returns 0.0 (common convention for precision/recall)
     - Division by negative numbers works normally
@@ -224,17 +292,17 @@ def _safe_div(
     if isinstance(numerator, np.ndarray) or isinstance(denominator, np.ndarray):
         num = np.asarray(numerator, dtype=float)
         den = np.asarray(denominator, dtype=float)
-        
+
         # Use numpy's divide with proper handling of zero denominators
         result = np.zeros_like(num, dtype=float)
         valid_mask = den != 0
-        
+
         # Perform division only where denominator is non-zero
         result = np.divide(num, den, out=result, where=valid_mask)
-        
+
         # Handle any remaining inf/nan values (e.g., from inf/inf)
         result = np.where(np.isfinite(result), result, 0.0)
-        
+
         return result
     else:
         # Scalar case
@@ -245,72 +313,72 @@ def _safe_div(
         return result if np.isfinite(result) else 0.0
 
 
-
-
 # ============================================================================
 # Metric Implementations (Handle Both Scalars and Arrays)
 # ============================================================================
 
 
-
-
 def f1_score(
-    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+    tp: np.ndarray | float,
+    tn: np.ndarray | float,
+    fp: np.ndarray | float,
+    fn: np.ndarray | float,
 ) -> np.ndarray | float:
     """F1 score: 2*TP / (2*TP + FP + FN).
-    
+
     Automatically handles both scalar and array inputs via NumPy broadcasting.
     """
     return _safe_div(2 * tp, 2 * tp + fp + fn)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 def accuracy_score(
-    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+    tp: np.ndarray | float,
+    tn: np.ndarray | float,
+    fp: np.ndarray | float,
+    fn: np.ndarray | float,
 ) -> np.ndarray | float:
     """Accuracy: (TP + TN) / (TP + TN + FP + FN)."""
     return _safe_div(tp + tn, tp + tn + fp + fn)
 
 
 def precision_score(
-    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+    tp: np.ndarray | float,
+    tn: np.ndarray | float,
+    fp: np.ndarray | float,
+    fn: np.ndarray | float,
 ) -> np.ndarray | float:
     """Precision: TP / (TP + FP)."""
     return _safe_div(tp, tp + fp)
 
 
 def recall_score(
-    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+    tp: np.ndarray | float,
+    tn: np.ndarray | float,
+    fp: np.ndarray | float,
+    fn: np.ndarray | float,
 ) -> np.ndarray | float:
     """Recall: TP / (TP + FN)."""
     return _safe_div(tp, tp + fn)
 
 
 def iou_score(
-    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+    tp: np.ndarray | float,
+    tn: np.ndarray | float,
+    fp: np.ndarray | float,
+    fn: np.ndarray | float,
 ) -> np.ndarray | float:
     """IoU/Jaccard: TP / (TP + FP + FN)."""
     return _safe_div(tp, tp + fp + fn)
 
 
 def specificity_score(
-    tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+    tp: np.ndarray | float,
+    tn: np.ndarray | float,
+    fp: np.ndarray | float,
+    fn: np.ndarray | float,
 ) -> np.ndarray | float:
     """Specificity: TN / (TN + FP)."""
     return _safe_div(tn, tn + fp)
-
-
 
 
 # ============================================================================
@@ -993,16 +1061,19 @@ def make_linear_counts_metric(
     if name is not None:
         # Create metric function from vectorized implementation
         def linear_metric(
-            tp: np.ndarray | float, tn: np.ndarray | float, fp: np.ndarray | float, fn: np.ndarray | float
+            tp: np.ndarray | float,
+            tn: np.ndarray | float,
+            fp: np.ndarray | float,
+            fn: np.ndarray | float,
         ) -> np.ndarray | float:
             """Linear counts metric."""
             return _metric(
                 np.asarray(tp, dtype=float),
-                np.asarray(tn, dtype=float), 
+                np.asarray(tn, dtype=float),
                 np.asarray(fp, dtype=float),
-                np.asarray(fn, dtype=float)
+                np.asarray(fn, dtype=float),
             )
-        
+
         register_metric(
             name=name,
             func=linear_metric,

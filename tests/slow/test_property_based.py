@@ -104,7 +104,9 @@ class TestCoreInvariants:
                 threshold = max(0.0, min(1.0, threshold))
 
                 try:
-                    score = compute_metric_at_threshold(y_true, pred_prob, threshold, metric)
+                    score = compute_metric_at_threshold(
+                        y_true, pred_prob, threshold, metric
+                    )
                     if score > best_score:
                         best_score = score
                         best_threshold = threshold
@@ -234,9 +236,9 @@ class TestCoreInvariants:
             threshold = result.threshold
             # Allow small tolerance outside [0,1] for boundary conditions and tie-breaking
             tolerance = 1e-9
-            assert -tolerance <= threshold <= 1 + tolerance, (
-                f"Threshold {threshold} out of bounds for {metric}"
-            )
+            assert (
+                -tolerance <= threshold <= 1 + tolerance
+            ), f"Threshold {threshold} out of bounds for {metric}"
 
     @given(matched_labels_and_probabilities())
     @settings(max_examples=30)
@@ -256,9 +258,9 @@ class TestCoreInvariants:
             thresholds.append(threshold)
 
         # All results should be identical
-        assert all(abs(t - thresholds[0]) < 1e-12 for t in thresholds), (
-            f"Non-deterministic results: {thresholds}"
-        )
+        assert all(
+            abs(t - thresholds[0]) < 1e-12 for t in thresholds
+        ), f"Non-deterministic results: {thresholds}"
 
     @given(matched_labels_and_probabilities(min_size=4, max_size=30))
     @settings(max_examples=30)
@@ -267,7 +269,9 @@ class TestCoreInvariants:
         labels, probabilities = data
 
         result = get_optimal_threshold(labels, probabilities, "f1")
-        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, result.threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
+            labels, probabilities, result.threshold
+        )
 
         total = tp + tn + fp + fn
         assert total == len(labels), (
@@ -276,9 +280,9 @@ class TestCoreInvariants:
         )
 
         # All elements should be non-negative
-        assert tp >= 0 and tn >= 0 and fp >= 0 and fn >= 0, (
-            f"Negative confusion matrix elements: TP={tp}, TN={tn}, FP={fp}, FN={fn}"
-        )
+        assert (
+            tp >= 0 and tn >= 0 and fp >= 0 and fn >= 0
+        ), f"Negative confusion matrix elements: TP={tp}, TN={tn}, FP={fp}, FN={fn}"
 
     @given(matched_labels_and_probabilities(min_size=5, max_size=20))
     @settings(max_examples=30)
@@ -345,7 +349,7 @@ class TestStatisticalProperties:
         if len(labels) > 3:  # Need enough samples for correlation
             # Handle case where variance is zero (all values identical)
             if np.std(labels) > 1e-10 and np.std(probabilities) > 1e-10:
-                correlation = abs(np.corrcoef(labels, - probabilities)[0, 1])
+                correlation = abs(np.corrcoef(labels, -probabilities)[0, 1])
                 if correlation >= 0.9:  # Already highly correlated
                     return
             else:
@@ -431,23 +435,23 @@ class TestStatisticalProperties:
             return
 
         try:
-            result = get_optimal_threshold(
-                labels, probabilities, "f1", method=method
-            )
+            result = get_optimal_threshold(labels, probabilities, "f1", method=method)
 
             # Threshold should be valid
             threshold = result.threshold
             assert 0 <= threshold <= 1
 
             # Should produce a valid confusion matrix
-            tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
+            tp, tn, fp, fn = confusion_matrix_at_threshold(
+                labels, probabilities, threshold
+            )
             assert tp + tn + fp + fn == len(labels)
 
         except Exception as e:
             # Some methods might fail on edge cases, but should fail gracefully
-            assert isinstance(e, (ValueError, RuntimeError)), (
-                f"Unexpected error type for method {method}: {type(e)}"
-            )
+            assert isinstance(
+                e, ValueError | RuntimeError
+            ), f"Unexpected error type for method {method}: {type(e)}"
 
 
 class TestNumericalStability:
@@ -615,7 +619,9 @@ class TestMulticlassPropertyBased:
 
                 # Skip if this class has no positive examples
                 if np.sum(binary_labels) > 0 and np.sum(1 - binary_labels) > 0:
-                    binary_result = get_optimal_threshold(binary_labels, binary_probs, "f1")
+                    binary_result = get_optimal_threshold(
+                        binary_labels, binary_probs, "f1"
+                    )
                     manual_thresholds.append(binary_result.threshold)
                 else:
                     manual_thresholds.append(0.5)  # Default for degenerate case
@@ -629,9 +635,9 @@ class TestMulticlassPropertyBased:
             zip(thresholds, manual_thresholds, strict=False)
         ):
             if i in unique_labels and np.sum(labels == i) > 0:
-                assert abs(auto - manual) < 1e-6, (
-                    f"Class {i} threshold mismatch: auto={auto}, manual={manual}"
-                )
+                assert (
+                    abs(auto - manual) < 1e-6
+                ), f"Class {i} threshold mismatch: auto={auto}, manual={manual}"
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=12, max_size=20),
@@ -665,7 +671,9 @@ class TestMulticlassPropertyBased:
                 )
 
             # Test that confusion matrices are valid
-            cms = multiclass_confusion_matrices_at_thresholds(labels, probabilities, thresholds)
+            cms = multiclass_confusion_matrices_at_thresholds(
+                labels, probabilities, thresholds
+            )
             assert len(cms) == probabilities.shape[1]
 
             for tp, tn, fp, fn in cms:
@@ -695,9 +703,9 @@ class TestMulticlassPropertyBased:
 
         # All results should be identical
         for i, thresholds in enumerate(thresholds_list[1:], 1):
-            assert np.allclose(thresholds_list[0], thresholds, atol=1e-12), (
-                f"Non-deterministic multiclass results: run 0 vs run {i}"
-            )
+            assert np.allclose(
+                thresholds_list[0], thresholds, atol=1e-12
+            ), f"Non-deterministic multiclass results: run 0 vs run {i}"
 
     @given(
         data=matched_multiclass_data(n_classes=3, min_size=9, max_size=18),
@@ -718,7 +726,9 @@ class TestMulticlassPropertyBased:
             )
 
             # Get confusion matrices
-            cms = multiclass_confusion_matrices_at_thresholds(labels, probabilities, thresholds)
+            cms = multiclass_confusion_matrices_at_thresholds(
+                labels, probabilities, thresholds
+            )
 
             # Test macro averaging
             score_macro = multiclass_metric_ovr(cms, metric, "macro")
@@ -730,9 +740,9 @@ class TestMulticlassPropertyBased:
 
             # Test weighted averaging
             score_weighted = multiclass_metric_ovr(cms, metric, "weighted")
-            assert 0 <= score_weighted <= 1, (
-                f"Weighted {metric} out of bounds: {score_weighted}"
-            )
+            assert (
+                0 <= score_weighted <= 1
+            ), f"Weighted {metric} out of bounds: {score_weighted}"
 
         except (ValueError, ZeroDivisionError):
             # Some metrics might fail on edge cases (e.g., no positives for precision)
@@ -796,7 +806,9 @@ class TestMulticlassMathematicalProperties:
             )
 
             # Get confusion matrices
-            cms = multiclass_confusion_matrices_at_thresholds(labels, probabilities, thresholds)
+            cms = multiclass_confusion_matrices_at_thresholds(
+                labels, probabilities, thresholds
+            )
 
             # Compute different averages
             score_macro = multiclass_metric_ovr(cms, "f1", "macro")
@@ -814,9 +826,9 @@ class TestMulticlassMathematicalProperties:
 
             # Macro average should equal mean of per-class scores
             per_class_mean = np.mean(score_none)
-            assert abs(score_macro - per_class_mean) < 1e-10, (
-                f"Macro average {score_macro} != mean of per-class {per_class_mean}"
-            )
+            assert (
+                abs(score_macro - per_class_mean) < 1e-10
+            ), f"Macro average {score_macro} != mean of per-class {per_class_mean}"
 
         except (ValueError, ZeroDivisionError):
             # Some edge cases might cause mathematical issues
@@ -891,9 +903,9 @@ class TestPerformanceProperties:
 
         # Should complete in reasonable time even for large inputs
         expected_max_time = 0.1 * len(probabilities) / 100  # Scale with size
-        assert piecewise_time < expected_max_time, (
-            f"Piecewise optimization too slow: {piecewise_time:.4f}s for {len(probabilities)} samples"
-        )
+        assert (
+            piecewise_time < expected_max_time
+        ), f"Piecewise optimization too slow: {piecewise_time:.4f}s for {len(probabilities)} samples"
 
         # Result should be valid
         assert 0 <= threshold <= 1
@@ -946,9 +958,9 @@ class TestPerformanceProperties:
                 results[method] = result.threshold
 
                 # Should complete in reasonable time
-                assert times[method] < 5.0, (
-                    f"{method} took too long: {times[method]:.2f}s"
-                )
+                assert (
+                    times[method] < 5.0
+                ), f"{method} took too long: {times[method]:.2f}s"
 
                 # Should produce valid result
                 threshold = result.threshold
@@ -956,7 +968,7 @@ class TestPerformanceProperties:
 
             except Exception as e:
                 # Some methods might fail on edge cases
-                assert isinstance(e, (ValueError, RuntimeError))
+                assert isinstance(e, ValueError | RuntimeError)
 
     @given(matched_multiclass_data(n_classes=3, min_size=30, max_size=200))
     @settings(max_examples=5, deadline=15000)
@@ -1048,9 +1060,9 @@ class TestPerformanceProperties:
                 end_time = time.time()
 
                 # Should complete in reasonable time
-                assert end_time - start_time < 1.0, (
-                    f"Edge case '{case_name}' too slow: {end_time - start_time:.4f}s"
-                )
+                assert (
+                    end_time - start_time < 1.0
+                ), f"Edge case '{case_name}' too slow: {end_time - start_time:.4f}s"
 
                 threshold = result.threshold
                 assert 0 <= threshold <= 1
@@ -1089,9 +1101,9 @@ class TestPerformanceProperties:
         assert time_gte < 1.0, f"'>=' comparison too slow: {time_gte:.4f}s"
 
         # Times should be similar (within factor of 2)
-        assert abs(time_gt - time_gte) < max(time_gt, time_gte), (
-            f"Performance difference too large: {time_gt:.4f}s vs {time_gte:.4f}s"
-        )
+        assert abs(time_gt - time_gte) < max(
+            time_gt, time_gte
+        ), f"Performance difference too large: {time_gt:.4f}s vs {time_gte:.4f}s"
 
         # Results should be valid
         assert 0 <= threshold_gt <= 1

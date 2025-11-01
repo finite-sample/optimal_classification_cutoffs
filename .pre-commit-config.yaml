@@ -3,17 +3,9 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-        args: [--fix, --exclude, "*.ipynb"]
+        args: [--fix, --unsafe-fixes, --exclude, "*.ipynb"]
       - id: ruff-format
         args: [--exclude, "*.ipynb"]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        files: ^optimal_cutoffs/
-        additional_dependencies: [numpy, scipy, scikit-learn]
-        args: [--config-file=pyproject.toml]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0

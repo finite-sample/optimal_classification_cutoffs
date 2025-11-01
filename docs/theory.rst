@@ -18,7 +18,7 @@ Classification metrics depend on confusion matrix counts: true positives (TP), t
 
 .. math::
 
-   \text{prediction} = \begin{cases} 
+   \text{prediction} = \begin{cases}
    1 & \text{if } p \geq \text{threshold} \\
    0 & \text{if } p < \text{threshold}
    \end{cases}
@@ -28,7 +28,7 @@ Classification metrics depend on confusion matrix counts: true positives (TP), t
 For example, with predicted probabilities ``[0.2, 0.4, 0.7, 0.9]``:
 
 - Thresholds in ``[0.0, 0.2)`` → all predictions are 1
-- Thresholds in ``[0.2, 0.4)`` → predictions are ``[0, 1, 1, 1]``  
+- Thresholds in ``[0.2, 0.4)`` → predictions are ``[0, 1, 1, 1]``
 - Thresholds in ``[0.4, 0.7)`` → predictions are ``[0, 0, 1, 1]``
 - Thresholds in ``[0.7, 0.9)`` → predictions are ``[0, 0, 0, 1]``
 - Thresholds in ``[0.9, 1.0]`` → all predictions are 0
@@ -69,11 +69,11 @@ Since the optimal threshold must occur at one of the unique probability values, 
 
    # Sort predictions by descending probability (O(n log n))
    sorted_indices = np.argsort(-predicted_probabilities)
-   
+
    # Compute all confusion matrices in one vectorized pass (O(n))
    tp_cumsum = np.cumsum(labels_sorted)  # True positives at each cut
    fp_cumsum = np.cumsum(1 - labels_sorted)  # False positives at each cut
-   
+
    # Vectorized metric evaluation across all n cuts (O(n))
    all_scores = metric_function_vectorized(tp_cumsum, tn_array, fp_cumsum, fn_array)
    optimal_cut = np.argmax(all_scores)
@@ -81,7 +81,7 @@ Since the optimal threshold must occur at one of the unique probability values, 
 This approach:
 
 - **True O(n log n) complexity**: Single sort followed by linear scan
-- **Guarantees global optimum**: Evaluates all n possible cut points, not just unique probabilities  
+- **Guarantees global optimum**: Evaluates all n possible cut points, not just unique probabilities
 - **Vectorized operations**: Eliminates Python loops for maximum efficiency
 - **Numerically stable**: Returns threshold as midpoint between adjacent probabilities
 - **Exact results**: No approximation error from numerical optimization
@@ -97,7 +97,7 @@ Fallback Mechanism for Minimize Method
 The library implements a hybrid approach for the ``"minimize"`` method:
 
 1. Run ``scipy.optimize.minimize_scalar`` to get a candidate threshold
-2. Also evaluate all unique probability values  
+2. Also evaluate all unique probability values
 3. Return whichever gives the highest metric score
 
 This fallback ensures that even when continuous optimization finds a suboptimal threshold within a constant region, the final result is still globally optimal.
@@ -110,7 +110,7 @@ The following plot demonstrates the piecewise-constant nature of F1 score::
    # Generate example data
    y_true = [0, 0, 1, 1, 0, 1, 0]
    y_prob = [0.1, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
-   
+
    # The F1 score will be constant between each pair of consecutive probabilities
    # and will only change at the breakpoints: {0.1, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9}
 
@@ -122,7 +122,7 @@ Non-Piecewise Metrics
 Some metrics are **not** piecewise-constant:
 
 - **Log-loss (cross-entropy)**: Depends directly on probability values, not just binary predictions
-- **Brier score**: Quadratic loss that uses continuous probability values  
+- **Brier score**: Quadratic loss that uses continuous probability values
 - **ROC-AUC**: Based on ranking, changes continuously with threshold
 
 For these metrics, continuous optimization methods are more appropriate, and the library automatically falls back to evaluating all unique probabilities rather than using the O(n log n) piecewise algorithm.
@@ -174,20 +174,20 @@ The recommended workflow combines both techniques:
 
    from sklearn.calibration import CalibratedClassifierCV
    from optimal_cutoffs import ThresholdOptimizer
-   
+
    # Step 1: Train your base classifier
    base_model = LogisticRegression()
    base_model.fit(X_train, y_train)
-   
+
    # Step 2: Calibrate probabilities
    calibrated_model = CalibratedClassifierCV(base_model, cv=3)
    calibrated_model.fit(X_train, y_train)
    y_prob_cal = calibrated_model.predict_proba(X_val)[:, 1]
-   
+
    # Step 3: Optimize threshold on calibrated probabilities
    optimizer = ThresholdOptimizer(metric='f1')
    optimizer.fit(y_val, y_prob_cal)
-   
+
    # Step 4: Make final predictions
    y_prob_test = calibrated_model.predict_proba(X_test)[:, 1]
    y_pred_test = optimizer.predict(y_prob_test)
@@ -210,13 +210,13 @@ Before and after calibration, evaluate:
 Example diagnostic code::
 
    from sklearn.calibration import calibration_curve
-   
+
    # Before calibration
    fraction_of_positives, mean_predicted_value = calibration_curve(
        y_true, y_prob_uncalibrated, n_bins=10
    )
-   
-   # After calibration  
+
+   # After calibration
    fraction_of_positives_cal, mean_predicted_value_cal = calibration_curve(
        y_true, y_prob_calibrated, n_bins=10
    )

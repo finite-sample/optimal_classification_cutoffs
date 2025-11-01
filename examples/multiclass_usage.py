@@ -115,9 +115,7 @@ print("\n=== Method 4: Different Optimization Methods ===")
 methods = ["auto", "minimize", "gradient"]
 for method in methods:
     try:
-        result_method = get_optimal_threshold(
-            y, y_prob, metric="f1", method=method
-        )
+        result_method = get_optimal_threshold(y, y_prob, metric="f1", method=method)
         print(f"{method:12s}: {result_method.thresholds}")
     except Exception as e:
         print(f"{method:12s}: Error - {e}")

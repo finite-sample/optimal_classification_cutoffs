@@ -35,7 +35,7 @@ def test_metric_registry_and_custom_registration():
     assert METRICS["sum_tp_tn"].fn(1, 1, 0, 0) == 2
 
     def tpr(tp, tn, fp, fn):
-        return tp / (tp + fn) if tp + fn > 0 else 0.0
+        return np.where(tp + fn > 0, tp / (tp + fn), 0.0)
 
     register_metrics({"tpr": tpr})
 

@@ -59,16 +59,16 @@ Global Registries
 ------------------
 
 .. autodata:: optimal_cutoffs.metrics.METRIC_REGISTRY
-   :annotation: 
+   :annotation:
 
    Dictionary mapping metric names to metric functions. All registered metrics are stored here.
 
 .. autodata:: optimal_cutoffs.metrics.VECTORIZED_REGISTRY
-   :annotation: 
+   :annotation:
 
    Dictionary mapping metric names to vectorized implementations for O(n log n) optimization.
 
 .. autodata:: optimal_cutoffs.metrics.METRIC_PROPERTIES
-   :annotation: 
+   :annotation:
 
    Dictionary storing properties (piecewise, maximize, needs_proba) for each registered metric.

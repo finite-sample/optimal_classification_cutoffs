@@ -19,11 +19,11 @@ python3 -m pip install -e . --break-system-packages || {
 echo "✅ Package installed successfully"
 echo ""
 
-# Step 2: Lint check (exactly like CI) 
+# Step 2: Lint check (exactly like CI)
 echo "🧹 Step 2: Running linting (matches CI)..."
 ruff check . --exclude '*.ipynb' || {
     echo "❌ Linting failed - fix these issues before committing"
-    exit 1  
+    exit 1
 }
 echo "✅ Linting passed"
 echo ""
@@ -36,7 +36,7 @@ python3 -m pytest --collect-only -q > /dev/null || {
     python3 -m pytest --collect-only -q
     exit 1
 }
-echo "✅ Test collection successful - no import errors"  
+echo "✅ Test collection successful - no import errors"
 echo ""
 
 # Step 4: Type checking (if mypy is available)
@@ -51,7 +51,7 @@ else
 fi
 echo ""
 
-# Step 5: Run full test suite with coverage (like CI) 
+# Step 5: Run full test suite with coverage (like CI)
 echo "🧪 Step 5: Running full test suite..."
 echo "This may take a while - running all tests like CI does..."
 python3 -m pytest tests/ -x --tb=short || {

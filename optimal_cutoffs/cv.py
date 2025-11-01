@@ -218,7 +218,7 @@ def nested_cv_threshold_optimization(
         )
         # Average thresholds across inner folds for robust estimate
         # This is statistically sound - considers all folds rather than cherry-picking
-        if isinstance(inner_thresholds[0], (float, np.floating)):
+        if isinstance(inner_thresholds[0], float | np.floating):
             # Binary case: simple averaging
             thr = float(np.mean(inner_thresholds))
         elif isinstance(inner_thresholds[0], np.ndarray):
@@ -311,7 +311,7 @@ def _average_threshold_dicts(threshold_dicts: list[dict[str, Any]]) -> dict[str,
 
         if key in ("threshold", "thresholds"):
             # These are the actual threshold values to average
-            if isinstance(values[0], (float, np.floating)):
+            if isinstance(values[0], float | np.floating):
                 result[key] = float(np.mean(values))
             elif isinstance(values[0], np.ndarray):
                 result[key] = np.mean(np.vstack(values), axis=0)
@@ -327,7 +327,7 @@ def _average_threshold_dicts(threshold_dicts: list[dict[str, Any]]) -> dict[str,
             try:
                 if isinstance(values[0], np.ndarray):
                     result[key] = np.mean(np.vstack(values), axis=0)
-                elif isinstance(values[0], (int, float, np.number)):
+                elif isinstance(values[0], int | float | np.number):
                     result[key] = float(np.mean(values))
                 else:
                     # Non-numeric data - keep first fold's value
@@ -361,7 +361,11 @@ def _evaluate_threshold_on_fold(
         else:
             # Handle both scalar and array cases
             thr_array = np.asarray(thr)
-            t = float(thr_array.item()) if thr_array.ndim == 0 else float(thr_array.flat[0])
+            t = (
+                float(thr_array.item())
+                if thr_array.ndim == 0
+                else float(thr_array.flat[0])
+            )
         tp, tn, fp, fn = confusion_matrix_at_threshold(
             y_true, pred_prob, t, sample_weight=sw, comparison=comparison
         )

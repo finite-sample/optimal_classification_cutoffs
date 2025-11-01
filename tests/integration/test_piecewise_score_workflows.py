@@ -26,9 +26,7 @@ class TestScoreBasedWorkflows:
             validate_binary_classification(y_true, scores)
 
         # Should work with require_proba=False
-        y, s, _ = validate_binary_classification(
-            y_true, scores, require_proba=False
-        )
+        y, s, _ = validate_binary_classification(y_true, scores, require_proba=False)
         assert y.dtype == np.int8
         assert s.dtype == np.float64
         np.testing.assert_array_equal(y, [0, 1, 0, 1])
@@ -39,12 +37,12 @@ class TestScoreBasedWorkflows:
         y_true = [0, 0, 1, 1]
         scores = [-1.5, 0.2, 1.1, 2.8]  # Logits
 
-        result = optimal_threshold_sortscan(
-            y_true, scores, "f1", require_proba=False
-        )
+        result = optimal_threshold_sortscan(y_true, scores, "f1", require_proba=False)
         threshold = result.threshold
         score = result.score
-        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(
+            result, "diagnostics"
+        ) and result.diagnostics else 0
 
         # Should achieve perfect F1 = 1.0
         assert abs(score - 1.0) < 1e-10
@@ -56,9 +54,7 @@ class TestScoreBasedWorkflows:
         y_true = [0, 1]
         scores = [-5.0, 10.0]  # Extreme scores
 
-        result = optimal_threshold_sortscan(
-            y_true, scores, "f1", require_proba=False
-        )
+        result = optimal_threshold_sortscan(y_true, scores, "f1", require_proba=False)
         threshold = result.threshold
 
         # Threshold should be between -5 and 10, not clamped to [0,1]
@@ -71,16 +67,12 @@ class TestScoreBasedWorkflows:
         scores_sorted = np.array([5.0, 2.0, -1.0, -3.0])
 
         # No clamping should occur for midpoints
-        threshold = _compute_threshold_midpoint(
-            scores_sorted, 2, False
-        )
+        threshold = _compute_threshold_midpoint(scores_sorted, 2, False)
         expected = (2.0 + (-1.0)) / 2.0  # Midpoint = 0.5
         assert abs(threshold - expected) < 1e-10
 
         # Test with inclusive operator
-        threshold_inclusive = _compute_threshold_midpoint(
-            scores_sorted, 2, True
-        )
+        threshold_inclusive = _compute_threshold_midpoint(scores_sorted, 2, True)
         # Should still be the same midpoint regardless of inclusive flag
         assert abs(threshold_inclusive - expected) < 1e-10
 
@@ -90,28 +82,34 @@ class TestScoreBasedWorkflows:
         y_true = [1]
         scores = [-2.5]
 
-        result = optimal_threshold_sortscan(
-            y_true, scores, "f1", require_proba=False
-        )
+        result = optimal_threshold_sortscan(y_true, scores, "f1", require_proba=False)
         threshold = result.threshold
         score = result.score
-        k = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        k = (
+            result.diagnostics.get("k_star", 0)
+            if hasattr(result, "diagnostics") and result.diagnostics
+            else 0
+        )
 
         assert abs(threshold - (-2.5)) < 1e-10  # Should be very close to -2.5
         assert score == 1.0  # Perfect F1 for single positive
         # Note: k_star uses 0-based indexing, diagnostic may vary by implementation
-        assert k in [0, 1]  # Should predict the single positive sample (allowing for indexing differences)
+        assert (
+            k in [0, 1]
+        )  # Should predict the single positive sample (allowing for indexing differences)
 
         # All negatives with positive scores
         y_true = [0, 0, 0]
         scores = [1.1, 2.5, 3.9]
 
-        result = optimal_threshold_sortscan(
-            y_true, scores, "f1", require_proba=False
-        )
+        result = optimal_threshold_sortscan(y_true, scores, "f1", require_proba=False)
         threshold = result.threshold
         score = result.score
-        k = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        k = (
+            result.diagnostics.get("k_star", 0)
+            if hasattr(result, "diagnostics") and result.diagnostics
+            else 0
+        )
 
         # Should set threshold >= max score to predict all negative
         assert threshold >= 3.9
@@ -132,7 +130,9 @@ class TestScoreBasedWorkflows:
         )
         threshold = result.threshold
         score = result.score
-        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(
+            result, "diagnostics"
+        ) and result.diagnostics else 0
 
         # Should be valid threshold and score
         assert -1.0 <= threshold <= 2.8
@@ -172,7 +172,7 @@ class TestNewVectorizedMetrics:
         iou_scores = iou_vectorized(tp, tn, fp, fn)
 
         # IoU = 0/(0+0+0) = 0.0 (handled by np.where)
-        assert abs(iou_scores[0] - - 0.0) < 1e-10
+        assert abs(iou_scores[0] - -0.0) < 1e-10
 
     def test_specificity_vectorized(self):
         """Test vectorized specificity computation."""
@@ -223,16 +223,12 @@ class TestNewVectorizedMetrics:
         pred_prob = [0.1, 0.3, 0.7, 0.9]
 
         # Test IoU optimization
-        result_iou = optimal_threshold_sortscan(
-            y_true, pred_prob, "iou"
-        )
+        result_iou = optimal_threshold_sortscan(y_true, pred_prob, "iou")
         threshold_iou = result_iou.threshold
         score_iou = result_iou.score
 
         # Test specificity optimization
-        result_spec = optimal_threshold_sortscan(
-            y_true, pred_prob, "specificity"
-        )
+        result_spec = optimal_threshold_sortscan(y_true, pred_prob, "specificity")
         threshold_spec = result_spec.threshold
         score_spec = result_spec.score
 
@@ -254,12 +250,14 @@ class TestTieHandlingImprovements:
         # Run multiple times to check determinism
         results = []
         for _ in range(5):
-            result = optimal_threshold_sortscan(
-                y_true, pred_prob, "f1"
-            )
+            result = optimal_threshold_sortscan(y_true, pred_prob, "f1")
             threshold = result.threshold
             score = result.score
-            k = result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+            k = (
+                result.diagnostics.get("k_star", 0)
+                if hasattr(result, "diagnostics") and result.diagnostics
+                else 0
+            )
             results.append((threshold, score, k))
 
         # All results should be identical
@@ -274,12 +272,12 @@ class TestTieHandlingImprovements:
         y_true = [0, 0, 1, 1, 1]
         pred_prob = [0.2, 0.5, 0.5, 0.5, 0.8]  # Ties at decision boundary
 
-        result = optimal_threshold_sortscan(
-            y_true, pred_prob, "f1"
-        )
+        result = optimal_threshold_sortscan(y_true, pred_prob, "f1")
         threshold = result.threshold
         score = result.score
-        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(
+            result, "diagnostics"
+        ) and result.diagnostics else 0
 
         # Should achieve reasonable performance
         assert score > 0.5  # Better than random
@@ -293,12 +291,12 @@ class TestTieHandlingImprovements:
         pred_prob = np.random.choice([0.1, 0.3, 0.5, 0.7, 0.9], size=n)
 
         start_time = time.time()
-        result = optimal_threshold_sortscan(
-            y_true, pred_prob, "f1"
-        )
+        result = optimal_threshold_sortscan(y_true, pred_prob, "f1")
         threshold = result.threshold
         score = result.score
-        result.diagnostics.get("k_star", 0) if hasattr(result, 'diagnostics') and result.diagnostics else 0
+        result.diagnostics.get("k_star", 0) if hasattr(
+            result, "diagnostics"
+        ) and result.diagnostics else 0
         end_time = time.time()
 
         duration = end_time - start_time

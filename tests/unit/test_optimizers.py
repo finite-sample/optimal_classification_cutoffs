@@ -22,9 +22,9 @@ def test_get_optimal_threshold_methods():
         from optimal_cutoffs.metrics import compute_metric_at_threshold
 
         f1_score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
-        assert f1_score >= 0.8, (
-            f"Method {method} achieved F1={f1_score:.6f} with threshold={threshold:.6f}"
-        )
+        assert (
+            f1_score >= 0.8
+        ), f"Method {method} achieved F1={f1_score:.6f} with threshold={threshold:.6f}"
 
 
 def test_cv_threshold_optimization():
@@ -62,17 +62,17 @@ def test_piecewise_optimization_correctness():
 
             # Get result from get_optimal_threshold
             result_get = get_optimal_threshold(
-                y_true, y_prob, metric, method="sort_scan"
+                y_true, y_prob, metric=metric, method="sort_scan"
             )
             threshold_get = result_get.threshold
 
             # Both should be valid thresholds
-            assert -TOLERANCE <= threshold_find <= 1, (
-                f"Invalid threshold for {metric}: {threshold_find}"
-            )
-            assert -TOLERANCE <= threshold_get <= 1, (
-                f"Invalid threshold for {metric}: {threshold_get}"
-            )
+            assert (
+                -TOLERANCE <= threshold_find <= 1
+            ), f"Invalid threshold for {metric}: {threshold_find}"
+            assert (
+                -TOLERANCE <= threshold_get <= 1
+            ), f"Invalid threshold for {metric}: {threshold_get}"
 
             # Both should find decent optima (within reasonable bounds)
             from optimal_cutoffs.metrics import compute_metric_at_threshold
@@ -83,16 +83,20 @@ def test_piecewise_optimization_correctness():
             score_get = compute_metric_at_threshold(
                 y_true, y_prob, threshold_get, metric
             )
-            
+
             # Both scores should be reasonable (> 0.5 for this test data)
-            assert score_find > 0.5, f"Low score for find_optimal_threshold {metric}: {score_find}"
-            assert score_get > 0.5, f"Low score for get_optimal_threshold {metric}: {score_get}"
-            
+            assert (
+                score_find > 0.5
+            ), f"Low score for find_optimal_threshold {metric}: {score_find}"
+            assert (
+                score_get > 0.5
+            ), f"Low score for get_optimal_threshold {metric}: {score_get}"
+
             # The difference should not be too large (allowing for different tie-breaking)
             score_diff = abs(score_find - score_get)
-            assert score_diff < 0.1, (
-                f"Large score difference for {metric}: {score_find:.4f} vs {score_get:.4f}"
-            )
+            assert (
+                score_diff < 0.1
+            ), f"Large score difference for {metric}: {score_find:.4f} vs {score_get:.4f}"
 
 
 def test_piecewise_edge_cases():
@@ -146,16 +150,18 @@ def test_piecewise_known_optimal():
     )
     opt_threshold = opt_result.threshold
     accuracy = compute_metric_at_threshold(y_true, y_prob, opt_threshold, "accuracy")
-    
+
     # This test data should be perfectly separable with threshold between 0.2 and 0.8
     # If not, debug why the optimization isn't finding the right solution
     if accuracy < 1.0:
         # Test all possible thresholds to see what's happening
         for test_threshold in [0.15, 0.25, 0.5, 0.75, 0.85]:
-            test_accuracy = compute_metric_at_threshold(y_true, y_prob, test_threshold, "accuracy")
+            test_accuracy = compute_metric_at_threshold(
+                y_true, y_prob, test_threshold, "accuracy"
+            )
             print(f"Threshold {test_threshold}: accuracy {test_accuracy}")
         print(f"Optimizer found threshold {opt_threshold}, accuracy {accuracy}")
-    
+
     # Allow for the possibility that the implementation doesn't find perfect separation
     assert accuracy >= 0.75, f"Expected high accuracy, got {accuracy}"
     # assert 0.1 <= opt_threshold <= 0.9, f"Unexpected threshold: {opt_threshold}"
@@ -225,9 +231,7 @@ def test_performance_improvement():
 
     # Time piecewise optimization
     start_time = time.time()
-    opt_result = find_optimal_threshold(
-        y_true, y_prob, "f1", strategy="sort_scan"
-    )
+    opt_result = find_optimal_threshold(y_true, y_prob, "f1", strategy="sort_scan")
     opt_threshold = opt_result.threshold
     piecewise_time = time.time() - start_time
 

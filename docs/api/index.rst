@@ -19,7 +19,7 @@ The primary interface for threshold optimization:
 
 .. toctree::
    :maxdepth: 1
-   
+
    core
 
 Metrics System
@@ -29,7 +29,7 @@ Built-in metrics and utilities for custom metric registration:
 
 .. toctree::
    :maxdepth: 1
-   
+
    metrics
 
 Scikit-learn Interface
@@ -39,7 +39,7 @@ High-level wrapper for integration with scikit-learn workflows:
 
 .. toctree::
    :maxdepth: 1
-   
+
    wrapper
 
 Cross-Validation
@@ -49,7 +49,7 @@ Utilities for robust threshold estimation:
 
 .. toctree::
    :maxdepth: 1
-   
+
    cv
 
 Multiclass Support
@@ -59,7 +59,7 @@ Specialized functionality for multiclass classification:
 
 .. toctree::
    :maxdepth: 1
-   
+
    multiclass
 
 Type Definitions

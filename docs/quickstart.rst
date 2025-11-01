@@ -16,11 +16,11 @@ The simplest use case is finding the optimal threshold for binary classification
    # Your binary classification data
    y_true = np.array([0, 0, 1, 1, 0, 1])
    y_prob = np.array([0.1, 0.4, 0.35, 0.8, 0.2, 0.9])
-   
+
    # Find optimal threshold for F1 score
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1')
    print(f"Optimal threshold: {threshold:.3f}")
-   
+
    # Make predictions
    predictions = (y_prob >= threshold).astype(int)
    print(f"Predictions: {predictions}")
@@ -34,13 +34,13 @@ You can optimize for different metrics:
 
    # Optimize for accuracy
    threshold_acc = get_optimal_threshold(y_true, y_prob, metric='accuracy')
-   
+
    # Optimize for precision
    threshold_prec = get_optimal_threshold(y_true, y_prob, metric='precision')
-   
+
    # Optimize for recall
    threshold_rec = get_optimal_threshold(y_true, y_prob, metric='recall')
-   
+
    print(f"Accuracy threshold: {threshold_acc:.3f}")
    print(f"Precision threshold: {threshold_prec:.3f}")
    print(f"Recall threshold: {threshold_rec:.3f}")
@@ -62,7 +62,7 @@ For multiclass problems, the library automatically detects the problem type and 
        [0.2, 0.7, 0.1],  # Sample 5: likely class 1
        [0.1, 0.2, 0.7]   # Sample 6: likely class 2
    ])
-   
+
    # Get per-class optimal thresholds
    thresholds = get_optimal_threshold(y_true, y_prob, metric='f1')
    print(f"Optimal thresholds per class: {thresholds}")
@@ -81,23 +81,23 @@ For integration with scikit-learn pipelines, use the ``ThresholdOptimizer`` clas
    # Generate sample data
    X = np.random.randn(1000, 5)
    y = (X[:, 0] + X[:, 1] > 0).astype(int)
-   
+
    # Split data
    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-   
+
    # Train a classifier
    clf = RandomForestClassifier(random_state=42)
    clf.fit(X_train, y_train)
    y_prob_train = clf.predict_proba(X_train)[:, 1]
    y_prob_test = clf.predict_proba(X_test)[:, 1]
-   
+
    # Optimize threshold
    optimizer = ThresholdOptimizer(metric='f1', method='smart_brute')
    optimizer.fit(y_train, y_prob_train)
-   
+
    # Make optimized predictions
    y_pred = optimizer.predict(y_prob_test)
-   
+
    print(f"Optimal threshold: {optimizer.threshold_:.3f}")
    print(f"Test accuracy: {np.mean(y_pred == y_test):.3f}")
 
@@ -110,13 +110,13 @@ The library provides several optimization methods:
 
    # Auto method selection (recommended)
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='auto')
-   
+
    # Fast O(n log n) algorithm for piecewise metrics
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='sort_scan')
-   
+
    # Brute force evaluation of all unique probabilities
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='smart_brute')
-   
+
    # Scipy-based continuous optimization
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='minimize')
 
@@ -129,10 +129,10 @@ For applications where different types of errors have different costs:
 
    # False negatives cost 5x more than false positives
    threshold = get_optimal_threshold(
-       y_true, y_prob, 
+       y_true, y_prob,
        utility={"fp": -1.0, "fn": -5.0}
    )
-   
+
    # With benefits for correct predictions
    threshold = get_optimal_threshold(
        y_true, y_prob,

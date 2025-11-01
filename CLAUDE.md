@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Version Information
-- **Current Version**: 0.6.1
+- **Current Version**: 1.0.0
 - **Python Support**: 3.11, 3.12, 3.13
 
 ## Development Commands
@@ -19,7 +19,7 @@ python -m pip install -e ".[examples]"
 
 ### Testing
 ```bash
-# Run all tests (640+ tests as of v0.6.0)
+# Run all tests (640+ tests as of v1.0.0)
 python -m pytest tests/ -v
 
 # Run specific test file
@@ -42,9 +42,6 @@ ruff check optimal_cutoffs/
 
 # Apply code formatting
 ruff format optimal_cutoffs/
-
-# Type checking
-mypy optimal_cutoffs/
 ```
 
 ### Examples
@@ -117,7 +114,7 @@ The multiclass prediction strategy balances threshold-based decisions with pract
 
 This approach maintains the benefits of optimized thresholds while ensuring every sample gets a prediction.
 
-## Version 0.6.0 Key Improvements
+## Version 1.0.0 Mathematical Taxonomy Release
 
 ### Enhanced Score-Based Workflows
 - **Non-Probability Support**: New `require_proba=False` parameter enables optimization on logits and arbitrary score ranges
@@ -187,7 +184,7 @@ from optimal_cutoffs import get_optimal_threshold
 # Binary classification - auto method selection
 threshold = get_optimal_threshold(y_true, y_prob, metric="f1", method="auto")
 
-# Multiclass classification - coordinate ascent for single-label consistency  
+# Multiclass classification - coordinate ascent for single-label consistency
 thresholds = get_optimal_threshold(y_true, y_prob, metric="f1", method="coord_ascent")
 
 # Performance-critical applications

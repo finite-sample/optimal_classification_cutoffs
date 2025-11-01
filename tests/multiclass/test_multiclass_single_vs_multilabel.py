@@ -59,7 +59,7 @@ class TestExclusiveVsOvRDistinction:
 
             # Extract thresholds from result
             thresholds = result.thresholds
-            
+
             # Apply exclusive prediction rule: argmax(p - tau)
             scores = probs - thresholds.reshape(1, -1)
             predictions = np.argmax(scores, axis=1)
@@ -92,6 +92,7 @@ class TestExclusiveVsOvRDistinction:
         # Suppress probability sum warning - this test intentionally uses non-normalized
         # probabilities to test multi-label behavior
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = get_optimal_threshold(
@@ -100,7 +101,7 @@ class TestExclusiveVsOvRDistinction:
 
         # Extract thresholds from result
         thresholds = result.thresholds
-        
+
         # Apply per-class thresholds
         predictions = probs > thresholds.reshape(1, -1)
 
@@ -132,7 +133,7 @@ class TestExclusiveVsOvRDistinction:
         result_ovr = get_optimal_threshold(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
-        
+
         thresholds_ovr = result_ovr.thresholds
 
         # Apply OvR predictions
@@ -159,9 +160,9 @@ class TestExclusiveVsOvRDistinction:
 
         # The key test: exclusive should have exactly 1 prediction per sample
         exclusive_counts = np.sum(pred_exclusive, axis=1)
-        assert np.all(exclusive_counts == 1), (
-            f"Exclusive should predict exactly 1 class per sample, got {exclusive_counts}"
-        )
+        assert np.all(
+            exclusive_counts == 1
+        ), f"Exclusive should predict exactly 1 class per sample, got {exclusive_counts}"
 
     def test_exclusive_accuracy_metric_computation(self):
         """Test exclusive accuracy metric computation."""
@@ -189,9 +190,9 @@ class TestExclusiveVsOvRDistinction:
             pred_classes = np.argmax(probs, axis=1)  # [0, 1, 2, 1, 1]
             expected_accuracy = np.mean(pred_classes == labels)  # 4/5 = 0.8
 
-            assert abs(accuracy - expected_accuracy) < 1e-10, (
-                f"Exclusive accuracy {accuracy} should match manual calculation {expected_accuracy}"
-            )
+            assert (
+                abs(accuracy - expected_accuracy) < 1e-10
+            ), f"Exclusive accuracy {accuracy} should match manual calculation {expected_accuracy}"
 
         except Exception as e:
             if "not supported" in str(e).lower() or "not implemented" in str(e).lower():
@@ -206,7 +207,7 @@ class TestExclusiveVsOvRDistinction:
         result_ovr = get_optimal_threshold(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
-        
+
         thresholds_ovr = result_ovr.thresholds
 
         # Apply OvR predictions
@@ -224,9 +225,9 @@ class TestExclusiveVsOvRDistinction:
         ovr_counts = np.sum(pred_ovr, axis=1)
         exclusive_counts = np.sum(pred_exclusive, axis=1)
 
-        assert np.all(exclusive_counts == 1), (
-            "Exclusive should predict exactly 1 class per sample"
-        )
+        assert np.all(
+            exclusive_counts == 1
+        ), "Exclusive should predict exactly 1 class per sample"
 
         # OvR can have variable counts (0, 1, or more per sample)
         assert len(ovr_counts) == len(labels)  # Basic sanity check
@@ -264,9 +265,9 @@ class TestMulticlassAccuracySemantics:
 
         except ValueError as e:
             # Should raise error about requiring exclusive predictions
-            assert "exclusive" in str(e).lower() or "single-label" in str(e).lower(), (
-                f"Expected error about exclusive predictions, got: {e}"
-            )
+            assert (
+                "exclusive" in str(e).lower() or "single-label" in str(e).lower()
+            ), f"Expected error about exclusive predictions, got: {e}"
 
         except NotImplementedError:
             # Or might not be implemented yet
@@ -324,7 +325,7 @@ class TestMulticlassAccuracySemantics:
             result = get_optimal_threshold(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
-            
+
             thresholds = result.thresholds
 
             # Apply exclusive prediction rule
@@ -340,9 +341,9 @@ class TestMulticlassAccuracySemantics:
                     labels, probs, thresholds, metric_name="accuracy", comparison=">"
                 )
 
-                assert abs(manual_accuracy - computed_accuracy) < 1e-10, (
-                    f"Manual accuracy {manual_accuracy} should match computed {computed_accuracy}"
-                )
+                assert (
+                    abs(manual_accuracy - computed_accuracy) < 1e-10
+                ), f"Manual accuracy {manual_accuracy} should match computed {computed_accuracy}"
 
             except (NotImplementedError, ValueError):
                 # If exclusive accuracy not implemented, just verify manual computation
@@ -398,16 +399,16 @@ class TestMulticlassEdgeCases:
                 result = get_optimal_threshold(
                     labels, probs, metric="f1", method=method, comparison=">"
                 )
-                
+
                 thresholds = result.thresholds
 
                 # With perfect separation, should achieve perfect performance
                 pred_classes = np.argmax(probs - thresholds.reshape(1, -1), axis=1)
                 accuracy = np.mean(pred_classes == labels)
 
-                assert accuracy == 1.0, (
-                    "Perfect separation should achieve perfect accuracy"
-                )
+                assert (
+                    accuracy == 1.0
+                ), "Perfect separation should achieve perfect accuracy"
 
             except (ValueError, NotImplementedError):
                 continue  # Try other methods
@@ -457,7 +458,7 @@ class TestMulticlassEdgeCases:
             result = get_optimal_threshold(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
-            
+
             thresholds = result.thresholds
 
             # Apply exclusive prediction rule
@@ -470,9 +471,9 @@ class TestMulticlassEdgeCases:
 
             # Each sample should have exactly one prediction
             prediction_counts = np.sum(predictions_onehot, axis=1)
-            assert np.all(prediction_counts == 1), (
-                f"Exclusive predictions should have exactly 1 per sample, got {prediction_counts}"
-            )
+            assert np.all(
+                prediction_counts == 1
+            ), f"Exclusive predictions should have exactly 1 per sample, got {prediction_counts}"
 
         except Exception as e:
             # Some combinations might not be supported

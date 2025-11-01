@@ -69,9 +69,7 @@ class TestBinaryClassificationWorkflows:
         results = {}
 
         for method in methods:
-            result = get_optimal_threshold(
-                y_true, y_prob, metric="f1", method=method
-            )
+            result = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
             threshold = result.threshold
             assert_valid_threshold(threshold)
 
@@ -123,7 +121,9 @@ class TestSampleWeights:
         assert_valid_threshold(threshold)
 
         # Compute weighted confusion matrix
-        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold, weights)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
+            y_true, y_prob, threshold, weights
+        )
         assert_valid_confusion_matrix(tp, tn, fp, fn, total_weight=np.sum(weights))
 
     def test_sample_weights_vs_expansion(self):

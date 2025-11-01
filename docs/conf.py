@@ -18,6 +18,7 @@ import pathlib
 try:
     # Method 1: Try reading from installed package metadata
     from importlib.metadata import metadata
+
     pkg_meta = metadata("optimal-classification-cutoffs")
     project = pkg_meta["Name"]
     release = pkg_meta["Version"]
@@ -35,11 +36,11 @@ except Exception:
     except ImportError:
         # Python < 3.11 needs tomli
         import tomli as tomllib
-    
+
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
     with open(pyproject_path, "rb") as f:
         pyproject_data = tomllib.load(f)
-    
+
     project_info = pyproject_data["project"]
     project = project_info["name"]
     release = project_info["version"]

@@ -146,9 +146,9 @@ class TestAveragingMathematicalIdentities:
 
         # Verify data is actually balanced
         supports = [tp + fn for tp, tn, fp, fn in cms]
-        assert all(support == supports[0] for support in supports), (
-            "Test data should be balanced"
-        )
+        assert all(
+            support == supports[0] for support in supports
+        ), "Test data should be balanced"
 
         # Compute both averages
         macro_f1 = multiclass_metric_ovr(cms, "f1", average="macro")
@@ -170,9 +170,9 @@ class TestAveragingMathematicalIdentities:
             macro_score = multiclass_metric_ovr(cms, metric_name, average="macro")
             expected_macro = np.mean(per_class_scores)
 
-            assert macro_score == pytest.approx(expected_macro, abs=1e-10), (
-                f"Macro identity failed for {metric_name}"
-            )
+            assert macro_score == pytest.approx(
+                expected_macro, abs=1e-10
+            ), f"Macro identity failed for {metric_name}"
 
             # Test weighted identity
             supports = [tp + fn for tp, tn, fp, fn in cms]
@@ -188,9 +188,9 @@ class TestAveragingMathematicalIdentities:
             )
             weighted_score = multiclass_metric_ovr(cms, metric_name, average="weighted")
 
-            assert weighted_score == pytest.approx(expected_weighted, abs=1e-10), (
-                f"Weighted identity failed for {metric_name}"
-            )
+            assert weighted_score == pytest.approx(
+                expected_weighted, abs=1e-10
+            ), f"Weighted identity failed for {metric_name}"
 
     def test_micro_precision_recall_identity(self, known_confusion_matrices):
         """Test micro-averaging identities for precision and recall specifically."""
@@ -283,7 +283,9 @@ class TestAveragingMathematicalIdentities:
 
         # Use fixed thresholds to get confusion matrices
         thresholds = np.full(n_classes, 0.25)  # 1/n_classes
-        cms = multiclass_confusion_matrices_at_thresholds(true_labels, pred_probs, thresholds)
+        cms = multiclass_confusion_matrices_at_thresholds(
+            true_labels, pred_probs, thresholds
+        )
 
         # Test identities on this realistic data
         for metric_name in ["f1", "precision", "recall"]:
@@ -292,9 +294,9 @@ class TestAveragingMathematicalIdentities:
 
             # Macro identity should hold
             expected_macro = np.mean(per_class_scores)
-            assert macro_score == pytest.approx(expected_macro, abs=1e-10), (
-                f"Macro identity failed for {metric_name} on realistic data"
-            )
+            assert macro_score == pytest.approx(
+                expected_macro, abs=1e-10
+            ), f"Macro identity failed for {metric_name} on realistic data"
 
 
 if __name__ == "__main__":

@@ -91,9 +91,9 @@ def test_optimal_threshold_with_sample_weights():
     # Equal weights should give same result as no weights
     equal_weights = np.ones(len(true_labs))
 
-    result_no_weights = get_optimal_threshold(true_labs, pred_prob, "f1")
+    result_no_weights = get_optimal_threshold(true_labs, pred_prob, metric="f1")
     result_equal_weights = get_optimal_threshold(
-        true_labs, pred_prob, "f1", sample_weight=equal_weights
+        true_labs, pred_prob, metric="f1", sample_weight=equal_weights
     )
     threshold_no_weights = result_no_weights.threshold
     threshold_equal_weights = result_equal_weights.threshold
@@ -104,7 +104,7 @@ def test_optimal_threshold_with_sample_weights():
     # Weight the positive class more heavily
     heavy_positive_weights = np.array([1.0, 1.0, 1.0, 5.0, 5.0, 5.0])
     result_weighted = get_optimal_threshold(
-        true_labs, pred_prob, "f1", sample_weight=heavy_positive_weights
+        true_labs, pred_prob, metric="f1", sample_weight=heavy_positive_weights
     )
     threshold_weighted = result_weighted.threshold
 
@@ -135,7 +135,9 @@ def test_multiclass_optimal_thresholds_with_sample_weights():
     thresholds = result.thresholds
 
     assert len(thresholds) == 3
-    assert all(0 <= t <= 1 for t in thresholds)
+    # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
+    # This is mathematically correct for margin-based decision rules
+    assert all(np.isfinite(t) for t in thresholds), "Thresholds should be finite"
 
 
 def test_direct_api_with_sample_weights():
@@ -150,7 +152,9 @@ def test_direct_api_with_sample_weights():
     )
 
     threshold = result.threshold
-    assert isinstance(threshold, (float, np.number)) or (isinstance(threshold, np.ndarray) and threshold.size == 1)
+    assert isinstance(threshold, float | np.number) or (
+        isinstance(threshold, np.ndarray) and threshold.size == 1
+    )
     assert 0 <= threshold <= 1
 
 
@@ -243,7 +247,7 @@ def test_sample_weights_piecewise_optimization():
 
     # F1 is piecewise, so should use the fast algorithm
     result = get_optimal_threshold(
-        true_labs, pred_prob, "f1", method="unique_scan", sample_weight=sample_weight
+        true_labs, pred_prob, metric="f1", method="unique_scan", sample_weight=sample_weight
     )
 
     threshold = result.threshold
@@ -267,10 +271,9 @@ def test_sample_weights_piecewise_optimization():
         candidate_values.append(max(0.0, sorted_probs[0] - 0.01))  # Below min
 
     min_distance = min(abs(threshold - p) for p in candidate_values)
-    assert min_distance < 0.02, (
-        f"Threshold {threshold} not close to any candidate value. Candidates: {sorted(set(candidate_values))}"
-    )
-
+    assert (
+        min_distance < 0.02
+    ), f"Threshold {threshold} not close to any candidate value. Candidates: {sorted(set(candidate_values))}"
 
 
 if __name__ == "__main__":

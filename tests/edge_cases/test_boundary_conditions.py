@@ -134,7 +134,6 @@ class TestProbabilityDistributionEdgeCases:
 class TestNumericalEdgeCases:
     """Test numerical precision and scaling edge cases."""
 
-
     def test_machine_epsilon_differences(self):
         """Test optimization with probability differences at machine epsilon."""
         eps = np.finfo(float).eps
@@ -218,12 +217,8 @@ class TestComparisonOperatorEdgeCases:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])  # All tied
 
         # Both operators should work
-        result_gt = get_optimal_threshold(
-            y_true, y_prob, metric="f1", comparison=">"
-        )
-        result_gte = get_optimal_threshold(
-            y_true, y_prob, metric="f1", comparison=">="
-        )
+        result_gt = get_optimal_threshold(y_true, y_prob, metric="f1", comparison=">")
+        result_gte = get_optimal_threshold(y_true, y_prob, metric="f1", comparison=">=")
         threshold_gt = result_gt.threshold
         threshold_gte = result_gte.threshold
 
@@ -262,4 +257,3 @@ class TestScalingLimits:
         score = compute_metric_at_threshold(y_true, y_prob, threshold, "f1")
         assert_valid_metric_score(score, "f1")
         assert score > 0.1  # Should achieve reasonable performance
-

@@ -57,7 +57,7 @@ To verify your installation, run:
    # Quick test
    import numpy as np
    from optimal_cutoffs import get_optimal_threshold
-   
+
    y_true = np.array([0, 0, 1, 1])
    y_prob = np.array([0.1, 0.4, 0.35, 0.8])
    threshold = get_optimal_threshold(y_true, y_prob, metric='f1')

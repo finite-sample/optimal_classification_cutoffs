@@ -204,14 +204,14 @@ def dataset_size(request):
 # Utility functions available to all tests
 def assert_valid_probability(prob):
     """Assert that a value is a valid probability."""
-    assert isinstance(prob, (int, float, np.number))
+    assert isinstance(prob, int | float | np.number)
     assert 0.0 <= prob <= 1.0
     assert np.isfinite(prob)
 
 
 def assert_valid_threshold(threshold):
     """Assert that a threshold is valid."""
-    if isinstance(threshold, (list, tuple, np.ndarray)):
+    if isinstance(threshold, list | tuple | np.ndarray):
         for t in threshold:
             assert_valid_probability(t)
     else:

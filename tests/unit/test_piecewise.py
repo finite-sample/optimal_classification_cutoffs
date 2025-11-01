@@ -81,11 +81,11 @@ class TestInputValidation:
         """Test sample weight validation with valid inputs."""
         # The removed wrapper function handled None by returning ones
         # Now we test that the validation works properly for actual weight arrays
-        
+
         # Array case
         w = validate_weights([0.5, 1.0, 1.5, 2.0], 4)
         np.testing.assert_array_almost_equal(w, [0.5, 1.0, 1.5, 2.0])
-        
+
         # Default ones array case
         w = validate_weights([1.0, 1.0, 1.0, 1.0], 4)
         np.testing.assert_array_equal(w, [1.0, 1.0, 1.0, 1.0])
@@ -238,7 +238,7 @@ class TestVectorizedMetrics:
         """Test metric lookup function."""
         f1_func_vec = get_metric_function("f1")
         assert callable(f1_func_vec)
-        
+
         f1_func_scalar = get_metric_function("f1")
         assert callable(f1_func_scalar)
 
@@ -305,7 +305,11 @@ class TestOptimalThresholdSortScan:
         result = optimal_threshold_sortscan(
             y_true, pred_prob, get_metric_function("f1")
         )
-        threshold, score, _k = result.threshold, result.score, getattr(result, 'k', None)
+        threshold, score, _k = (
+            result.threshold,
+            result.score,
+            getattr(result, "k", None),
+        )
 
         # Should achieve perfect F1 = 1.0
         assert abs(score - 1.0) < 1e-10
@@ -361,9 +365,7 @@ class TestOptimalThresholdSortScan:
     def test_optimal_threshold_edge_cases(self):
         """Test edge cases."""
         # Single sample
-        result = optimal_threshold_sortscan(
-            [1], [0.7], get_metric_function("f1")
-        )
+        result = optimal_threshold_sortscan([1], [0.7], get_metric_function("f1"))
         threshold, _score = result.threshold, result.score
         assert abs(threshold - 0.7) < 1e-10  # Should be very close to 0.7
         # Note: k attribute may not exist in OptimizationResult
@@ -403,9 +405,9 @@ class TestBackwardCompatibility:
                 )
 
                 # Should be valid threshold
-                assert 0 <= result_new.threshold <= 1, (
-                    f"Invalid threshold for {metric}: {result_new.threshold}"
-                )
+                assert (
+                    0 <= result_new.threshold <= 1
+                ), f"Invalid threshold for {metric}: {result_new.threshold}"
 
     def test_piecewise_vs_unique_scan(self):
         """Test piecewise optimization matches unique_scan method."""
@@ -414,14 +416,14 @@ class TestBackwardCompatibility:
         y_true = [0, 1, 0, 1, 0, 1]
         pred_prob = [0.1, 0.3, 0.4, 0.6, 0.8, 0.9]
 
-        # Skip precision and accuracy for this comparison test as they have 
+        # Skip precision and accuracy for this comparison test as they have
         # known issues with different tie-breaking behavior between methods
         for metric in ["f1", "recall"]:
             result_piecewise = find_optimal_threshold(
                 y_true, pred_prob, metric, strategy="sort_scan"
             )
             result = get_optimal_threshold(
-                y_true, pred_prob, metric, method="unique_scan"
+                y_true, pred_prob, metric=metric, method="unique_scan"
             )
 
             # Should get very close results (allowing for midpoint vs exact probability differences)
@@ -441,7 +443,9 @@ class TestBackwardCompatibility:
 
             # Allow for some tolerance due to different tie-breaking behavior
             # and numerical precision between optimization methods
-            tolerance = 0.2  # Allow up to 20% difference for legitimate algorithm differences
+            tolerance = (
+                0.2  # Allow up to 20% difference for legitimate algorithm differences
+            )
             assert abs(score_piecewise - score_smart) < tolerance, (
                 f"Large score mismatch for {metric}: {score_piecewise} vs {score_smart} "
                 f"(difference: {abs(score_piecewise - score_smart):.6f}, threshold_piecewise: {result_piecewise.threshold}, threshold_smart: {threshold})"
@@ -474,9 +478,7 @@ class TestPerformance:
 
         # Time the new implementation
         start_time = time.time()
-        result = find_optimal_threshold(
-            y_true, pred_prob, "f1", strategy="sort_scan"
-        )
+        result = find_optimal_threshold(y_true, pred_prob, "f1", strategy="sort_scan")
         end_time = time.time()
 
         duration = end_time - start_time
@@ -492,9 +494,7 @@ class TestPerformance:
         pred_prob = np.linspace(0, 1, n)  # All unique values
 
         start_time = time.time()
-        result = find_optimal_threshold(
-            y_true, pred_prob, "f1", strategy="sort_scan"
-        )
+        result = find_optimal_threshold(y_true, pred_prob, "f1", strategy="sort_scan")
         end_time = time.time()
 
         duration = end_time - start_time
@@ -594,18 +594,16 @@ class TestPropertyBasedComparison:
             y[-1] = 0
 
         # Test sort-and-scan algorithm
-        result_scan = optimal_threshold_sortscan(
-            y, p, get_metric_function("f1")
-        )
+        result_scan = optimal_threshold_sortscan(y, p, get_metric_function("f1"))
         _t_scan, s_scan = result_scan.threshold, result_scan.score
 
         # Test brute force over midpoints
         t_br, s_br = self.brute_force_midpoints(y, p, get_metric_function("f1"))
 
         # The thresholds may differ (due to plateaus), but best scores must match
-        assert pytest.approx(s_scan, rel=0, abs=1e-12) == s_br, (
-            f"F1 score mismatch: sort-scan={s_scan:.10f} vs brute-force={s_br:.10f}"
-        )
+        assert (
+            pytest.approx(s_scan, rel=0, abs=1e-12) == s_br
+        ), f"F1 score mismatch: sort-scan={s_scan:.10f} vs brute-force={s_br:.10f}"
 
     @settings(deadline=None, max_examples=200)
     @given(
@@ -624,15 +622,13 @@ class TestPropertyBasedComparison:
             y[-1] = 0
 
         # Test sort-and-scan algorithm
-        result_scan = optimal_threshold_sortscan(
-            y, p, get_metric_function("accuracy")
-        )
+        result_scan = optimal_threshold_sortscan(y, p, get_metric_function("accuracy"))
         _t_scan, s_scan = result_scan.threshold, result_scan.score
 
         # Test brute force over midpoints
         t_br, s_br = self.brute_force_midpoints(y, p, get_metric_function("accuracy"))
 
         # The thresholds may differ (due to plateaus), but best scores must match
-        assert pytest.approx(s_scan, rel=0, abs=1e-12) == s_br, (
-            f"Accuracy score mismatch: sort-scan={s_scan:.10f} vs brute-force={s_br:.10f}"
-        )
+        assert (
+            pytest.approx(s_scan, rel=0, abs=1e-12) == s_br
+        ), f"Accuracy score mismatch: sort-scan={s_scan:.10f} vs brute-force={s_br:.10f}"
