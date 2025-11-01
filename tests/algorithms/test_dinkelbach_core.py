@@ -11,7 +11,7 @@ import numpy as np
 
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
-from optimal_cutoffs.metrics import f1_score, get_confusion_matrix
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
     assert_valid_threshold,
@@ -102,10 +102,10 @@ class TestDinkelbachAPI:
         assert_valid_threshold(threshold_expected)
 
         # Compute empirical F1 for both thresholds
-        tp_emp, tn_emp, fp_emp, fn_emp = get_confusion_matrix(
+        tp_emp, tn_emp, fp_emp, fn_emp = confusion_matrix_at_threshold(
             y_true, y_prob, threshold
         )
-        tp_exp, tn_exp, fp_exp, fn_exp = get_confusion_matrix(
+        tp_exp, tn_exp, fp_exp, fn_exp = confusion_matrix_at_threshold(
             y_true, y_prob, threshold_expected
         )
 

@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    get_confusion_matrix,
-    get_multiclass_confusion_matrix,
+    confusion_matrix_at_threshold,
     get_optimal_threshold,
+    multiclass_confusion_matrices_at_thresholds,
 )
 
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
@@ -25,12 +25,12 @@ class TestComparisonOperators:
         threshold = 0.5
 
         # With ">" (exclusive), prob=0.5 predictions should be negative
-        tp_gt, tn_gt, fp_gt, fn_gt = get_confusion_matrix(
+        tp_gt, tn_gt, fp_gt, fn_gt = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold, comparison=">"
         )
 
         # With ">=" (inclusive), prob=0.5 predictions should be positive
-        tp_gte, tn_gte, fp_gte, fn_gte = get_confusion_matrix(
+        tp_gte, tn_gte, fp_gte, fn_gte = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold, comparison=">="
         )
 
@@ -81,10 +81,10 @@ class TestComparisonOperators:
         thresholds = np.array([0.5, 0.5, 0.5])  # All thresholds at 0.5
 
         # Get confusion matrices with both operators
-        cms_gt = get_multiclass_confusion_matrix(
+        cms_gt = multiclass_confusion_matrices_at_thresholds(
             true_labels, pred_probs, thresholds, comparison=">"
         )
-        cms_gte = get_multiclass_confusion_matrix(
+        cms_gte = multiclass_confusion_matrices_at_thresholds(
             true_labels, pred_probs, thresholds, comparison=">="
         )
 
@@ -155,7 +155,7 @@ class TestComparisonOperators:
             get_optimal_threshold(true_labels, pred_probs, comparison="==")
 
         with pytest.raises(ValueError, match="Invalid comparison operator"):
-            get_confusion_matrix(true_labels, pred_probs, 0.5, comparison="!=")
+            confusion_matrix_at_threshold(true_labels, pred_probs, 0.5, comparison="!=")
 
     def test_edge_cases_with_comparison_operators(self):
         """Test edge cases that might behave differently with different operators."""
@@ -165,14 +165,14 @@ class TestComparisonOperators:
         threshold = 0.5
 
         # With ">", all predictions should be negative (0)
-        tp_gt, tn_gt, fp_gt, fn_gt = get_confusion_matrix(
+        tp_gt, tn_gt, fp_gt, fn_gt = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold, comparison=">"
         )
         # Expected: predictions=[0,0,0,0], so TP=0, TN=2, FP=0, FN=2
         assert tp_gt == 0 and tn_gt == 2 and fp_gt == 0 and fn_gt == 2
 
         # With ">=", all predictions should be positive (1)
-        tp_gte, tn_gte, fp_gte, fn_gte = get_confusion_matrix(
+        tp_gte, tn_gte, fp_gte, fn_gte = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold, comparison=">="
         )
         # Expected: predictions=[1,1,1,1], so TP=2, TN=0, FP=2, FN=0
@@ -186,10 +186,10 @@ class TestComparisonOperators:
         threshold = 0.5
 
         # Test with both comparison operators
-        tp_gt, tn_gt, fp_gt, fn_gt = get_confusion_matrix(
+        tp_gt, tn_gt, fp_gt, fn_gt = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold, sample_weights, comparison=">"
         )
-        tp_gte, tn_gte, fp_gte, fn_gte = get_confusion_matrix(
+        tp_gte, tn_gte, fp_gte, fn_gte = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold, sample_weights, comparison=">="
         )
 

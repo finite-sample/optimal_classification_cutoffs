@@ -48,7 +48,7 @@ maintaining performance guarantees and clear error reporting.
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_confusion_matrix, get_optimal_threshold
+from optimal_cutoffs import confusion_matrix_at_threshold, get_optimal_threshold
 
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 
@@ -73,7 +73,7 @@ class TestLabelDistributionEdgeCases:
         assert 0 <= threshold <= 1
 
         # Confusion matrix should be valid
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp == 0  # No true positives possible
         assert fn == 0  # No false negatives possible
         assert tn + fp == len(labels)  # All samples are negative
@@ -95,7 +95,7 @@ class TestLabelDistributionEdgeCases:
         assert 0 <= threshold <= 1
 
         # Confusion matrix should be valid
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tn == 0  # No true negatives possible
         assert fp == 0  # No false positives possible
         assert tp + fn == len(labels)  # All samples are positive
@@ -114,7 +114,7 @@ class TestLabelDistributionEdgeCases:
 
         # The optimal threshold should likely be between 0.5 and 0.95
         # to capture the single positive example
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
 
         # Should be able to achieve some reasonable performance
         precision = tp / (tp + fp) if tp + fp > 0 else 0
@@ -156,12 +156,12 @@ class TestLabelDistributionEdgeCases:
         assert 0 <= threshold <= 1
 
         # Test confusion matrix validity
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == len(labels)
 
     def _compute_metric_score(self, labels, probabilities, threshold, metric):
         """Helper to compute metric score."""
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
 
         if metric == "accuracy":
             return (tp + tn) / (tp + tn + fp + fn) if tp + tn + fp + fn > 0 else 0
@@ -227,7 +227,7 @@ class TestProbabilityDistributionEdgeCases:
         threshold = result.threshold
 
         # Should achieve perfect accuracy
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         assert accuracy == 1.0, f"Expected perfect accuracy, got {accuracy}"
 
@@ -242,7 +242,7 @@ class TestProbabilityDistributionEdgeCases:
         assert 0.48 <= threshold <= 0.52
 
         # Should produce valid confusion matrix
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == len(labels)
 
     def test_extreme_probability_skew(self):
@@ -257,7 +257,7 @@ class TestProbabilityDistributionEdgeCases:
         assert 0 <= threshold <= 1
 
         # Should achieve good separation
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
 
         # With such clear separation, should have good performance
         precision = tp / (tp + fp) if tp + fp > 0 else 0
@@ -266,7 +266,7 @@ class TestProbabilityDistributionEdgeCases:
 
     def _compute_metric_score(self, labels, probabilities, threshold, metric):
         """Helper to compute metric score."""
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
 
         if metric == "accuracy":
             return (tp + tn) / (tp + tn + fp + fn) if tp + tn + fp + fn > 0 else 0
@@ -310,7 +310,7 @@ class TestNumericalEdgeCases:
         assert end_time - start_time < 5.0  # Should complete in reasonable time
 
         # Test confusion matrix
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == n_samples
 
     def test_probabilities_near_machine_epsilon(self):
@@ -327,7 +327,7 @@ class TestNumericalEdgeCases:
         assert 0 <= threshold <= 1
 
         # Should achieve perfect separation
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         assert accuracy == 1.0
 
@@ -347,7 +347,7 @@ class TestNumericalEdgeCases:
         assert 0 <= threshold <= 1
 
         # Should produce valid confusion matrix
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == len(labels)
 
     def test_probability_precision_limits(self):
@@ -482,7 +482,7 @@ class TestPerformanceEdgeCases:
         assert 0 <= threshold <= 1
 
         # Test confusion matrix doesn't explode memory
-        tp, tn, fp, fn = get_confusion_matrix(labels, probabilities, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(labels, probabilities, threshold)
         assert tp + tn + fp + fn == n_samples
 
 
@@ -527,7 +527,7 @@ class TestExtremeProbabilityValues:
             # With all probabilities at 0, optimal strategy depends on comparison operator
             # Only test confusion matrix if threshold is within valid bounds
             if 0.0 <= threshold <= 1.0:
-                tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+                tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
                 assert tp + tn + fp + fn == len(y_true)
 
     def test_all_one_probabilities(self):
@@ -541,7 +541,7 @@ class TestExtremeProbabilityValues:
             assert 0.0 <= threshold <= 1.0
 
             # With all probabilities at 1, optimal strategy depends on comparison operator
-            tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+            tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
             assert tp + tn + fp + fn == len(y_true)
 
     def test_very_small_probabilities(self):
@@ -554,7 +554,7 @@ class TestExtremeProbabilityValues:
         assert 0.0 <= threshold <= 1.0
 
         # Should handle small probabilities without numerical issues
-        tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
         assert tp + tn + fp + fn == len(y_true)
 
     def test_very_large_probabilities_near_one(self):
@@ -567,7 +567,7 @@ class TestExtremeProbabilityValues:
         assert 0.0 <= threshold <= 1.0
 
         # Should handle probabilities near 1 without numerical issues
-        tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
         assert tp + tn + fp + fn == len(y_true)
 
 

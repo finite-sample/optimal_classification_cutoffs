@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
+    confusion_matrix_at_threshold,
     cv_threshold_optimization,
-    get_confusion_matrix,
-    get_multiclass_confusion_matrix,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
+    multiclass_confusion_matrices_at_thresholds,
     needs_probability_scores,
     nested_cv_threshold_optimization,
     register_metric,
@@ -24,11 +24,11 @@ def test_confusion_matrix_with_sample_weights():
     sample_weight = np.array([1.0, 2.0, 1.5, 0.5, 2.0])  # Different weights
 
     # Test without weights
-    tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, threshold)
+    tp, tn, fp, fn = confusion_matrix_at_threshold(true_labs, pred_prob, threshold)
     assert (tp, tn, fp, fn) == (2, 2, 0, 1)
 
     # Test with weights
-    tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(
+    tp_w, tn_w, fp_w, fn_w = confusion_matrix_at_threshold(
         true_labs, pred_prob, threshold, sample_weight
     )
 
@@ -71,7 +71,7 @@ def test_multiclass_confusion_matrix_with_sample_weights():
     thresholds = np.array([0.5, 0.5, 0.5])
     sample_weight = np.array([1.0, 2.0, 1.5, 0.5, 2.0, 1.0])
 
-    cms = get_multiclass_confusion_matrix(
+    cms = multiclass_confusion_matrices_at_thresholds(
         true_labs, pred_prob, thresholds, sample_weight
     )
 
@@ -231,7 +231,7 @@ def test_sample_weight_validation():
     wrong_length_weights = np.array([1.0, 2.0])  # Length 2 vs 4 samples
 
     with pytest.raises(ValueError, match="Length mismatch"):
-        get_confusion_matrix(true_labs, pred_prob, 0.5, wrong_length_weights)
+        confusion_matrix_at_threshold(true_labs, pred_prob, 0.5, wrong_length_weights)
 
 
 def test_sample_weights_piecewise_optimization():
@@ -282,7 +282,7 @@ def test_backward_compatibility():
     threshold = result.threshold
     assert 0 <= threshold <= 1
 
-    tp, tn, fp, fn = get_confusion_matrix(true_labs, pred_prob, 0.5)
+    tp, tn, fp, fn = confusion_matrix_at_threshold(true_labs, pred_prob, 0.5)
     assert all(isinstance(x, int) for x in [tp, tn, fp, fn])
 
     # ThresholdOptimizer wrapper was removed - use direct API instead

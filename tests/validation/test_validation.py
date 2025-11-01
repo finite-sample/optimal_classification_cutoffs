@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    get_confusion_matrix,
+    confusion_matrix_at_threshold,
     get_optimal_multiclass_thresholds,
     get_optimal_threshold,
 )
@@ -468,18 +468,18 @@ class TestPublicAPIValidation:
         valid_threshold = 0.5
 
         # Should work with valid inputs
-        tp, tn, fp, fn = get_confusion_matrix(
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
             valid_labels, valid_probs, valid_threshold
         )
         assert all(isinstance(x, int) for x in [tp, tn, fp, fn])
 
         # Should fail with invalid threshold
         with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\]"):
-            get_confusion_matrix(valid_labels, valid_probs, -0.1)
+            confusion_matrix_at_threshold(valid_labels, valid_probs, -0.1)
 
         # Should fail with invalid comparison
         with pytest.raises(ValueError, match="Invalid comparison operator"):
-            get_confusion_matrix(
+            confusion_matrix_at_threshold(
                 valid_labels, valid_probs, valid_threshold, comparison="<"
             )
 
@@ -559,10 +559,10 @@ class TestErrorHandling:
 
         # Test via get_confusion_matrix which has threshold validation
         with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\]"):
-            get_confusion_matrix(y_true, y_prob, 1.5)
+            confusion_matrix_at_threshold(y_true, y_prob, 1.5)
 
         with pytest.raises(ValueError, match="Threshold must be in \\[0, 1\\]"):
-            get_confusion_matrix(y_true, y_prob, -0.5)
+            confusion_matrix_at_threshold(y_true, y_prob, -0.5)
 
 
 class TestEdgeCasesAndRobustness:

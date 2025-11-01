@@ -12,7 +12,7 @@ import numpy as np
 from hypothesis import given, settings
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import f1_score, get_confusion_matrix
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.hypothesis_strategies import tied_probabilities
 
 
@@ -105,10 +105,10 @@ class TestOptimizationWithTies:
 
         # Verify both produce valid F1 scores
         f1_exclusive = f1_score(
-            *get_confusion_matrix(labels, probs, threshold_exclusive, comparison=">")
+            *confusion_matrix_at_threshold(labels, probs, threshold_exclusive, comparison=">")
         )
         f1_inclusive = f1_score(
-            *get_confusion_matrix(labels, probs, threshold_inclusive, comparison=">=")
+            *confusion_matrix_at_threshold(labels, probs, threshold_inclusive, comparison=">=")
         )
 
         assert 0 <= f1_exclusive <= 1, f"Exclusive F1 {f1_exclusive} out of range"
@@ -205,12 +205,12 @@ class TestOptimizationWithTies:
             # Verify scores are valid
             if metric == "f1":
                 score_exclusive = f1_score(
-                    *get_confusion_matrix(
+                    *confusion_matrix_at_threshold(
                         labels, probs, threshold_exclusive, comparison=">"
                     )
                 )
                 score_inclusive = f1_score(
-                    *get_confusion_matrix(
+                    *confusion_matrix_at_threshold(
                         labels, probs, threshold_inclusive, comparison=">="
                     )
                 )
@@ -246,10 +246,10 @@ class TestComparisonThreading:
         assert 0 <= threshold_inclusive <= 1
 
         # Verify that confusion matrices use the correct comparison
-        tp_ex, tn_ex, fp_ex, fn_ex = get_confusion_matrix(
+        tp_ex, tn_ex, fp_ex, fn_ex = confusion_matrix_at_threshold(
             labels, probs, threshold_exclusive, comparison=">"
         )
-        tp_in, tn_in, fp_in, fn_in = get_confusion_matrix(
+        tp_in, tn_in, fp_in, fn_in = confusion_matrix_at_threshold(
             labels, probs, threshold_inclusive, comparison=">="
         )
 
@@ -296,7 +296,7 @@ class TestComparisonThreading:
                 assert 0 <= threshold <= 1
 
                 # Verify confusion matrix uses correct comparison
-                tp, tn, fp, fn = get_confusion_matrix(
+                tp, tn, fp, fn = confusion_matrix_at_threshold(
                     labels, probs, threshold, comparison=comparison
                 )
                 assert tp + tn + fp + fn == len(labels)

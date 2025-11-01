@@ -9,7 +9,7 @@ from optimal_cutoffs import (
     make_cost_metric,
     make_linear_counts_metric,
 )
-from optimal_cutoffs.metrics import get_confusion_matrix
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold
 
 
 class TestLinearUtilityMetrics:
@@ -139,13 +139,13 @@ class TestUtilityOptimization:
         assert 0.01 < result1.threshold < 0.99
 
         # Verify it actually optimizes the utility
-        tp, tn, fp, fn = get_confusion_matrix(y, p, result1.threshold, comparison=">=")
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y, p, result1.threshold, comparison=">=")
         utility_score = 0 * tp + 0 * tn + (-1) * fp + (-5) * fn
 
         # Test nearby thresholds should give worse utility
         for delta in [-0.01, 0.01]:
             test_thresh = np.clip(result1.threshold + delta, 0, 1)
-            tp_test, tn_test, fp_test, fn_test = get_confusion_matrix(
+            tp_test, tn_test, fp_test, fn_test = confusion_matrix_at_threshold(
                 y, p, test_thresh, comparison=">="
             )
             utility_test = 0 * tp_test + 0 * tn_test + (-1) * fp_test + (-5) * fn_test

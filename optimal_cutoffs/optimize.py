@@ -94,15 +94,18 @@ if NUMBA_AVAILABLE:
     def sort_scan_kernel(
         labels: np.ndarray,
         scores: np.ndarray,
-        weights: np.ndarray | None,
+        weights: np.ndarray,
         inclusive: bool,
     ) -> tuple[float, float]:
-        """Numba sort-and-scan for F1. Honors inclusive operator at boundaries."""
+        """Numba sort-and-scan for F1. Honors inclusive operator at boundaries.
+        
+        Note: weights must be a valid array (use np.ones for uniform weights).
+        """
         n = labels.shape[0]
         order = np.argsort(-scores)
         sorted_labels = labels[order]
         sorted_scores = scores[order]
-        sorted_weights = weights[order] if weights is not None else None
+        sorted_weights = weights[order]
 
         tp = 0.0
         fn = 0.0
@@ -111,9 +114,9 @@ if NUMBA_AVAILABLE:
 
         for i in range(n):
             if sorted_labels[i] == 1:
-                fn += (sorted_weights[i] if sorted_weights is not None else 1.0)
+                fn += sorted_weights[i]
             else:
-                tn += (sorted_weights[i] if sorted_weights is not None else 1.0)
+                tn += sorted_weights[i]
 
         eps = 1e-10  # default tolerance for boundary conditions
         # threshold "just above" the max score => predict all negative
@@ -121,7 +124,7 @@ if NUMBA_AVAILABLE:
         best_score = fast_f1_score(tp, tn, fp, fn)
 
         for i in range(n):
-            w = (sorted_weights[i] if sorted_weights is not None else 1.0)
+            w = sorted_weights[i]
             if sorted_labels[i] == 1:
                 tp += w
                 fn -= w
@@ -383,9 +386,13 @@ else:
     def sort_scan_kernel(
         labels: np.ndarray,
         scores: np.ndarray,
-        weights: np.ndarray | None,
+        weights: np.ndarray,
         inclusive: bool,
     ) -> tuple[float, float]:
+        """Python fallback for sort_scan_kernel.
+        
+        Note: weights must be a valid array (use np.ones for uniform weights).
+        """
         n = len(labels)
         if n == 0:
             return 0.5, 0.0
@@ -393,27 +400,19 @@ else:
         order = np.argsort(-scores)
         sorted_labels = labels[order]
         sorted_scores = scores[order]
-        sorted_weights = weights[order] if weights is not None else None
+        sorted_weights = weights[order]
 
         tp = 0.0
-        fn = float(
-            np.sum(sorted_weights[sorted_labels == 1])
-            if sorted_weights is not None
-            else np.sum(sorted_labels)
-        )
+        fn = float(np.sum(sorted_weights[sorted_labels == 1]))
         fp = 0.0
-        tn = float(
-            np.sum(sorted_weights[sorted_labels == 0])
-            if sorted_weights is not None
-            else np.sum(1 - sorted_labels)
-        )
+        tn = float(np.sum(sorted_weights[sorted_labels == 0]))
 
         eps = 1e-10  # default tolerance for boundary conditions
         best_threshold = float(sorted_scores[0] + (eps if inclusive else 0.0))
         best_score = fast_f1_score(tp, tn, fp, fn)
 
         for i in range(n):
-            w = sorted_weights[i] if sorted_weights is not None else 1.0
+            w = sorted_weights[i]
             if sorted_labels[i] == 1:
                 tp += w
                 fn -= w
@@ -601,11 +600,16 @@ def optimize_sort_scan(
     """Sort-and-scan optimization for piecewise-constant metrics."""
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
+    # Convert None weights to uniform weights for Numba compatibility
+    if weights is None:
+        weights = np.ones(len(labels), dtype=float)
+
     if metric.lower() in ("f1", "f1_score"):
         threshold, score = sort_scan_kernel(
             labels, scores, weights, inclusive=(operator == ">=")
         )
     else:
+        # _generic_sort_scan can handle None weights, but pass the array for consistency
         threshold, score = _generic_sort_scan(labels, scores, metric, weights, operator)
 
     def predict_binary(probs):

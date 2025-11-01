@@ -6,7 +6,6 @@ import pytest
 from optimal_cutoffs import (
     METRICS,
     get_optimal_threshold,
-    get_vectorized_metric,
     has_vectorized_implementation,
     is_piecewise_metric,
 )

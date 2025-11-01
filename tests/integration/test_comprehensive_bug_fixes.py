@@ -14,11 +14,10 @@ from hypothesis import strategies as st
 from optimal_cutoffs import get_optimal_threshold
 from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
 from optimal_cutoffs.metrics import (
-    _compute_exclusive_predictions,
     accuracy_score,
+    confusion_matrix_at_threshold,
     f1_score,
-    get_confusion_matrix,
-    get_multiclass_confusion_matrix,
+    multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
     multiclass_metric_single_label,
 )
@@ -127,7 +126,7 @@ class TestMicroAccuracyFix:
         )
 
         # Compute OvR confusion matrices
-        cms = get_multiclass_confusion_matrix(y_true, pred_prob, thresholds)
+        cms = multiclass_confusion_matrices_at_thresholds(y_true, pred_prob, thresholds)
 
         # OvR aggregation should raise error for accuracy
         with pytest.raises(ValueError, match="Micro-averaged accuracy requires"):
@@ -224,7 +223,7 @@ class TestDinkelbachComparisonSupport:
             assert predictions.dtype == bool
 
             # Should produce reasonable F1 score
-            tp, tn, fp, fn = get_confusion_matrix(
+            tp, tn, fp, fn = confusion_matrix_at_threshold(
                 y_true, pred_prob, threshold, comparison=comparison
             )
             f1 = f1_score(tp, tn, fp, fn)
@@ -288,7 +287,7 @@ class TestBinarySearchEfficiency:
             threshold = result.threshold
 
             # Verify correctness by checking confusion matrix
-            tp, tn, fp, fn = get_confusion_matrix(
+            tp, tn, fp, fn = confusion_matrix_at_threshold(
                 y_true, pred_prob, threshold, comparison=comparison
             )
             f1 = f1_score(tp, tn, fp, fn)
@@ -314,7 +313,7 @@ class TestBinarySearchEfficiency:
         threshold = result.threshold
 
         # Verify weighted confusion matrix
-        tp, tn, fp, fn = get_confusion_matrix(
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
             y_true, pred_prob, threshold, sample_weight=sample_weight
         )
 
@@ -522,10 +521,10 @@ class TestPropertyBased:
         )
 
         # Also verify scores are identical
-        tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(
+        tp_w, tn_w, fp_w, fn_w = confusion_matrix_at_threshold(
             y_true, pred_prob, threshold_weighted, weights
         )
-        tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(
+        tp_e, tn_e, fp_e, fn_e = confusion_matrix_at_threshold(
             y_expanded, p_expanded, threshold_expanded
         )
 
@@ -643,7 +642,7 @@ class TestRegressionPrevention:
             assert all(0 <= t <= 1 for t in thresholds)
 
             # Verify confusion matrices work
-            cms = get_multiclass_confusion_matrix(
+            cms = multiclass_confusion_matrices_at_thresholds(
                 y_true,
                 pred_prob,
                 thresholds,
@@ -679,7 +678,7 @@ class TestRegressionPrevention:
             assert 0 <= expected_f1 <= 1
 
             # Should produce reasonable F1
-            tp, tn, fp, fn = get_confusion_matrix(
+            tp, tn, fp, fn = confusion_matrix_at_threshold(
                 y_true, pred_prob, threshold, comparison=comparison
             )
             f1 = f1_score(tp, tn, fp, fn)
@@ -717,7 +716,7 @@ class TestRegressionPrevention:
                         assert 0 <= threshold <= 1, f"Invalid threshold {threshold}"
 
                         # Verify it achieves reasonable metric
-                        tp, tn, fp, fn = get_confusion_matrix(
+                        tp, tn, fp, fn = confusion_matrix_at_threshold(
                             y_true, pred_prob, threshold, comparison=comparison
                         )
                         metric_val = (

@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import get_confusion_matrix, get_vectorized_metric
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
@@ -57,10 +57,10 @@ class TestTiedProbabilityHandling:
             assert_valid_threshold(threshold)
 
             # Verify predictions are different for tied values
-            tp_gt, tn_gt, fp_gt, fn_gt = get_confusion_matrix(
+            tp_gt, tn_gt, fp_gt, fn_gt = confusion_matrix_at_threshold(
                 y_true, y_prob, threshold, comparison=">"
             )
-            tp_gte, tn_gte, fp_gte, fn_gte = get_confusion_matrix(
+            tp_gte, tn_gte, fp_gte, fn_gte = confusion_matrix_at_threshold(
                 y_true, y_prob, threshold, comparison=">="
             )
 
@@ -212,7 +212,7 @@ class TestExtremeTieCases:
         # Clamp threshold to valid range for confusion matrix calculation
         clamped_threshold = np.clip(threshold, 0.0, 1.0)
         # Should predict all negative for best accuracy
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, clamped_threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, clamped_threshold)
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         # Best accuracy is achieved by predicting majority class
         expected_accuracy = max(np.sum(y_true == 0), np.sum(y_true == 1)) / len(y_true)
@@ -228,7 +228,7 @@ class TestExtremeTieCases:
         assert_valid_threshold(threshold)
 
         # Should predict all positive for best accuracy when threshold <= 1.0
-        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
         accuracy = (tp + tn) / (tp + tn + fp + fn)
         expected_accuracy = max(np.sum(y_true == 0), np.sum(y_true == 1)) / len(y_true)
         assert accuracy == pytest.approx(expected_accuracy, abs=1e-10)

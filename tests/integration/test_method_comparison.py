@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import get_confusion_matrix
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold
 
 
 class TestMethodConsistency:
@@ -34,7 +34,7 @@ class TestMethodConsistency:
             thresholds[method] = result.threshold
 
             # Compute achieved score
-            tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, thresholds[method])
+            tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, thresholds[method])
             scores[method] = self._compute_metric_score(tp, tn, fp, fn, metric)
 
         # All methods should achieve high performance on separable data
@@ -63,7 +63,7 @@ class TestMethodConsistency:
                     thresholds[method] = result.threshold
 
                     # Compute achieved score
-                    tp, tn, fp, fn = get_confusion_matrix(
+                    tp, tn, fp, fn = confusion_matrix_at_threshold(
                         y_true, pred_prob, thresholds[method]
                     )
                     scores[method] = self._compute_metric_score(tp, tn, fp, fn, metric)
@@ -104,7 +104,7 @@ class TestMethodConsistency:
                     assert 0.0 <= threshold <= 1.0, f"Invalid threshold from {method}"
 
                     # Should produce valid confusion matrix
-                    tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+                    tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
                     assert tp + tn + fp + fn == len(y_true)
 
                 except Exception as e:
@@ -190,7 +190,7 @@ class TestPerformanceCharacteristics:
         assert 0.0 <= threshold <= 1.0
 
         # Test confusion matrix computation
-        tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
         assert tp + tn + fp + fn == n_samples
 
     def test_worst_case_performance(self):
@@ -297,10 +297,10 @@ class TestComparisonOperatorConsistency:
 
                 # For tied data, they might be different
                 # But both should produce valid results
-                tp_gt, tn_gt, fp_gt, fn_gt = get_confusion_matrix(
+                tp_gt, tn_gt, fp_gt, fn_gt = confusion_matrix_at_threshold(
                     y_true, pred_prob, threshold_gt, comparison=">"
                 )
-                tp_gte, tn_gte, fp_gte, fn_gte = get_confusion_matrix(
+                tp_gte, tn_gte, fp_gte, fn_gte = confusion_matrix_at_threshold(
                     y_true, pred_prob, threshold_gte, comparison=">="
                 )
 
@@ -322,7 +322,7 @@ class TestRegressionTests:
 
         result = get_optimal_threshold(y_true, pred_prob, metric="f1")
         threshold = result.threshold
-        tp, tn, fp, fn = get_confusion_matrix(y_true, pred_prob, threshold)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
 
         f1_score = self._compute_f1_score(tp, tn, fp, fn)
 

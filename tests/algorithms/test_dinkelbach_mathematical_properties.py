@@ -16,7 +16,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import f1_score, get_confusion_matrix
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.hypothesis_strategies import beta_bernoulli_calibrated
 
 
@@ -165,7 +165,7 @@ class TestDinkelbachCalibratedPerformance:
             assert 0 <= expected_f1 <= 1, f"Expected F1 {expected_f1} out of bounds"
 
             # Compute empirical F1 with this threshold
-            tp, tn, fp, fn = get_confusion_matrix(
+            tp, tn, fp, fn = confusion_matrix_at_threshold(
                 labels, probs, threshold, comparison=comparison
             )
             empirical_f1 = f1_score(tp, tn, fp, fn)
@@ -205,10 +205,10 @@ class TestDinkelbachCalibratedPerformance:
 
         # Compute F1 scores
         f1_dinkelbach = f1_score(
-            *get_confusion_matrix(labels, probs, threshold_dinkelbach, comparison=">")
+            *confusion_matrix_at_threshold(labels, probs, threshold_dinkelbach, comparison=">")
         )
         f1_sort_scan = f1_score(
-            *get_confusion_matrix(labels, probs, threshold_sort_scan, comparison=">")
+            *confusion_matrix_at_threshold(labels, probs, threshold_sort_scan, comparison=">")
         )
 
         # Both should be reasonable
@@ -240,7 +240,7 @@ class TestDinkelbachCalibratedPerformance:
 
         # Compute empirical F1
         empirical_f1 = f1_score(
-            *get_confusion_matrix(labels, probs, threshold, comparison=">")
+            *confusion_matrix_at_threshold(labels, probs, threshold, comparison=">")
         )
 
         # Compute expected F1 using the probabilities

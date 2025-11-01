@@ -14,7 +14,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import get_optimal_threshold
-from optimal_cutoffs.metrics import f1_score, get_confusion_matrix
+from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
 
 
 def expand_by_rational_weights(y, p, w):
@@ -116,10 +116,10 @@ class TestWeightedEqualsExpanded:
         )
 
         # Also verify scores match
-        tp_w, tn_w, fp_w, fn_w = get_confusion_matrix(
+        tp_w, tn_w, fp_w, fn_w = confusion_matrix_at_threshold(
             y, p, threshold_weighted, w, comparison
         )
-        tp_e, tn_e, fp_e, fn_e = get_confusion_matrix(
+        tp_e, tn_e, fp_e, fn_e = confusion_matrix_at_threshold(
             y_expanded, p_expanded, threshold_expanded, None, comparison
         )
 
@@ -195,7 +195,7 @@ class TestWeightedEqualsExpanded:
         threshold = result.threshold
 
         # Verify confusion matrix preserves fractional values
-        tp, tn, fp, fn = get_confusion_matrix(y, p, threshold, w)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y, p, threshold, w)
 
         # At least one of these should be fractional if weights are preserved
         confusion_values = [tp, tn, fp, fn]
@@ -320,7 +320,7 @@ class TestWeightEdgeCases:
         assert 0 <= threshold <= 1
 
         # Only non-zero weighted samples should contribute
-        tp, tn, fp, fn = get_confusion_matrix(y, p, threshold, w)
+        tp, tn, fp, fn = confusion_matrix_at_threshold(y, p, threshold, w)
         total = tp + tn + fp + fn
 
         # Total should equal sum of non-zero weights
@@ -421,10 +421,10 @@ class TestWeightMethodConsistency:
             # threshold selection strategies)
 
             # Compute F1 scores to verify they're equal
-            tp_scan, tn_scan, fp_scan, fn_scan = get_confusion_matrix(
+            tp_scan, tn_scan, fp_scan, fn_scan = confusion_matrix_at_threshold(
                 y, p, threshold_scan, w, comparison
             )
-            tp_brute, tn_brute, fp_brute, fn_brute = get_confusion_matrix(
+            tp_brute, tn_brute, fp_brute, fn_brute = confusion_matrix_at_threshold(
                 y, p, threshold_brute, w, comparison
             )
 
