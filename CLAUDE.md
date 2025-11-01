@@ -47,10 +47,10 @@ ruff format optimal_cutoffs/
 ### Examples
 ```bash
 # Run basic binary example
-python examples/basic_usage.py
+python examples/01_quickstart.py
 
 # Run multiclass example
-python examples/multiclass_usage.py
+python examples/03_multiclass.py
 ```
 
 ## Architecture Overview
