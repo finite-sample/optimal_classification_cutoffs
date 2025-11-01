@@ -360,6 +360,6 @@ If you don't find your question answered here:
 1. Check the :doc:`examples` for comprehensive code samples
 2. Review the :doc:`api/index` for detailed function documentation
 3. Look at the :doc:`theory` section for mathematical background
-4. Open an issue on `GitHub <https://github.com/finite-sample/optimal_classification_cutoffs>`_ for bug reports or feature requests
+4. Open an issue on `GitHub <https://github.com/finite-sample/optimal-classification-cutoffs>`_ for bug reports or feature requests
 
 Common patterns and solutions are continuously added to this FAQ based on user feedback.

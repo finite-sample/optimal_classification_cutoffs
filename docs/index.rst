@@ -141,7 +141,7 @@ If you use this library in academic research, please cite:
    @software{optimal_classification_cutoffs,
      author = {Laohaprapanon, Suriyan and Sood, Gaurav},
      title = {Optimal Classification Cutoffs: Fast algorithms for threshold optimization},
-     url = {https://github.com/finite-sample/optimal_classification_cutoffs},
+     url = {https://github.com/finite-sample/optimal-classification-cutoffs},
      year = {2024}
    }
 

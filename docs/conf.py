@@ -12,10 +12,40 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "optimal-classification-cutoffs"
-copyright = "2024, Gaurav Sood"
-author = "Gaurav Sood"
-release = "0.6.1"
+# Load project information from pyproject.toml (single source of truth)
+import pathlib
+
+try:
+    # Method 1: Try reading from installed package metadata
+    from importlib.metadata import metadata
+    pkg_meta = metadata("optimal-classification-cutoffs")
+    project = pkg_meta["Name"]
+    release = pkg_meta["Version"]
+    # Extract author from Author-email field since new pyproject.toml format
+    author_email = pkg_meta.get("Author-email", "")
+    if author_email and "<" in author_email:
+        author = author_email.split("<")[0].strip()
+    else:
+        author = pkg_meta.get("Author") or "Gaurav Sood"
+except Exception:
+    # Method 2: Fallback - read directly from pyproject.toml for development
+    try:
+        # Python 3.11+ has tomllib built-in
+        import tomllib
+    except ImportError:
+        # Python < 3.11 needs tomli
+        import tomli as tomllib
+    
+    pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
+    with open(pyproject_path, "rb") as f:
+        pyproject_data = tomllib.load(f)
+    
+    project_info = pyproject_data["project"]
+    project = project_info["name"]
+    release = project_info["version"]
+    author = project_info["authors"][0]["name"]
+
+copyright = f"2024, {author}"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -41,7 +71,7 @@ html_theme_options = {
     "sidebar_hide_name": True,
     "navigation_with_keys": True,
     "top_of_page_button": "edit",
-    "source_repository": "https://github.com/finite-sample/optimal_classification_cutoffs/",
+    "source_repository": "https://github.com/finite-sample/optimal-classification-cutoffs/",
     "source_branch": "master",
     "source_directory": "docs/",
     "light_css_variables": {

@@ -25,7 +25,7 @@ For the latest development version, you can install directly from the GitHub rep
 
 .. code-block:: bash
 
-   pip install git+https://github.com/finite-sample/optimal_classification_cutoffs.git
+   pip install git+https://github.com/finite-sample/optimal-classification-cutoffs.git
 
 Development Installation
 ------------------------
@@ -34,8 +34,8 @@ For development purposes, clone the repository and install in editable mode:
 
 .. code-block:: bash
 
-   git clone https://github.com/finite-sample/optimal_classification_cutoffs.git
-   cd optimal_classification_cutoffs
+   git clone https://github.com/finite-sample/optimal-classification-cutoffs.git
+   cd optimal-classification-cutoffs
    pip install -e .
 
 To install with example dependencies (for running example notebooks):

@@ -42,7 +42,8 @@ adaptive = ["scikit-optimize>=0.9.0"]
 docs = [
     "sphinx>=5.0",
     "furo",
-    "sphinx-autodoc-typehints>=1.0"
+    "sphinx-autodoc-typehints>=1.0",
+    "tomli;python_version<'3.11'"
 ]
 
 # For development and testing
