@@ -9,8 +9,6 @@
 
 This library finds **optimal decision thresholds** by exploiting the **piecewise structure** of common metrics and assuming **calibrated probabilities**. It supports binary, multi-label, and multi-class problems; cost/utility objectives; and general cost matrices.
 
----
-
 ## Contents
 
 * [Why thresholds matter](#why-thresholds-matter)
@@ -25,13 +23,11 @@ This library finds **optimal decision thresholds** by exploiting the **piecewise
 * [Performance](#performance)
 * [When *not* to use thresholds](#when-not-to-use-thresholds)
 
----
 
 ## Why thresholds matter
 
 Most classifiers output probabilities `p = P(y=1|x)`, but decisions need thresholds τ. The default `τ = 0.5` is rarely optimal for real objectives (F1, precision/recall, costs). Under calibration and piecewise structure, the **exact** optimum can be found efficiently.
 
----
 
 ## Installation
 
@@ -42,7 +38,6 @@ pip install optimal-classification-cutoffs
 pip install optimal-classification-cutoffs[performance]
 ```
 
----
 
 ## 90‑second tour
 
@@ -56,7 +51,6 @@ pip install optimal-classification-cutoffs[performance]
 * **Cross-validation:** Thresholds are hyperparameters—validate them.
 * **Acceleration:** Numba-backed kernels with pure Python fallback.
 
----
 
 ## Quick start
 
@@ -122,7 +116,6 @@ result = bayes_optimal_decisions(y_prob, cost_matrix=cost_matrix)
 y_pred = result.predict(y_prob)
 ```
 
----
 
 ## Decision rules — cheat sheet
 
@@ -162,7 +155,6 @@ y_pred = result.predict(y_prob)
 | Multiclass OvR | OvR costs (single‑label)        |                  No | `bayes_thresholds_from_costs()` |              O(1) | Bayes-optimal |
 | Multiclass     | General cost matrix             |                   — | `bayes_optimal_decisions()`     |  O(K²) per sample | Bayes-optimal |
 
----
 
 ## Expected metrics (under calibration)
 
@@ -175,7 +167,6 @@ result = dinkelbach_expected_fbeta_binary(y_prob, beta=1.0)
 print(result.threshold, result.score)
 ```
 
----
 
 ## Validation & recommended workflow
 
@@ -206,7 +197,6 @@ y_hat = (p_test >= tau).astype(int)
 * **Calibration:** ensure `E[y|p]=p` (binary) or `E[1{y=j}|p]=p_j` (multiclass).
 * **Prior shift:** cost-based thresholds are prior‑invariant; F‑metric thresholds are not.
 
----
 
 ## Performance
 
@@ -214,7 +204,6 @@ y_hat = (p_test >= tau).astype(int)
 * **Vectorized scans:** O(n log n) dominated by sort.
 * **Pure Python fallback:** supported.
 
----
 
 ## When *not* to use thresholds
 
@@ -222,7 +211,6 @@ y_hat = (p_test >= tau).astype(int)
 * General cost matrices ➞ use `bayes_optimal_decisions()`.
 * Need probabilistic outputs ➞ keep probabilities.
 
----
 
 ## References
 
