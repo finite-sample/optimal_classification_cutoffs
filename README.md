@@ -1,4 +1,4 @@
-# Optimal Classification Thresholds
+# Optimal Classification Cutoffs
 
 [![Python application](https://github.com/finite-sample/optimal-classification-cutoffs/actions/workflows/ci.yml/badge.svg)](https://github.com/finite-sample/optimal-classification-cutoffs/actions/workflows/ci.yml)
 [![Downloads](https://pepy.tech/badge/optimal-classification-cutoffs)](https://pepy.tech/project/optimal-classification-cutoffs)
