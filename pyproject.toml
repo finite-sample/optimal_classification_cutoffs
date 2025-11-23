@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.21.1"]
+build-backend = "hatchling.build"
 
 [project]
 name = "optimal-classification-cutoffs"
 version = "1.0.0"
 description = "Utilities for computing optimal classification cutoffs for binary and multiclass classification"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = {text = "MIT"}
 dependencies = [
     "numpy>=1.20.0",
     "scipy",
@@ -118,3 +118,10 @@ filterwarnings = [
     "ignore:unique_scan with micro averaging uses independent:UserWarning",
     "ignore:invalid value encountered in divide:RuntimeWarning",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["optimal_classification_cutoffs"]
+
+[dependency-groups]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.7.0", "mypy>=1.0", "pre-commit>=3.0"]
+test = ["pytest>=7.0", "pytest-cov>=4.0"]
