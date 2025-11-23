@@ -959,8 +959,10 @@ test = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "hypothesis" },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -970,6 +972,8 @@ examples = [
     { name = "pandas" },
 ]
 test = [
+    { name = "hypothesis" },
+    { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -1008,8 +1012,10 @@ provides-extras = ["examples", "performance", "adaptive", "docs", "dev", "test",
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "hypothesis", specifier = ">=6.0" },
     { name = "mypy", specifier = ">=1.0" },
     { name = "pre-commit", specifier = ">=3.0" },
+    { name = "psutil", specifier = ">=5.0" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-cov", specifier = ">=4.0" },
     { name = "ruff", specifier = ">=0.7.0" },
@@ -1019,6 +1025,8 @@ examples = [
     { name = "pandas" },
 ]
 test = [
+    { name = "hypothesis", specifier = ">=6.0" },
+    { name = "psutil", specifier = ">=5.0" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-cov", specifier = ">=4.0" },
 ]

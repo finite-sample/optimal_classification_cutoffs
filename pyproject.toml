@@ -123,6 +123,6 @@ filterwarnings = [
 packages = ["optimal_classification_cutoffs"]
 
 [dependency-groups]
-dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.7.0", "mypy>=1.0", "pre-commit>=3.0"]
-test = ["pytest>=7.0", "pytest-cov>=4.0"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.7.0", "mypy>=1.0", "pre-commit>=3.0", "hypothesis>=6.0", "psutil>=5.0"]
+test = ["pytest>=7.0", "pytest-cov>=4.0", "hypothesis>=6.0", "psutil>=5.0"]
 examples = ["matplotlib", "pandas"]
