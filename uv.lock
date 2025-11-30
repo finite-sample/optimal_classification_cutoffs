@@ -918,7 +918,7 @@ dependencies = [
     { name = "scipy" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 adaptive = [
     { name = "scikit-optimize" },
 ]
@@ -931,6 +931,8 @@ all = [
 ]
 dev = [
     { name = "hypothesis" },
+    { name = "mypy" },
+    { name = "pre-commit" },
     { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -957,60 +959,22 @@ test = [
     { name = "ruff" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "hypothesis" },
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "psutil" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-examples = [
-    { name = "matplotlib" },
-    { name = "pandas" },
-]
-test = [
-    { name = "hypothesis" },
-    { name = "psutil" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-]
-
 [package.metadata]
 requires-dist = [
-    { name = "furo", marker = "extra == 'docs'" },
-    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.0" },
-    { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6.0" },
-    { name = "matplotlib", marker = "extra == 'all'" },
-    { name = "matplotlib", marker = "extra == 'examples'" },
-    { name = "numba", marker = "extra == 'all'", specifier = ">=0.57.0" },
-    { name = "numba", marker = "extra == 'performance'", specifier = ">=0.57.0" },
-    { name = "numba", marker = "extra == 'test'", specifier = ">=0.57.0" },
     { name = "numpy", specifier = ">=1.20.0" },
-    { name = "pandas", marker = "extra == 'all'" },
-    { name = "pandas", marker = "extra == 'examples'" },
-    { name = "psutil", marker = "extra == 'all'", specifier = ">=5.0" },
-    { name = "psutil", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "psutil", marker = "extra == 'test'", specifier = ">=5.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=6.0" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=6.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'test'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'test'" },
     { name = "scikit-learn" },
-    { name = "scikit-optimize", marker = "extra == 'adaptive'", specifier = ">=0.9.0" },
-    { name = "scikit-optimize", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "scipy" },
-    { name = "sphinx", marker = "extra == 'docs'", specifier = ">=5.0" },
-    { name = "sphinx-autodoc-typehints", marker = "extra == 'docs'", specifier = ">=1.0" },
-    { name = "tomli", marker = "python_full_version < '3.11' and extra == 'docs'" },
 ]
-provides-extras = ["examples", "performance", "adaptive", "docs", "dev", "test", "all"]
 
 [package.metadata.requires-dev]
+adaptive = [{ name = "scikit-optimize", specifier = ">=0.9.0" }]
+all = [
+    { name = "matplotlib" },
+    { name = "numba", specifier = ">=0.57.0" },
+    { name = "pandas" },
+    { name = "psutil", specifier = ">=5.0" },
+    { name = "scikit-optimize", specifier = ">=0.9.0" },
+]
 dev = [
     { name = "hypothesis", specifier = ">=6.0" },
     { name = "mypy", specifier = ">=1.0" },
@@ -1020,15 +984,24 @@ dev = [
     { name = "pytest-cov", specifier = ">=4.0" },
     { name = "ruff", specifier = ">=0.7.0" },
 ]
+docs = [
+    { name = "furo" },
+    { name = "sphinx", specifier = ">=5.0" },
+    { name = "sphinx-autodoc-typehints", specifier = ">=1.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
 examples = [
     { name = "matplotlib" },
     { name = "pandas" },
 ]
+performance = [{ name = "numba", specifier = ">=0.57.0" }]
 test = [
     { name = "hypothesis", specifier = ">=6.0" },
+    { name = "numba", specifier = ">=0.57.0" },
     { name = "psutil", specifier = ">=5.0" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-cov", specifier = ">=4.0" },
+    { name = "ruff", specifier = ">=0.7.0" },
 ]
 
 [[package]]
