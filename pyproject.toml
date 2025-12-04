@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.9.15,<0.10.0"]
+build-backend = "uv_build"
 
 [project]
 name = "optimal-classification-cutoffs"
@@ -27,11 +27,9 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
-[tool.setuptools.packages.find]
-include = ["optimal_cutoffs*"]
-
-[tool.setuptools.package-data]
-optimal_cutoffs = ["py.typed"]
+[tool.uv.build-backend]
+module-name = "optimal_cutoffs"
+module-root = "."
 
 [tool.ruff]
 target-version = "py311"
