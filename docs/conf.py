@@ -30,12 +30,8 @@ try:
         author = pkg_meta.get("Author") or "Gaurav Sood"
 except Exception:
     # Method 2: Fallback - read directly from pyproject.toml for development
-    try:
-        # Python 3.11+ has tomllib built-in
-        import tomllib
-    except ImportError:
-        # Python < 3.11 needs tomli
-        import tomli as tomllib
+    # Python 3.11+ has tomllib built-in
+    import tomllib
 
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
     with open(pyproject_path, "rb") as f:
