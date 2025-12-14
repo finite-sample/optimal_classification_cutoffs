@@ -12,13 +12,15 @@ Key simplifications:
 
 from __future__ import annotations
 
-import warnings
+import logging
 from collections.abc import Callable
 from typing import Any, Literal
 
 import numpy as np
 
 from .types_minimal import OptimizationResult
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Helper Functions
@@ -112,11 +114,9 @@ def dinkelbach_optimize(
         den = denominator_fn(best_t)
 
         if den == 0:
-            warnings.warn(
+            logger.warning(
                 "Dinkelbach algorithm terminated early due to zero denominator "
-                f"(numerical instability) at iteration {iteration + 1}",
-                RuntimeWarning,
-                stacklevel=2,
+                "(numerical instability) at iteration %d", iteration + 1
             )
             break
 
@@ -130,11 +130,10 @@ def dinkelbach_optimize(
 
     if not converged and den != 0:
         final_tolerance = abs(new_lam - lam) if "new_lam" in locals() else float("inf")
-        warnings.warn(
-            f"Dinkelbach algorithm did not converge within {max_iter} iterations. "
-            f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
-            RuntimeWarning,
-            stacklevel=2,
+        logger.warning(
+            "Dinkelbach algorithm did not converge within %d iterations. "
+            "Final tolerance: %.2e, target: %.2e",
+            max_iter, final_tolerance, tol
         )
 
     return float(best_t), float(lam)
@@ -289,11 +288,9 @@ def dinkelbach_expected_fbeta_binary(
             num, den = compute_fbeta_at_index(idx)
 
         if den == 0:
-            warnings.warn(
+            logger.warning(
                 "Dinkelbach expected F-beta optimization terminated early due to zero denominator "
-                f"(numerical instability) at iteration {iteration + 1}",
-                RuntimeWarning,
-                stacklevel=2,
+                "(numerical instability) at iteration %d", iteration + 1
             )
             break
 
@@ -309,11 +306,10 @@ def dinkelbach_expected_fbeta_binary(
         final_tolerance = (
             abs(new_lambda - lambda_val) if "new_lambda" in locals() else float("inf")
         )
-        warnings.warn(
-            f"Dinkelbach expected F-beta optimization did not converge within {max_iter} iterations. "
-            f"Final tolerance: {final_tolerance:.2e}, target: {tol:.2e}",
-            RuntimeWarning,
-            stacklevel=2,
+        logger.warning(
+            "Dinkelbach expected F-beta optimization did not converge within %d iterations. "
+            "Final tolerance: %.2e, target: %.2e",
+            max_iter, final_tolerance, tol
         )
 
     best_threshold_float = float(best_threshold)

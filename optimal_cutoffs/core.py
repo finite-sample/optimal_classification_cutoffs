@@ -9,10 +9,14 @@ Design principle: Problem type determines algorithm, not user guessing.
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 from numpy.typing import ArrayLike
 
 from .types_minimal import OptimizationResult
+
+logger = logging.getLogger(__name__)
 
 
 def infer_problem_type(
@@ -297,8 +301,11 @@ def get_optimal_threshold(
 
     # Detect problem type
     problem_type, problem_info = infer_problem_type(true_labels, pred_proba)
+    logger.debug("Detected problem type: %s with %d samples, %d classes", 
+                problem_type, problem_info['n_samples'], problem_info['n_classes'])
 
     # Route based on mode
+    logger.debug("Using %s mode with %s method for %s metric", mode, method, metric)
     if mode == "empirical":
         return _optimize_empirical(
             problem_type,
@@ -351,6 +358,7 @@ def _optimize_empirical(
         raise ValueError("true_labels required for empirical optimization")
 
     if problem_type == "binary":
+        logger.debug("Routing to binary optimization")
         from .binary import optimize_f1_binary, optimize_metric_binary
 
         if metric in ("f1", "fbeta"):
@@ -373,6 +381,7 @@ def _optimize_empirical(
             )
 
     elif problem_type == "multilabel":
+        logger.debug("Routing to multilabel optimization with %s averaging", average)
         from .multilabel import optimize_multilabel
 
         return optimize_multilabel(
@@ -387,6 +396,7 @@ def _optimize_empirical(
         )
 
     elif problem_type == "multiclass":
+        logger.debug("Routing to multiclass optimization with %s averaging and %s method", average, method)
         from .multiclass import optimize_multiclass
 
         return optimize_multiclass(

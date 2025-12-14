@@ -70,8 +70,6 @@ class TestBasicInputValidation:
             validate_inputs([0, 1], [0.5])
 
         # Suppress probability sum warning for this error condition test
-        import warnings
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             with pytest.raises(ValueError, match="Shape mismatch"):
@@ -105,8 +103,6 @@ class TestBasicInputValidation:
 
         # Labels outside valid range (has label 3 for 3-class problem)
         # Suppress probability sum warning for this error condition test
-        import warnings
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             with pytest.raises(ValueError, match="Found label 3 but n_classes=3"):
@@ -140,20 +136,20 @@ class TestBasicInputValidation:
         with pytest.raises(ValueError, match="Probabilities must be in \\[0, 1\\]"):
             validate_binary_classification([0, 1], [0.5, 1.1], require_proba=True)
 
-    def test_validate_inputs_multiclass_probability_sum_warning(self):
+    def test_validate_inputs_multiclass_probability_sum_warning(self, caplog):
         """Test warning for multiclass probabilities that don't sum to 1."""
+        import logging
+        
         true_labels = [0, 1, 2]
         # Probabilities that don't sum to 1
         pred_probs = np.array([[0.5, 0.3, 0.1], [0.2, 0.7, 0.2], [0.8, 0.1, 0.2]])
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with caplog.at_level(logging.WARNING):
             validate_inputs(true_labels, pred_probs)
 
             # Should issue a warning about probabilities not summing to 1
-            assert len(w) >= 1
-            assert "don't sum to 1" in str(w[0].message)
-            assert issubclass(w[0].category, UserWarning)
+            assert len(caplog.records) >= 1
+            assert "don't sum to 1" in caplog.records[0].message
 
     def test_validate_inputs_sample_weights(self):
         """Test sample weight validation."""
@@ -307,8 +303,6 @@ class TestMulticlassValidation:
         # Wrong label dimensions
         labels = np.array([[0, 1], [1, 2]])  # 2D instead of 1D
         # Suppress probability sum warning for this error condition test
-        import warnings
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             probs = np.random.rand(2, 3)
@@ -329,8 +323,6 @@ class TestMulticlassValidation:
         # Length mismatch
         labels = np.array([0, 1, 2])
         # Suppress probability sum warning for this error condition test
-        import warnings
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             probs = np.random.rand(5, 3)  # 5 samples vs 3 labels

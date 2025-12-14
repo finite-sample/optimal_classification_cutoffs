@@ -1,7 +1,11 @@
 """validation.py - Simple, direct validation with fail-fast semantics."""
 
+import logging
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Core Validation - Simple functions that return clean arrays
@@ -161,13 +165,9 @@ def validate_probabilities(
     if arr.ndim == 2 and arr.shape[1] > 1:
         row_sums = np.sum(arr, axis=1)
         if not np.allclose(row_sums, 1.0, rtol=1e-3):
-            import warnings
-
-            warnings.warn(
-                f"Probability rows don't sum to 1 (range: "
-                f"[{row_sums.min():.3f}, {row_sums.max():.3f}])",
-                UserWarning,
-                stacklevel=2,
+            logger.warning(
+                "Probability rows don't sum to 1 (range: [%.3f, %.3f])",
+                row_sums.min(), row_sums.max()
             )
 
     return arr

@@ -14,7 +14,7 @@ Key features:
 
 from __future__ import annotations
 
-import warnings
+import logging
 from typing import Any
 
 import numpy as np
@@ -23,6 +23,8 @@ from scipy import optimize
 from .numba_utils import NUMBA_AVAILABLE, jit, numba_with_fallback
 from .types_minimal import OptimizationResult
 from .validation import validate_binary_classification
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Data Validation
@@ -600,6 +602,7 @@ def optimize_sort_scan(
     operator: str = ">=",
 ) -> OptimizationResult:
     """Sort-and-scan optimization for piecewise-constant metrics."""
+    logger.debug("Using sort_scan optimization for %s metric", metric)
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     # Convert None weights to uniform weights for Numba compatibility
@@ -685,6 +688,7 @@ def optimize_scipy(
     tol: float = 1e-6,
 ) -> OptimizationResult:
     """Scipy-based optimization for smooth metrics."""
+    logger.debug("Using scipy optimization (%s) for %s metric", method, metric)
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS
@@ -709,9 +713,7 @@ def optimize_scipy(
         optimal_threshold = float(result.x)
         optimal_score = -float(result.fun)
     except Exception:
-        warnings.warn(
-            "Scipy optimization failed, falling back to sort_scan", stacklevel=2
-        )
+        logger.warning("Scipy optimization failed, falling back to sort_scan")
         return optimize_sort_scan(labels, scores, metric, weights, operator)
 
     def predict_binary(probs):
@@ -746,6 +748,7 @@ def optimize_gradient(
     tol: float = 1e-6,
 ) -> OptimizationResult:
     """Simple gradient ascent optimization (use for smooth metrics)."""
+    logger.debug("Using gradient optimization for %s metric (max_iter=%d)", metric, max_iter)
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS, is_piecewise_metric
@@ -754,10 +757,9 @@ def optimize_gradient(
     metric_fn = METRICS[metric].fn
 
     if is_piecewise_metric(metric):
-        warnings.warn(
+        logger.warning(
             "Gradient optimization is ineffective for piecewise-constant metrics. "
-            "Use sort_scan instead.",
-            stacklevel=2,
+            "Use sort_scan instead."
         )
 
     threshold = float(np.median(scores))
