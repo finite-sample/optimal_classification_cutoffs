@@ -4,7 +4,7 @@ Installation
 Requirements
 ------------
 
-* Python 3.10 or higher
+* Python 3.12 or higher
 * NumPy >= 1.20.0
 * SciPy >= 1.5.0
 * scikit-learn (for some metrics and utilities)

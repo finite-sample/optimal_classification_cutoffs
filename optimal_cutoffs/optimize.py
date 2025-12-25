@@ -748,7 +748,9 @@ def optimize_gradient(
     tol: float = 1e-6,
 ) -> OptimizationResult:
     """Simple gradient ascent optimization (use for smooth metrics)."""
-    logger.debug("Using gradient optimization for %s metric (max_iter=%d)", metric, max_iter)
+    logger.debug(
+        "Using gradient optimization for %s metric (max_iter=%d)", metric, max_iter
+    )
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
     from .metrics import METRICS, is_piecewise_metric

@@ -30,7 +30,6 @@ try:
         author = pkg_meta.get("Author") or "Gaurav Sood"
 except Exception:
     # Method 2: Fallback - read directly from pyproject.toml for development
-    # Python 3.11+ has tomllib built-in
     import tomllib
 
     pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
@@ -95,8 +94,8 @@ html_short_title = "Optimal Cutoffs"
 
 # -- Extension configuration -------------------------------------------------
 
-# Napoleon settings
-napoleon_google_docstring = True
+# Napoleon settings - using NumPy style only (codebase standard)
+napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 napoleon_include_init_with_doc = False
 napoleon_include_private_with_doc = False

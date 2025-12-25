@@ -247,7 +247,11 @@ def test_sample_weights_piecewise_optimization():
 
     # F1 is piecewise, so should use the fast algorithm
     result = get_optimal_threshold(
-        true_labs, pred_prob, metric="f1", method="unique_scan", sample_weight=sample_weight
+        true_labs,
+        pred_prob,
+        metric="f1",
+        method="unique_scan",
+        sample_weight=sample_weight,
     )
 
     threshold = result.threshold

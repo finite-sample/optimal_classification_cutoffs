@@ -19,20 +19,17 @@ from .validation import (
 # Metric Registry
 # ============================================================================
 
+type NumericValue = np.ndarray | float
+type MetricFunction = Callable[
+    [NumericValue, NumericValue, NumericValue, NumericValue], NumericValue
+]
+
 
 @dataclass
 class MetricInfo:
     """Complete information about a metric."""
 
-    fn: Callable[
-        [
-            np.ndarray | float,
-            np.ndarray | float,
-            np.ndarray | float,
-            np.ndarray | float,
-        ],
-        np.ndarray | float,
-    ]
+    fn: MetricFunction
     is_piecewise: bool = True
     maximize: bool = True
     needs_proba: bool = False
@@ -44,52 +41,11 @@ METRICS: dict[str, MetricInfo] = {}
 
 def register_metric(
     name: str | None = None,
-    func: Callable[
-        [
-            np.ndarray | float,
-            np.ndarray | float,
-            np.ndarray | float,
-            np.ndarray | float,
-        ],
-        np.ndarray | float,
-    ]
-    | None = None,
+    func: MetricFunction | None = None,
     is_piecewise: bool = True,
     maximize: bool = True,
     needs_proba: bool = False,
-) -> (
-    Callable[
-        [
-            np.ndarray | float,
-            np.ndarray | float,
-            np.ndarray | float,
-            np.ndarray | float,
-        ],
-        np.ndarray | float,
-    ]
-    | Callable[
-        [
-            Callable[
-                [
-                    np.ndarray | float,
-                    np.ndarray | float,
-                    np.ndarray | float,
-                    np.ndarray | float,
-                ],
-                np.ndarray | float,
-            ]
-        ],
-        Callable[
-            [
-                np.ndarray | float,
-                np.ndarray | float,
-                np.ndarray | float,
-                np.ndarray | float,
-            ],
-            np.ndarray | float,
-        ],
-    ]
-):
+) -> MetricFunction | Callable[[MetricFunction], MetricFunction]:
     """Register a metric function.
 
     Parameters

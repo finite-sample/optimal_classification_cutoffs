@@ -292,7 +292,7 @@ def get_optimal_threshold(
     # Validate metric names (check registry for registered metrics)
     if mode == "empirical" and utility is None:
         from .metrics import METRICS
-        
+
         if metric.lower() not in METRICS:
             available_metrics = set(METRICS.keys())
             raise ValueError(
@@ -301,43 +301,47 @@ def get_optimal_threshold(
 
     # Detect problem type
     problem_type, problem_info = infer_problem_type(true_labels, pred_proba)
-    logger.debug("Detected problem type: %s with %d samples, %d classes", 
-                problem_type, problem_info['n_samples'], problem_info['n_classes'])
+    n_samples = problem_info["n_samples"]
+    n_classes = problem_info["n_classes"]
+    logger.debug(
+        f"Detected {problem_type=} with {n_samples=} samples, {n_classes=} classes"
+    )
 
     # Route based on mode
-    logger.debug("Using %s mode with %s method for %s metric", mode, method, metric)
-    if mode == "empirical":
-        return _optimize_empirical(
-            problem_type,
-            true_labels,
-            pred_proba,
-            metric,
-            method,
-            average,
-            sample_weight,
-            comparison,
-            tolerance,
-            max_iter,
-            beta,
-        )
-    elif mode == "expected":
-        return _optimize_expected(
-            problem_type,
-            true_labels,
-            pred_proba,
-            metric,
-            average,
-            sample_weight,
-            comparison,
-            tolerance,
-            beta,
-        )
-    elif mode == "bayes":
-        return _optimize_bayes(
-            problem_type, true_labels, pred_proba, utility, sample_weight
-        )
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
+    logger.debug(f"Using {mode=} with {method=} for {metric=}")
+    match mode:
+        case "empirical":
+            return _optimize_empirical(
+                problem_type,
+                true_labels,
+                pred_proba,
+                metric,
+                method,
+                average,
+                sample_weight,
+                comparison,
+                tolerance,
+                max_iter,
+                beta,
+            )
+        case "expected":
+            return _optimize_expected(
+                problem_type,
+                true_labels,
+                pred_proba,
+                metric,
+                average,
+                sample_weight,
+                comparison,
+                tolerance,
+                beta,
+            )
+        case "bayes":
+            return _optimize_bayes(
+                problem_type, true_labels, pred_proba, utility, sample_weight
+            )
+        case _:
+            raise ValueError(f"Unknown mode: {mode}")
 
 
 def _optimize_empirical(
@@ -357,61 +361,64 @@ def _optimize_empirical(
     if true_labels is None:
         raise ValueError("true_labels required for empirical optimization")
 
-    if problem_type == "binary":
-        logger.debug("Routing to binary optimization")
-        from .binary import optimize_f1_binary, optimize_metric_binary
+    match problem_type:
+        case "binary":
+            logger.debug("Routing to binary optimization")
+            from .binary import optimize_f1_binary, optimize_metric_binary
 
-        if metric in ("f1", "fbeta"):
-            return optimize_f1_binary(
-                true_labels,
-                pred_proba,
-                beta=beta,
-                sample_weight=sample_weight,
-                comparison=comparison,
-            )
-        else:
-            return optimize_metric_binary(
+            if metric in ("f1", "fbeta"):
+                return optimize_f1_binary(
+                    true_labels,
+                    pred_proba,
+                    beta=beta,
+                    sample_weight=sample_weight,
+                    comparison=comparison,
+                )
+            else:
+                return optimize_metric_binary(
+                    true_labels,
+                    pred_proba,
+                    metric=metric,
+                    method=method,
+                    sample_weight=sample_weight,
+                    comparison=comparison,
+                    tolerance=tolerance,
+                )
+
+        case "multilabel":
+            logger.debug(f"Routing to multilabel optimization with {average=}")
+            from .multilabel import optimize_multilabel
+
+            return optimize_multilabel(
                 true_labels,
                 pred_proba,
                 metric=metric,
+                average=average,
                 method=method,
                 sample_weight=sample_weight,
                 comparison=comparison,
                 tolerance=tolerance,
             )
 
-    elif problem_type == "multilabel":
-        logger.debug("Routing to multilabel optimization with %s averaging", average)
-        from .multilabel import optimize_multilabel
+        case "multiclass":
+            logger.debug(
+                f"Routing to multiclass optimization with {average=} and {method=}"
+            )
+            from .multiclass import optimize_multiclass
 
-        return optimize_multilabel(
-            true_labels,
-            pred_proba,
-            metric=metric,
-            average=average,
-            method=method,
-            sample_weight=sample_weight,
-            comparison=comparison,
-            tolerance=tolerance,
-        )
+            return optimize_multiclass(
+                true_labels,
+                pred_proba,
+                metric=metric,
+                average=average,
+                method=method,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+            )
 
-    elif problem_type == "multiclass":
-        logger.debug("Routing to multiclass optimization with %s averaging and %s method", average, method)
-        from .multiclass import optimize_multiclass
-
-        return optimize_multiclass(
-            true_labels,
-            pred_proba,
-            metric=metric,
-            average=average,
-            method=method,
-            sample_weight=sample_weight,
-            comparison=comparison,
-            tolerance=tolerance,
-        )
-
-    else:
-        raise ValueError(f"Unknown problem type: {problem_type}")
+        case _:
+            raise ValueError(f"Unknown problem type: {problem_type}")
 
 
 def _optimize_expected(

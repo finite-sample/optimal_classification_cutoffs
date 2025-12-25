@@ -167,7 +167,8 @@ def validate_probabilities(
         if not np.allclose(row_sums, 1.0, rtol=1e-3):
             logger.warning(
                 "Probability rows don't sum to 1 (range: [%.3f, %.3f])",
-                row_sums.min(), row_sums.max()
+                row_sums.min(),
+                row_sums.max(),
             )
 
     return arr
@@ -422,17 +423,18 @@ def infer_problem_type(predictions: ArrayLike) -> str:
     """
     arr = np.asarray(predictions)
 
-    if arr.ndim == 1:
-        return "binary"
-    elif arr.ndim == 2:
-        # All 2D arrays are treated as multiclass
-        # (n, k) where k >= 2 is multiclass (OvR threshold optimization)
-        return "multiclass"
-    else:
-        raise ValueError(
-            f"Cannot infer problem type from shape {arr.shape}. "
-            f"Expected 1D or 2D array."
-        )
+    match arr.ndim:
+        case 1:
+            return "binary"
+        case 2:
+            # All 2D arrays are treated as multiclass
+            # (n, k) where k >= 2 is multiclass (OvR threshold optimization)
+            return "multiclass"
+        case _:
+            raise ValueError(
+                f"Cannot infer problem type from shape {arr.shape}. "
+                f"Expected 1D or 2D array."
+            )
 
 
 def validate_classification(

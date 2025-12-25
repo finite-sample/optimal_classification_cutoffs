@@ -53,7 +53,9 @@ class TestComparisonOperators:
         pred_probs = np.random.rand(100)
 
         # Get optimal thresholds with both operators
-        thresh_gt = get_optimal_threshold(true_labels, pred_probs, metric="f1", comparison=">")
+        thresh_gt = get_optimal_threshold(
+            true_labels, pred_probs, metric="f1", comparison=">"
+        )
         thresh_gte = get_optimal_threshold(
             true_labels, pred_probs, metric="f1", comparison=">="
         )
@@ -118,7 +120,9 @@ class TestComparisonOperators:
         pred_probs = pred_probs / pred_probs.sum(axis=1, keepdims=True)
 
         # Get optimal thresholds with both operators
-        thresh_gt = get_optimal_threshold(true_labels, pred_probs, metric="f1", comparison=">")
+        thresh_gt = get_optimal_threshold(
+            true_labels, pred_probs, metric="f1", comparison=">"
+        )
         thresh_gte = get_optimal_threshold(
             true_labels, pred_probs, metric="f1", comparison=">="
         )

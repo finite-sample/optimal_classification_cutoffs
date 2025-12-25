@@ -9,9 +9,9 @@ echo "====================================="
 echo "This matches the exact CI pipeline to catch issues locally"
 echo ""
 
-# Step 1: Install package in development mode
+# Step 1: Install package in development mode with test dependencies
 echo "📦 Step 1: Installing package in development mode..."
-python3 -m pip install -e . --break-system-packages || {
+python3 -m pip install -e .[dev] --break-system-packages || {
     echo "❌ Package installation failed"
     echo "You may need to run this in a virtual environment"
     exit 1

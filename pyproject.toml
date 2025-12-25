@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "optimal-classification-cutoffs"
-version = "1.0.0"
+version = "1.1.0"
 description = "Utilities for computing optimal classification cutoffs for binary and multiclass classification"
 readme = "README.md"
 license = "MIT"
@@ -16,14 +16,14 @@ dependencies = [
 authors = [
     {name = "Gaurav Sood", email = "contact@gsood.com"}
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
@@ -32,7 +32,7 @@ module-name = "optimal_cutoffs"
 module-root = "."
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 88
 exclude = [
     "docs/",
@@ -125,7 +125,7 @@ known_first_party = ["optimal_cutoffs"]
 
 # Package name to module name mappings
 [tool.deptry.package_module_name_map]
-scikit-optimize = "skopt" 
+scikit-optimize = "skopt"
 ipywidgets = "ipywidgets"
 psutil = "psutil"
 

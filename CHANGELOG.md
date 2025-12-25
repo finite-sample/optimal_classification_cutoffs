@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-25
+
+### Added
+- **Python 3.12+ Requirement**: Updated minimum Python version from 3.11 to 3.12
+- **Modern Python Features**: Leveraged Python 3.12+ features for better code readability
+  - Match/case statements replace if/elif chains in core routing logic
+  - PEP 695 type aliases for cleaner type annotations
+  - F-string debug syntax for improved logging
+
+### Changed
+- **Minimum Python Version**: Now requires Python 3.12 or higher
+- **CI Testing**: Updated to test Python 3.12, 3.13, and 3.14
+- **Code Modernization**: Updated core modules with Python 3.12+ syntax
+- **Documentation**: Updated installation requirements to reflect Python 3.12+
+
+### Removed
+- **Backward Compatibility**: Removed legacy function aliases and deprecated patterns
+- **Legacy Documentation**: Cleaned up empty sections and outdated references
+
 ## [1.0.0] - 2025-01-01
 
 ### Added

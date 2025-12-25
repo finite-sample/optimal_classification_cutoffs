@@ -139,7 +139,7 @@ class TestBasicInputValidation:
     def test_validate_inputs_multiclass_probability_sum_warning(self, caplog):
         """Test warning for multiclass probabilities that don't sum to 1."""
         import logging
-        
+
         true_labels = [0, 1, 2]
         # Probabilities that don't sum to 1
         pred_probs = np.array([[0.5, 0.3, 0.1], [0.2, 0.7, 0.2], [0.8, 0.1, 0.2]])

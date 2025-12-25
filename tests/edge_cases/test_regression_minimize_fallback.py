@@ -233,7 +233,9 @@ class TestMinimizeFallbackRegression:
         true_labels = np.array([0, 1])
         pred_probs = np.array([0.3, 0.7])
 
-        result = get_optimal_threshold(true_labels, pred_probs, metric="f1", method="minimize")
+        result = get_optimal_threshold(
+            true_labels, pred_probs, metric="f1", method="minimize"
+        )
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -317,7 +319,9 @@ class TestFallbackEdgeCases:
         true_labels = np.array([0, 1, 0, 1, 0, 1])
         pred_probs = np.array([0.3, 0.3, 0.7, 0.7, 0.3, 0.7])  # Only two unique values
 
-        result = get_optimal_threshold(true_labels, pred_probs, metric="f1", method="minimize")
+        result = get_optimal_threshold(
+            true_labels, pred_probs, metric="f1", method="minimize"
+        )
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -350,7 +354,9 @@ class TestFallbackEdgeCases:
         pred_probs = np.array([0.5 - eps, 0.5 + eps, 0.5 - 2 * eps, 0.5 + 2 * eps])
 
         # Should handle without numerical issues
-        result = get_optimal_threshold(true_labels, pred_probs, metric="f1", method="minimize")
+        result = get_optimal_threshold(
+            true_labels, pred_probs, metric="f1", method="minimize"
+        )
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -376,7 +382,9 @@ class TestFallbackEdgeCases:
 
         # Time the minimize method (with fallback)
         start_time = time.time()
-        result = get_optimal_threshold(true_labels, pred_probs, metric="f1", method="minimize")
+        result = get_optimal_threshold(
+            true_labels, pred_probs, metric="f1", method="minimize"
+        )
         minimize_time = time.time() - start_time
 
         # Time the unique_scan method

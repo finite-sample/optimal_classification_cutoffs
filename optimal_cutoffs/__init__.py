@@ -249,35 +249,5 @@ See documentation for full taxonomy and algorithm details.
     """)
 
 
-# ============================================================================
-# Backward Compatibility Aliases (Legacy API)
-# ============================================================================
-
-
-# Legacy function aliases for backward compatibility
-def get_optimal_binary_threshold(*args, **kwargs):
-    """Legacy alias for get_optimal_threshold() with binary data."""
-    return get_optimal_threshold(*args, **kwargs)
-
-
-def get_optimal_multiclass_thresholds(*args, **kwargs):
-    """Legacy alias for get_optimal_threshold() with multiclass data."""
-    return get_optimal_threshold(*args, **kwargs)
-
-
-def get_optimal_multilabel_thresholds(*args, **kwargs):
-    """Legacy alias for get_optimal_threshold() with multilabel data."""
-    return get_optimal_threshold(*args, **kwargs)
-
-
-# Add legacy aliases to exports
-__all__.extend(
-    [
-        "get_optimal_binary_threshold",
-        "get_optimal_multiclass_thresholds",
-        "get_optimal_multilabel_thresholds",
-    ]
-)
-
 # Uncomment to show quick start on import
 # _print_quick_start()

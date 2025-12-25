@@ -638,7 +638,9 @@ class TestRegressionPrevention:
             assert len(thresholds) == 3
             # Note: With coordinate ascent optimization, thresholds can be outside [0,1]
             # This is mathematically correct for margin-based decision rules
-            assert all(np.isfinite(t) for t in thresholds), "Thresholds should be finite"
+            assert all(
+                np.isfinite(t) for t in thresholds
+            ), "Thresholds should be finite"
 
             # Verify confusion matrices work
             cms = multiclass_confusion_matrices_at_thresholds(

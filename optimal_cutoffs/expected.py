@@ -116,7 +116,8 @@ def dinkelbach_optimize(
         if den == 0:
             logger.warning(
                 "Dinkelbach algorithm terminated early due to zero denominator "
-                "(numerical instability) at iteration %d", iteration + 1
+                "(numerical instability) at iteration %d",
+                iteration + 1,
             )
             break
 
@@ -133,7 +134,9 @@ def dinkelbach_optimize(
         logger.warning(
             "Dinkelbach algorithm did not converge within %d iterations. "
             "Final tolerance: %.2e, target: %.2e",
-            max_iter, final_tolerance, tol
+            max_iter,
+            final_tolerance,
+            tol,
         )
 
     return float(best_t), float(lam)
@@ -290,7 +293,8 @@ def dinkelbach_expected_fbeta_binary(
         if den == 0:
             logger.warning(
                 "Dinkelbach expected F-beta optimization terminated early due to zero denominator "
-                "(numerical instability) at iteration %d", iteration + 1
+                "(numerical instability) at iteration %d",
+                iteration + 1,
             )
             break
 
@@ -309,7 +313,9 @@ def dinkelbach_expected_fbeta_binary(
         logger.warning(
             "Dinkelbach expected F-beta optimization did not converge within %d iterations. "
             "Final tolerance: %.2e, target: %.2e",
-            max_iter, final_tolerance, tol
+            max_iter,
+            final_tolerance,
+            tol,
         )
 
     best_threshold_float = float(best_threshold)

@@ -8,7 +8,9 @@ import numpy as np
 
 
 def assert_valid_threshold(
-    threshold: float | np.ndarray, n_classes: int | None = None, allow_infinite_range: bool = True
+    threshold: float | np.ndarray,
+    n_classes: int | None = None,
+    allow_infinite_range: bool = True,
 ) -> None:
     """Assert that threshold(s) are valid.
 
@@ -19,8 +21,8 @@ def assert_valid_threshold(
     n_classes : int, optional
         Expected number of classes for multiclass thresholds
     allow_infinite_range : bool, default=True
-        Whether to allow thresholds outside [0,1]. For coordinate ascent and 
-        margin-based optimization, thresholds can be outside [0,1] and are 
+        Whether to allow thresholds outside [0,1]. For coordinate ascent and
+        margin-based optimization, thresholds can be outside [0,1] and are
         mathematically correct.
     """
     threshold = np.asarray(threshold)
