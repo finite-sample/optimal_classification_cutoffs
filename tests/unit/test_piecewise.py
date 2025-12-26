@@ -8,7 +8,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.metrics import (
+from optimal_cutoffs.metrics_core import (
     compute_vectorized_confusion_matrices,
     get_metric_function,
 )

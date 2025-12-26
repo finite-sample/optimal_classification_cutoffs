@@ -6,11 +6,9 @@ sample weights, comparison operators, and method interactions.
 
 import numpy as np
 
-from optimal_cutoffs import (
-    confusion_matrix_at_threshold,
-    cross_validate,
-    optimize_thresholds,
-)
+from optimal_cutoffs import optimize_thresholds
+from optimal_cutoffs.cv import cross_validate
+from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold
 from tests.fixtures.assertions import (
     assert_method_consistency,
     assert_valid_confusion_matrix,

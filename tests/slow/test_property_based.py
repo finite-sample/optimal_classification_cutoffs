@@ -6,15 +6,31 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 
-from optimal_cutoffs import (
+from optimal_cutoffs import optimize_thresholds
+from optimal_cutoffs.metrics_core import (
     confusion_matrix_at_threshold,
-    optimize_thresholds,
-)
-from optimal_cutoffs.metrics import (
     compute_metric_at_threshold,
-    multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
 )
+
+
+def multiclass_confusion_matrices_at_thresholds(y_true, y_prob, thresholds, sample_weight=None, comparison=">="):
+    """Helper function to compute per-class confusion matrices for multiclass OvR."""
+    n_classes = y_prob.shape[1]
+    cms = []
+    
+    for class_idx in range(n_classes):
+        # One-vs-Rest for this class
+        y_true_binary = (y_true == class_idx).astype(int)
+        y_prob_class = y_prob[:, class_idx]
+        threshold = thresholds[class_idx]
+        
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
+            y_true_binary, y_prob_class, threshold, sample_weight, comparison
+        )
+        cms.append((tp, tn, fp, fn))
+        
+    return cms
 
 
 # Custom strategies for generating test data
