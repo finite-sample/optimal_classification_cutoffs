@@ -152,9 +152,7 @@ class TestAlgorithmicComplexity:
             # Time sort_scan method
             try:
                 start_time = time.time()
-                optimize_thresholds(
-                    y_true, pred_prob, metric="f1", method="sort_scan"
-                )
+                optimize_thresholds(y_true, pred_prob, metric="f1", method="sort_scan")
                 end_time = time.time()
                 timing_results["sort_scan"].append(end_time - start_time)
             except Exception:

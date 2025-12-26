@@ -14,22 +14,24 @@ from optimal_cutoffs.metrics_core import (
 )
 
 
-def multiclass_confusion_matrices_at_thresholds(y_true, y_prob, thresholds, sample_weight=None, comparison=">="):
+def multiclass_confusion_matrices_at_thresholds(
+    y_true, y_prob, thresholds, sample_weight=None, comparison=">="
+):
     """Helper function to compute per-class confusion matrices for multiclass OvR."""
     n_classes = y_prob.shape[1]
     cms = []
-    
+
     for class_idx in range(n_classes):
         # One-vs-Rest for this class
         y_true_binary = (y_true == class_idx).astype(int)
         y_prob_class = y_prob[:, class_idx]
         threshold = thresholds[class_idx]
-        
+
         tp, tn, fp, fn = confusion_matrix_at_threshold(
             y_true_binary, y_prob_class, threshold, sample_weight, comparison
         )
         cms.append((tp, tn, fp, fn))
-        
+
     return cms
 
 
@@ -309,9 +311,7 @@ class TestCoreInvariants:
             return
 
         # Get thresholds with both comparison operators
-        threshold_gt = optimize_thresholds(
-            labels, probabilities, "f1", comparison=">"
-        )
+        threshold_gt = optimize_thresholds(labels, probabilities, "f1", comparison=">")
         threshold_gte = optimize_thresholds(
             labels, probabilities, "f1", comparison=">="
         )
@@ -599,9 +599,7 @@ class TestMulticlassPropertyBased:
         if len(unique_labels) < 2:
             return  # Skip degenerate cases
 
-        thresholds = optimize_thresholds(
-            labels, probabilities, "f1", average="macro"
-        )
+        thresholds = optimize_thresholds(labels, probabilities, "f1", average="macro")
 
         assert isinstance(thresholds, np.ndarray)
         assert len(thresholds) == probabilities.shape[1]
@@ -619,9 +617,7 @@ class TestMulticlassPropertyBased:
             return
 
         # Get thresholds using macro averaging (independent optimization)
-        thresholds = optimize_thresholds(
-            labels, probabilities, "f1", average="macro"
-        )
+        thresholds = optimize_thresholds(labels, probabilities, "f1", average="macro")
 
         # Manually compute per-class thresholds
         manual_thresholds = []
@@ -773,9 +769,7 @@ class TestMulticlassPropertyBased:
             return
 
         # Get thresholds with both comparison operators
-        thresholds_gt = optimize_thresholds(
-            labels, probabilities, "f1", comparison=">"
-        )
+        thresholds_gt = optimize_thresholds(labels, probabilities, "f1", comparison=">")
         thresholds_gte = optimize_thresholds(
             labels, probabilities, "f1", comparison=">="
         )
@@ -963,9 +957,7 @@ class TestPerformanceProperties:
         for method in methods:
             start_time = time.time()
             try:
-                result = optimize_thresholds(
-                    labels, probabilities, "f1", method=method
-                )
+                result = optimize_thresholds(labels, probabilities, "f1", method=method)
                 end_time = time.time()
 
                 times[method] = end_time - start_time
@@ -997,9 +989,7 @@ class TestPerformanceProperties:
         import time
 
         start_time = time.time()
-        thresholds = optimize_thresholds(
-            labels, probabilities, "f1", average="macro"
-        )
+        thresholds = optimize_thresholds(labels, probabilities, "f1", average="macro")
         end_time = time.time()
 
         # Should complete in reasonable time
@@ -1099,9 +1089,7 @@ class TestPerformanceProperties:
 
         # Time both comparison operators
         start_time = time.time()
-        threshold_gt = optimize_thresholds(
-            labels, probabilities, "f1", comparison=">"
-        )
+        threshold_gt = optimize_thresholds(labels, probabilities, "f1", comparison=">")
         time_gt = time.time() - start_time
 
         start_time = time.time()

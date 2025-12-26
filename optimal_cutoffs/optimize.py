@@ -630,7 +630,7 @@ def optimize_sort_scan(
         )
 
     from .core import Task
-    
+
     return OptimizationResult(
         thresholds=np.array([threshold], dtype=float),
         scores=np.array([score], dtype=float),

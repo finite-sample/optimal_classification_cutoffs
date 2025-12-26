@@ -42,6 +42,12 @@ ruff check optimal_cutoffs/
 
 # Apply code formatting
 ruff format optimal_cutoffs/
+
+# Run docstring linting
+uv run pydoclint optimal_cutoffs/
+
+# Generate new baseline for pydoclint (after fixing violations)
+uv run pydoclint --generate-baseline=True optimal_cutoffs/
 ```
 
 ### Examples

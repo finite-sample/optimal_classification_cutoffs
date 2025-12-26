@@ -106,6 +106,7 @@ dev = [
     "seaborn>=0.13.2",
     "pandas>=2.3.3",
     "jupyter>=1.1.1",
+    "pydoclint>=0.5.0",
 ]
 
 # For running all tests with full coverage (numba optional - use 'performance' group for numba-accelerated tests)
@@ -153,6 +154,18 @@ module = [
 ]
 allow_untyped_defs = true
 allow_untyped_calls = true
+
+[tool.pydoclint]
+style = "numpy"
+check-return-types = true
+check-arg-order = true
+check-class-attributes = true
+arg-type-hints-in-docstring = false
+should-document-star-arguments = true
+ignore-underscore-args = true
+ignore-private-args = false
+show-filenames-in-every-violation-message = true
+baseline = "pydoclint-baseline.txt"
 
 [tool.deptry]
 # Exclude specific paths from analysis

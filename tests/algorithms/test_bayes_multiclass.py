@@ -80,7 +80,7 @@ class TestBayesDecisionFromUtilityMatrix:
         with pytest.raises(ValueError):
             optimize_decisions(np.array([0.7, 0.2, 0.1]), cost_matrix=-np.eye(3))
 
-        # Test utility matrix validation  
+        # Test utility matrix validation
         U_bad = np.array([[1, 0, 0], [0, np.nan, 0], [0, 0, 1]])
         with pytest.raises(ValueError, match="utility_matrix must be 2D array"):
             optimize_decisions(y_prob, cost_matrix=-U_bad.ravel())
@@ -170,13 +170,7 @@ class TestBayesThresholdFromCostsScalar:
         result_scalar_threshold = threshold(fp_cost, fn_cost)
         result_vector_thresholds = thresholds_from_costs([fp_cost], [fn_cost])
 
-        assert (
-            abs(
-                result_scalar_threshold
-                - result_vector_thresholds[0]
-            )
-            < 1e-12
-        )
+        assert abs(result_scalar_threshold - result_vector_thresholds[0]) < 1e-12
 
     def test_simple_threshold_computation(self):
         """Test simple threshold computation."""

@@ -51,4 +51,3 @@ Specialized functionality for multiclass classification:
    :maxdepth: 1
 
    multiclass
-

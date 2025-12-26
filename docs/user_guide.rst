@@ -46,7 +46,7 @@ Basic Usage
    result = optimize_thresholds(y_true, y_prob, metric='f1')
    print(f"Optimal threshold: {result.threshold:.3f}")
    print(f"Expected F1: {result.scores[0]:.3f}")
-   
+
    # Make predictions
    predictions = result.predict(y_prob)
 

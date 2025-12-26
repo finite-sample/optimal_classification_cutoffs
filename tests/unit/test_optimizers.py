@@ -28,6 +28,7 @@ def test_get_optimal_threshold_methods():
 
 def test_cv_threshold_optimization():
     from optimal_cutoffs.cv import cross_validate
+
     rng = np.random.default_rng(0)
     y_prob = rng.random(100)
     y_true = (y_prob > 0.5).astype(int)

@@ -215,9 +215,7 @@ class TestUtilityMetricIntegration:
         result1 = optimize_thresholds(y, p, metric="f1", method="sort_scan")
 
         # Utility optimization that rewards TP and penalizes FP/FN equally
-        result2 = optimize_thresholds(
-            y, p, utility={"tp": 1.0, "fp": -0.5, "fn": -0.5}
-        )
+        result2 = optimize_thresholds(y, p, utility={"tp": 1.0, "fp": -0.5, "fn": -0.5})
 
         # Check that predictions are mostly the same
         pred_f1 = (p > result1.threshold).astype(int)
@@ -289,9 +287,7 @@ class TestEdgeCases:
         with pytest.raises(
             ValueError, match="true_labels required for empirical optimization"
         ):
-            optimize_thresholds(
-                None, p, utility={"fp": -1, "fn": -5}, mode="empirical"
-            )
+            optimize_thresholds(None, p, utility={"fp": -1, "fn": -5}, mode="empirical")
 
     def test_empty_utility_dict(self):
         """Test with empty or minimal utility specification."""

@@ -137,9 +137,7 @@ class TestTiedProbabilityHandling:
 
         for method in methods:
             try:
-                result = optimize_thresholds(
-                    y_true, y_prob, metric="f1", method=method
-                )
+                result = optimize_thresholds(y_true, y_prob, metric="f1", method=method)
                 threshold = result.threshold
                 results[method] = threshold
                 assert_valid_threshold(threshold)
@@ -187,9 +185,7 @@ class TestTieBreakingConsistency:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])  # All tied
         weights = np.array([1.0, 2.0, 1.0, 2.0])  # Different weights
 
-        result = optimize_thresholds(
-            y_true, y_prob, metric="f1", sample_weight=weights
-        )
+        result = optimize_thresholds(y_true, y_prob, metric="f1", sample_weight=weights)
         threshold = result.threshold
         assert_valid_threshold(threshold)
 

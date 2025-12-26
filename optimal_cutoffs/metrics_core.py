@@ -50,16 +50,16 @@ def register_metric(
 
     Parameters
     ----------
-    name : str, optional
+    name
         Key under which to store the metric. If not provided, uses function's __name__.
-    func : callable, optional
+    func
         Metric callable accepting (tp, tn, fp, fn) as scalars or arrays.
         Handles both scalar and array inputs via NumPy broadcasting.
-    is_piecewise : bool, default=True
+    is_piecewise
         Whether metric is piecewise-constant w.r.t. threshold changes.
-    maximize : bool, default=True
+    maximize
         Whether to maximize (True) or minimize (False) the metric.
-    needs_proba : bool, default=False
+    needs_proba
         Whether metric requires probability scores (e.g., log-loss, Brier score).
 
     Returns
@@ -116,9 +116,9 @@ def register_alias(alias_name: str, target_name: str) -> None:
 
     Parameters
     ----------
-    alias_name : str
+    alias_name
         The alias name to register.
-    target_name : str
+    target_name
         The name of the existing metric to point to.
 
     Raises
@@ -157,13 +157,13 @@ def register_metrics(
 
     Parameters
     ----------
-    metrics : dict
+    metrics
         Mapping of metric names to functions that handle both scalars and arrays.
-    is_piecewise : bool, default=True
+    is_piecewise
         Whether metrics are piecewise-constant.
-    maximize : bool, default=True
+    maximize
         Whether metrics should be maximized.
-    needs_proba : bool, default=False
+    needs_proba
         Whether metrics require probability scores.
     """
     for name, metric_fn in metrics.items():
@@ -182,7 +182,7 @@ def get_metric_function(metric_name: str) -> Callable[..., Any]:
 
     Parameters
     ----------
-    metric_name : str
+    metric_name
         Name of the metric.
 
     Returns
@@ -354,11 +354,11 @@ def confusion_matrix_from_predictions(
 
     Parameters
     ----------
-    true_labels : array-like
+    true_labels
         True binary labels (0 or 1)
-    pred_labels : array-like
+    pred_labels
         Predicted binary labels (0 or 1)
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights. If None, uniform weights are used.
 
     Returns
@@ -404,17 +404,17 @@ def confusion_matrix_at_threshold(
 
     Parameters
     ----------
-    true_labels : array-like
+    true_labels
         True binary labels in {0, 1}.
-    pred_proba : array-like
+    pred_proba
         Predicted probabilities in [0, 1] (if require_proba=True) or scores.
-    threshold : float
+    threshold
         Decision threshold.
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights.
-    comparison : {">" or ">="}, default=">"
+    comparison
         Comparison operator for thresholding.
-    require_proba : bool, default=True
+    require_proba
         If True, enforce [0,1] range. If False, allow arbitrary scores.
 
     Returns
@@ -459,9 +459,9 @@ def compute_vectorized_confusion_matrices(
 
     Parameters
     ----------
-    y_sorted : NDArray[np.int8]
+    y_sorted
         Binary labels sorted by descending probability.
-    weights_sorted : NDArray[np.float64]
+    weights_sorted
         Sample weights sorted by descending probability.
 
     Returns
@@ -499,10 +499,16 @@ def apply_metric_to_confusion_counts(
 
     Parameters
     ----------
-    metric_fn : callable
+    metric_fn
         Vectorized metric accepting (tp, tn, fp, fn) arrays.
-    tp, tn, fp, fn : NDArray[np.float64]
-        Confusion matrix count arrays.
+    tp
+        True positives array.
+    tn
+        True negatives array.
+    fp
+        False positives array.
+    fn
+        False negatives array.
 
     Returns
     -------
@@ -544,11 +550,11 @@ def compute_exclusive_predictions(
 
     Parameters
     ----------
-    pred_prob : np.ndarray
+    pred_prob
         Predicted probabilities (n_samples, n_classes)
-    thresholds : np.ndarray
+    thresholds
         Per-class thresholds (n_classes,)
-    comparison : str
+    comparison
         Comparison operator (">" or ">=")
 
     Returns
@@ -578,13 +584,13 @@ def ovr_confusion_counts(
 
     Parameters
     ----------
-    true_labels : np.ndarray
+    true_labels
         True class labels
-    pred_labels : np.ndarray
+    pred_labels
         Predicted class labels
-    class_label : int
+    class_label
         Class to compute metrics for
-    weights : np.ndarray, optional
+    weights
         Sample weights
 
     Returns
@@ -622,17 +628,17 @@ def compute_metric_at_threshold(
 
     Parameters
     ----------
-    true_labels : array-like
+    true_labels
         True binary labels
-    pred_proba : array-like
+    pred_proba
         Predicted probabilities
-    threshold : float
+    threshold
         Decision threshold
-    metric : str, default="f1"
+    metric
         Metric name (must be registered)
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights
-    comparison : str, default=">"
+    comparison
         Comparison operator
 
     Returns
@@ -663,17 +669,17 @@ def multiclass_metric_single_label(
 
     Parameters
     ----------
-    true_labels : array-like
+    true_labels
         True class labels (n_samples,)
-    pred_proba : array-like
+    pred_proba
         Predicted probabilities (n_samples, n_classes)
-    thresholds : array-like
+    thresholds
         Per-class thresholds (n_classes,)
-    metric_name : str
+    metric_name
         Metric to compute ("accuracy", "f1", "precision", "recall")
-    comparison : str, default=">"
+    comparison
         Comparison operator
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights
 
     Returns
@@ -724,11 +730,11 @@ def multiclass_metric_ovr(
 
     Parameters
     ----------
-    confusion_matrices : list of tuple
+    confusion_matrices
         List of per-class (tp, tn, fp, fn) tuples
-    metric_name : str
+    metric_name
         Metric name (must be registered)
-    average : {"macro", "micro", "weighted", "none"}, default="macro"
+    average
         Averaging strategy
 
     Returns
@@ -830,17 +836,17 @@ def compute_multiclass_metrics_from_labels(
 
     Parameters
     ----------
-    true_labels : array-like
+    true_labels
         True class labels
-    pred_labels : array-like
+    pred_labels
         Predicted class labels
-    metric : str, default="f1"
+    metric
         Metric to compute
-    average : str, default="macro"
+    average
         Averaging strategy
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights
-    n_classes : int, optional
+    n_classes
         Number of classes (inferred if None)
 
     Returns
@@ -897,17 +903,17 @@ def multiclass_confusion_matrices_at_thresholds(
 
     Parameters
     ----------
-    true_labels : array-like
+    true_labels
         True class labels
-    pred_proba : array-like
+    pred_proba
         Predicted probabilities (n_samples, n_classes) or scores
-    thresholds : array-like
+    thresholds
         Per-class thresholds
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights
-    comparison : str, default=">"
+    comparison
         Comparison operator
-    require_proba : bool, default=False
+    require_proba
         If True, enforce [0,1] range
 
     Returns
@@ -986,9 +992,15 @@ def make_linear_counts_metric(
 
     Parameters
     ----------
-    w_tp, w_tn, w_fp, w_fn : float
-        Weights for each confusion matrix component
-    name : str, optional
+    w_tp
+        Weight for true positives
+    w_tn
+        Weight for true negatives
+    w_fp
+        Weight for false positives
+    w_fn
+        Weight for false negatives
+    name
         If provided, automatically registers the metric
 
     Returns
@@ -1055,15 +1067,15 @@ def make_cost_metric(
 
     Parameters
     ----------
-    fp_cost : float
+    fp_cost
         Cost of false positives (positive value)
-    fn_cost : float
+    fn_cost
         Cost of false negatives (positive value)
-    tp_benefit : float, default=0.0
+    tp_benefit
         Benefit for true positives
-    tn_benefit : float, default=0.0
+    tn_benefit
         Benefit for true negatives
-    name : str, optional
+    name
         If provided, automatically registers the metric
 
     Returns

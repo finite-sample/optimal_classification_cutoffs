@@ -488,9 +488,7 @@ class TestLongRunningReliability:
         y_true, pred_prob = generate_binary_data(1000, random_state=reference_data_seed)
 
         # Get reference result
-        reference_result = optimize_thresholds(
-            y_true, pred_prob, method="sort_scan"
-        )
+        reference_result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
         reference_threshold = reference_result.threshold
 
         # Test determinism over many operations
@@ -503,9 +501,7 @@ class TestLongRunningReliability:
                 _ = optimize_thresholds(temp_y, temp_p)
 
             # Test determinism on reference data
-            current_result = optimize_thresholds(
-                y_true, pred_prob, method="sort_scan"
-            )
+            current_result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
             current_threshold = current_result.threshold
 
             if abs(current_threshold - reference_threshold) > 1e-12:

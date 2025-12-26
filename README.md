@@ -18,7 +18,7 @@ y_pred = (model.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 # Optimized threshold
 from optimal_cutoffs import optimize_thresholds
-result = optimize_thresholds(y_true, y_scores, metric="f1") 
+result = optimize_thresholds(y_true, y_scores, metric="f1")
 y_pred = result.predict(y_scores_test)
 # F1 Score: 0.891 (improvement depends on dataset characteristics)
 ```
@@ -36,7 +36,7 @@ pip install optimal-classification-cutoffs
 # For algorithmic speedups with optional Numba acceleration
 pip install optimal-classification-cutoffs[performance]
 
-# For Jupyter examples and visualizations  
+# For Jupyter examples and visualizations
 pip install optimal-classification-cutoffs[examples]
 ```
 
@@ -105,7 +105,7 @@ from optimal_cutoffs import optimize_thresholds, optimize_decisions
 # For threshold-based optimization (F1, precision, recall, etc.)
 result = optimize_thresholds(y_true, y_scores, metric="f1")
 
-# For cost matrix optimization (no thresholds)  
+# For cost matrix optimization (no thresholds)
 result = optimize_decisions(y_probs, cost_matrix)
 ```
 
@@ -151,7 +151,7 @@ Independent of class priors, depends only on cost ratio.
 
 ### Multiclass Extensions
 - **One-vs-Rest:** Independent per-class thresholds (macro averaging)
-- **Coordinate Ascent:** Coupled thresholds for single-label consistency  
+- **Coordinate Ascent:** Coupled thresholds for single-label consistency
 - **General Costs:** Skip thresholds, apply Bayes rule on probability vectors
 
 ## Performance
@@ -189,7 +189,7 @@ y_pred_default = (y_scores >= 0.5).astype(int)
 f1_default = f1_score(y_test, y_pred_default)
 print(f"Default F1: {f1_default:.3f}")  # ~0.65
 
-# ✅ Optimal threshold  
+# ✅ Optimal threshold
 result = optimize_thresholds(y_test, y_scores, metric="f1")
 y_pred_optimal = result.predict(y_scores)
 f1_optimal = f1_score(y_test, y_pred_optimal)
@@ -220,7 +220,7 @@ from optimal_cutoffs import cv
 
 # Cross-validation for threshold selection
 scores = cv.cross_validate(
-    model, X, y, 
+    model, X, y,
     metric="f1",
     cv=5,
     return_thresholds=True
@@ -254,6 +254,6 @@ print(f"Precision optimal τ: {precision_result.threshold:.3f}")
 ## References
 
 - Lipton et al. (2014) *Optimal Thresholding of Classifiers to Maximize F1*
-- Elkan (2001) *The Foundations of Cost-Sensitive Learning*  
+- Elkan (2001) *The Foundations of Cost-Sensitive Learning*
 - Dinkelbach (1967) *Nonlinear Fractional Programming*
 - Platt (1999) *Probabilistic Outputs for Support Vector Machines*

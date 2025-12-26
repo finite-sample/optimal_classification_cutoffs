@@ -132,9 +132,7 @@ class TestBackwardCompatibility:
         # All these should work as before
         result = optimize_thresholds(y_true, pred_prob)
         result = optimize_thresholds(y_true, pred_prob, metric="accuracy")
-        result = optimize_thresholds(
-            y_true, pred_prob, metric="f1", method="minimize"
-        )
+        result = optimize_thresholds(y_true, pred_prob, metric="f1", method="minimize")
 
         threshold = result.threshold
         assert all(0.0 <= t <= 1.0 for t in [threshold, threshold, threshold])

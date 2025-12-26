@@ -40,7 +40,7 @@ class TestDegenerateCasesFix:
         )
         threshold = result.threshold
 
-        # With '>', optimal threshold should give good accuracy  
+        # With '>', optimal threshold should give good accuracy
         predictions = np.array(pred_prob) > threshold
         accuracy = np.mean(predictions == y_true)
         # Allow for optimization challenges in degenerate cases
@@ -57,7 +57,7 @@ class TestDegenerateCasesFix:
         threshold = result.threshold
 
         # With '>=', optimal threshold should give good accuracy
-        predictions = np.array(pred_prob) >= threshold  
+        predictions = np.array(pred_prob) >= threshold
         accuracy = np.mean(predictions == y_true)
         # Allow for optimization challenges in degenerate cases
         assert accuracy >= 0.5, "Should achieve reasonable accuracy"

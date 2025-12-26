@@ -189,9 +189,7 @@ class TestLongRunningScenarios:
                     start_time = time.time()
                     # Test multiclass optimization if available
                     try:
-                        thresholds = optimize_thresholds(
-                            y_true, pred_prob, metric="f1"
-                        )
+                        thresholds = optimize_thresholds(y_true, pred_prob, metric="f1")
                         end_time = time.time()
 
                         execution_time = end_time - start_time

@@ -80,12 +80,14 @@ class TestExclusiveVsOvRDistinction:
     def test_ovr_can_produce_multilabel_predictions(self):
         """OvR approach can produce multiple positive predictions per sample."""
         # For multilabel, labels should be 2D binary arrays
-        labels = np.array([
-            [1, 1, 0],  # Both class 0 and 1 are positive
-            [0, 1, 1],  # Both class 1 and 2 are positive
-            [0, 0, 1],  # Only class 2
-            [1, 0, 0],  # Only class 0
-        ])
+        labels = np.array(
+            [
+                [1, 1, 0],  # Both class 0 and 1 are positive
+                [0, 1, 1],  # Both class 1 and 2 are positive
+                [0, 0, 1],  # Only class 2
+                [1, 0, 0],  # Only class 0
+            ]
+        )
         probs = np.array(
             [
                 [0.8, 0.7, 0.1],  # Both class 0 and 1 might be predicted

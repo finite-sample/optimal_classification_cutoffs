@@ -17,7 +17,7 @@ def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
 
     Parameters
     ----------
-    labels : array-like
+    labels
         Input labels in {0, 1}
 
     Returns
@@ -28,9 +28,8 @@ def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
     Raises
     ------
     ValueError
-        If labels are not binary or array is invalid
-    TypeError
-        If labels cannot be converted to int8
+        If labels are not binary or array is invalid, contain NaN/inf values,
+        or cannot be converted to int8
     """
     # Handle None input gracefully
     if labels is None:
@@ -42,7 +41,7 @@ def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
         raise ValueError("cannot convert float NaN to integer")
     if np.any(np.isinf(temp_arr)):
         raise ValueError("cannot convert float inf to integer")
-    
+
     # Try conversion to int8, but catch potential overflow/conversion errors
     try:
         arr = np.asarray(labels, dtype=np.int8)
@@ -77,9 +76,9 @@ def validate_multiclass_labels(
 
     Parameters
     ----------
-    labels : array-like
+    labels
         Input labels (non-negative integers)
-    n_classes : int, optional
+    n_classes
         If provided, validate that labels are in [0, n_classes)
 
     Returns
@@ -122,11 +121,11 @@ def validate_probabilities(
 
     Parameters
     ----------
-    probs : array-like
+    probs
         Probabilities or scores
-    binary : bool, default=False
+    binary
         If True, require 1D array
-    require_proba : bool, default=True
+    require_proba
         If True, enforce [0,1] range. If False, allow arbitrary scores.
 
     Returns
@@ -186,9 +185,9 @@ def validate_weights(weights: ArrayLike, n_samples: int) -> NDArray[np.float64]:
 
     Parameters
     ----------
-    weights : array-like
+    weights
         Sample weights (must be non-negative)
-    n_samples : int
+    n_samples
         Expected number of samples
 
     Returns
@@ -235,11 +234,11 @@ def validate_threshold(
 
     Parameters
     ----------
-    threshold : float or array-like
+    threshold
         Threshold(s) to validate
-    n_classes : int, optional
+    n_classes
         For multiclass, expected number of thresholds
-    allow_epsilon_outside : bool, default=False
+    allow_epsilon_outside
         If True, allow values slightly outside [0,1] by floating-point epsilon.
         Used internally for thresholds that are nudged by nextafter().
 
@@ -308,18 +307,18 @@ def validate_binary_classification(
 
     Parameters
     ----------
-    labels : array-like
+    labels
         Binary labels (0 or 1)
-    scores : array-like
+    scores
         Predicted scores/probabilities
-    weights : array-like, optional
+    weights
         Sample weights
-    require_proba : bool, default=True
+    require_proba
         If True, enforce [0,1] range. If False, allow arbitrary scores.
 
     Returns
     -------
-    tuple
+    tuple[NDArray[np.int8], NDArray[np.float64], NDArray[np.float64] | None]
         (labels as int8, scores as float64, weights as float64 or None)
 
     Raises
@@ -354,18 +353,18 @@ def validate_multiclass_classification(
 
     Parameters
     ----------
-    labels : array-like
+    labels
         True class labels (integers)
-    probabilities : array-like
+    probabilities
         Predicted probabilities (1D or 2D)
-    weights : array-like, optional
+    weights
         Sample weights
-    require_proba : bool, default=True
+    require_proba
         If True, enforce [0,1] range. If False, allow arbitrary scores.
 
     Returns
     -------
-    tuple
+    tuple[NDArray[np.int32], NDArray[np.float64], NDArray[np.float64] | None]
         (labels as int32, probabilities as float64, weights as float64 or None)
 
     Raises
@@ -415,7 +414,7 @@ def infer_problem_type(predictions: ArrayLike) -> str:
 
     Parameters
     ----------
-    predictions : array-like
+    predictions
         Predicted probabilities
 
     Returns
@@ -455,13 +454,13 @@ def validate_classification(
 
     Parameters
     ----------
-    labels : array-like
+    labels
         True class labels
-    predictions : array-like
+    predictions
         Predicted probabilities
-    weights : array-like, optional
+    weights
         Sample weights
-    require_proba : bool, default=True
+    require_proba
         If True, enforce [0,1] range. If False, allow arbitrary scores.
 
     Returns
@@ -497,17 +496,17 @@ def validate_inputs(
 
     Parameters
     ----------
-    labels : array-like
+    labels
         True class labels
-    predictions : array-like
+    predictions
         Predicted scores/probabilities
-    weights : array-like, optional
+    weights
         Sample weights
-    require_binary : bool, default=False
+    require_binary
         If True, force binary classification validation
-    allow_multiclass : bool, default=True
+    allow_multiclass
         If False, raise error for multiclass inputs
-    require_proba : bool, default=True
+    require_proba
         If True, enforce [0,1] range. If False, allow arbitrary scores.
 
     Returns
@@ -555,11 +554,11 @@ def validate_choice(value: str, choices: set[str], name: str) -> str:
 
     Parameters
     ----------
-    value : str
+    value
         Value to validate
-    choices : set of str
+    choices
         Valid choices
-    name : str
+    name
         Name of the parameter (for error message)
 
     Returns
@@ -583,7 +582,7 @@ def _validate_metric_name(metric_name: str) -> None:
 
     Parameters
     ----------
-    metric_name : str
+    metric_name
         Name of the metric to validate
 
     Raises
@@ -649,17 +648,17 @@ def _validate_threshold_inputs(
 
     Parameters
     ----------
-    y_true : array-like
+    y_true
         True binary labels
-    pred_proba : array-like
+    pred_proba
         Predicted probabilities or scores
-    threshold : float
+    threshold
         Decision threshold
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights
-    comparison : str, default=">"
+    comparison
         Comparison operator
-    require_proba : bool, default=True
+    require_proba
         Whether to enforce [0,1] probability range
 
     Returns

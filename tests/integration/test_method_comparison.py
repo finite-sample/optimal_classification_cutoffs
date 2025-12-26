@@ -187,9 +187,7 @@ class TestPerformanceCharacteristics:
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         # Should complete without memory issues
-        result = optimize_thresholds(
-            y_true, pred_prob, metric="f1", method="sort_scan"
-        )
+        result = optimize_thresholds(y_true, pred_prob, metric="f1", method="sort_scan")
         threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
@@ -205,9 +203,7 @@ class TestPerformanceCharacteristics:
         pred_prob = np.linspace(0.001, 0.999, n_samples)  # All unique values
 
         start_time = time.time()
-        result = optimize_thresholds(
-            y_true, pred_prob, metric="f1", method="sort_scan"
-        )
+        result = optimize_thresholds(y_true, pred_prob, metric="f1", method="sort_scan")
         end_time = time.time()
 
         threshold = result.threshold

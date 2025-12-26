@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 
 class Task(Enum):
@@ -81,8 +81,15 @@ class OptimizationResult:
                 return f"OptimizationResult(task={self.task.value}, {self.metric}={self.score:.3f})"
 
 
-def infer_task_with_explanation(y_true, y_score) -> tuple[Task, list[str], list[str]]:
+def infer_task_with_explanation(y_true: ArrayLike, y_score: ArrayLike) -> tuple[Task, list[str], list[str]]:
     """Infer task type with detailed explanation.
+
+    Parameters
+    ----------
+    y_true
+        True labels (not currently used for inference, reserved for future)
+    y_score
+        Predicted scores or probabilities used for task inference
 
     Returns
     -------
@@ -92,6 +99,11 @@ def infer_task_with_explanation(y_true, y_score) -> tuple[Task, list[str], list[
         Explanation of inference logic
     warnings : list[str]
         Any assumptions or caveats
+
+    Raises
+    ------
+    ValueError
+        If y_score shape cannot be interpreted for task inference.
     """
     y_score = np.asarray(y_score)
     notes = []
@@ -141,12 +153,26 @@ def select_method_with_explanation(
 ) -> tuple[str, list[str]]:
     """Select optimization method with explanation.
 
+    Parameters
+    ----------
+    task
+        Classification task type
+    metric
+        Metric to optimize
+    n_samples
+        Number of samples (may influence method selection)
+
     Returns
     -------
     method : str
         Selected method name
     notes : list[str]
         Explanation of method selection
+
+    Raises
+    ------
+    ValueError
+        If task type is unknown or not supported.
     """
     notes = []
 
@@ -180,12 +206,24 @@ def select_average_with_explanation(
 ) -> tuple[Average, list[str]]:
     """Select averaging strategy with explanation.
 
+    Parameters
+    ----------
+    task
+        Classification task type
+    metric
+        Metric to optimize
+
     Returns
     -------
     average : Average
         Selected averaging strategy
     notes : list[str]
         Explanation of averaging selection
+
+    Raises
+    ------
+    ValueError
+        If task type is unknown or not supported.
     """
     notes = []
 

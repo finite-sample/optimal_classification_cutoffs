@@ -96,9 +96,7 @@ class TestBasicCrossValidation:
         y_true, y_prob = generate_binary_data(80, random_state=42)
 
         for cv in [3, 5, 10]:
-            thresholds, scores = cross_validate(
-                y_true, y_prob, cv=cv, random_state=42
-            )
+            thresholds, scores = cross_validate(y_true, y_prob, cv=cv, random_state=42)
 
             assert len(thresholds) == cv
             assert len(scores) == cv
@@ -448,12 +446,8 @@ class TestCrossValidationConsistency:
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
         # Run CV twice with same random state
-        thresholds1, scores1 = cross_validate(
-            y_true, y_prob, cv=5, random_state=42
-        )
-        thresholds2, scores2 = cross_validate(
-            y_true, y_prob, cv=5, random_state=42
-        )
+        thresholds1, scores1 = cross_validate(y_true, y_prob, cv=5, random_state=42)
+        thresholds2, scores2 = cross_validate(y_true, y_prob, cv=5, random_state=42)
 
         # Results should be identical
         np.testing.assert_array_equal(thresholds1, thresholds2)
@@ -486,9 +480,7 @@ class TestCrossValidationEdgeCases:
         """Test CV with very small dataset."""
         y_true, y_prob = generate_binary_data(20, random_state=42)
 
-        thresholds, scores = cross_validate(
-            y_true, y_prob, cv=3, random_state=42
-        )
+        thresholds, scores = cross_validate(y_true, y_prob, cv=3, random_state=42)
 
         assert len(thresholds) == 3
         assert len(scores) == 3
@@ -498,9 +490,7 @@ class TestCrossValidationEdgeCases:
         # Use 0.1 ratio (10%) to ensure at least 10 samples per class for 3-fold CV
         y_true, y_prob = generate_binary_data(100, imbalance_ratio=0.1, random_state=42)
 
-        thresholds, scores = cross_validate(
-            y_true, y_prob, cv=3, random_state=42
-        )
+        thresholds, scores = cross_validate(y_true, y_prob, cv=3, random_state=42)
 
         assert len(thresholds) == 3
         assert len(scores) == 3
@@ -517,9 +507,7 @@ class TestCrossValidationPerformance:
 
         start_time = time.time()
 
-        thresholds, scores = cross_validate(
-            y_true, y_prob, cv=5, random_state=42
-        )
+        thresholds, scores = cross_validate(y_true, y_prob, cv=5, random_state=42)
 
         duration = time.time() - start_time
         assert duration < 5.0, f"CV took {duration:.3f}s, too slow"

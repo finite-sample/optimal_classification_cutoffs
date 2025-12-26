@@ -35,16 +35,16 @@ def optimize_f1_binary(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples,)
-        True binary labels in {0, 1}
-    pred_proba : array-like of shape (n_samples,)
-        Predicted probabilities for positive class in [0, 1]
-    beta : float, default=1.0
+    true_labels
+        True binary labels in {0, 1}. Shape: (n_samples,)
+    pred_proba
+        Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
+    beta
         F-beta parameter. beta=1 gives F1 score
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : {">" or ">="}, default=">"
-        Comparison operator for threshold
+    sample_weight
+        Sample weights. Shape: (n_samples,)
+    comparison
+        Comparison operator for threshold. Must be ">" or ">="
 
     Returns
     -------
@@ -137,19 +137,24 @@ def optimize_utility_binary(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples,) or None
-        True binary labels. Can be None for pure Bayes optimization
-    pred_proba : array-like of shape (n_samples,)
-        Predicted probabilities for positive class in [0, 1]
-    utility : dict
+    true_labels
+        True binary labels. Can be None for pure Bayes optimization. Shape: (n_samples,)
+    pred_proba
+        Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
+    utility
         Utility specification with keys "tp", "tn", "fp", "fn"
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights (affects expected utility computation)
+    sample_weight
+        Sample weights (affects expected utility computation). Shape: (n_samples,)
 
     Returns
     -------
     OptimizationResult
         Result with optimal threshold, expected utility, and predict function
+
+    Raises
+    ------
+    ValueError
+        If probabilities are not in the range [0, 1] for utility optimization.
 
     Examples
     --------
@@ -216,29 +221,34 @@ def optimize_metric_binary(
 
     Parameters
     ----------
-    true_labels : array-like of shape (n_samples,)
-        True binary labels in {0, 1}
-    pred_proba : array-like of shape (n_samples,)
-        Predicted probabilities for positive class in [0, 1]
-    metric : str, default="f1"
+    true_labels
+        True binary labels in {0, 1}. Shape: (n_samples,)
+    pred_proba
+        Predicted probabilities for positive class in [0, 1]. Shape: (n_samples,)
+    metric
         Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
-    method : str, default="auto"
+    method
         Optimization method:
         - "auto": Automatically select best method
         - "sort_scan": O(n log n) sort-and-scan (exact for piecewise metrics)
         - "minimize": Scipy optimization
         - "gradient": Simple gradient ascent
-    sample_weight : array-like of shape (n_samples,), optional
-        Sample weights
-    comparison : {">" or ">="}, default=">"
-        Comparison operator for threshold
-    tolerance : float, default=1e-10
+    sample_weight
+        Sample weights. Shape: (n_samples,)
+    comparison
+        Comparison operator for threshold. Must be ">" or ">="
+    tolerance
         Numerical tolerance for optimization
 
     Returns
     -------
     OptimizationResult
         Result with optimal threshold, metric score, and predict function
+
+    Raises
+    ------
+    ValueError
+        If method is unknown or not supported.
 
     Examples
     --------

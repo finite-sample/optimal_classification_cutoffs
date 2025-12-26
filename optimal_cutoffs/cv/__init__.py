@@ -54,17 +54,20 @@ def cross_validate(
     >>> print(f"CV Score: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
     """
     from sklearn.model_selection import KFold, StratifiedKFold
-    
+
     y_true = np.asarray(y_true)
     y_score = np.asarray(y_score)
 
     # Early validation of parameters (in order of priority)
     from ..metrics_core import METRICS
+
     if metric not in METRICS:
-        raise ValueError(f"Unknown metric: '{metric}'. Available metrics: {list(METRICS.keys())}")
+        raise ValueError(
+            f"Unknown metric: '{metric}'. Available metrics: {list(METRICS.keys())}"
+        )
 
     # Choose splitter: stratify by default for classification when possible
-    if hasattr(cv, 'split'):
+    if hasattr(cv, "split"):
         # cv is already a sklearn splitter object
         splitter = cv
     elif y_true.ndim == 1 and len(np.unique(y_true)) > 1:
@@ -74,7 +77,7 @@ def cross_validate(
 
     thresholds = []
     scores = []
-    
+
     for train_idx, test_idx in splitter.split(y_true, y_true):
         y_train, y_test = y_true[train_idx], y_true[test_idx]
         if y_score.ndim == 1:
@@ -85,20 +88,34 @@ def cross_validate(
         # Handle sample weights splitting
         train_kwargs = dict(optimize_kwargs)
         test_kwargs = dict(optimize_kwargs)
-        if "sample_weight" in optimize_kwargs and optimize_kwargs["sample_weight"] is not None:
+        if (
+            "sample_weight" in optimize_kwargs
+            and optimize_kwargs["sample_weight"] is not None
+        ):
             full_weights = np.asarray(optimize_kwargs["sample_weight"])
             train_kwargs["sample_weight"] = full_weights[train_idx]
             test_kwargs["sample_weight"] = full_weights[test_idx]
 
         # Optimize threshold on training set
-        result = optimize_thresholds(y_train, score_train, metric=metric, **train_kwargs)
+        result = optimize_thresholds(
+            y_train, score_train, metric=metric, **train_kwargs
+        )
         from ..core import Task
-        threshold = result.threshold if result.task == Task.BINARY else result.thresholds
-        
+
+        threshold = (
+            result.threshold if result.task == Task.BINARY else result.thresholds
+        )
+
         # Evaluate on test set
-        test_result = optimize_thresholds(y_test, score_test, metric=metric, **test_kwargs)
-        score = test_result.score if test_result.task == Task.BINARY else np.mean(test_result.scores)
-        
+        test_result = optimize_thresholds(
+            y_test, score_test, metric=metric, **test_kwargs
+        )
+        score = (
+            test_result.score
+            if test_result.task == Task.BINARY
+            else np.mean(test_result.scores)
+        )
+
         thresholds.append(threshold)
         scores.append(score)
 
@@ -154,10 +171,14 @@ def nested_cross_validate(
     """
     # Validate CV parameters
     if inner_cv < 2:
-        raise ValueError(f"k-fold cross-validation requires at least one train/test split, got inner_cv={inner_cv}")
+        raise ValueError(
+            f"k-fold cross-validation requires at least one train/test split, got inner_cv={inner_cv}"
+        )
     if outer_cv < 2:
-        raise ValueError(f"k-fold cross-validation requires at least one train/test split, got outer_cv={outer_cv}")
-    
+        raise ValueError(
+            f"k-fold cross-validation requires at least one train/test split, got outer_cv={outer_cv}"
+        )
+
     # For now, implement simple nested CV
     # TODO: Full implementation can be added later if needed
     thresholds, scores = cross_validate(
@@ -174,12 +195,12 @@ def nested_cross_validate(
 
 def _average_threshold_dicts(threshold_dicts: list[dict]) -> dict:
     """Average threshold dictionaries for cross-validation.
-    
+
     Parameters
     ----------
     threshold_dicts : list of dict
         List of threshold dictionaries to average
-        
+
     Returns
     -------
     dict
@@ -187,20 +208,20 @@ def _average_threshold_dicts(threshold_dicts: list[dict]) -> dict:
     """
     if not threshold_dicts:
         return {}
-    
+
     # Get keys from first dictionary
     keys = threshold_dicts[0].keys()
     result = {}
-    
+
     for key in keys:
         values = [d[key] for d in threshold_dicts]
-        
+
         # Handle both scalar and array values
-        if isinstance(values[0], (int, float)):
+        if isinstance(values[0], int | float):
             # Scalar threshold
             result[key] = float(np.mean(values))
         else:
             # Array thresholds
             result[key] = np.mean(values, axis=0)
-    
+
     return result

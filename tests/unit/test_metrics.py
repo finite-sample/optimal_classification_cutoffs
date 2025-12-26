@@ -13,6 +13,7 @@ def confusion_matrix_at_threshold(y_true, y_prob, threshold):
     tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
     return tp, tn, fp, fn
 
+
 # Local tolerance for test precision
 TOLERANCE = 1e-10
 
@@ -37,16 +38,16 @@ def test_metric_registry_and_custom_registration():
     # Test that we can get built-in metrics
     f1_metric = get("f1")
     accuracy_metric = get("accuracy")
-    
+
     assert f1_metric is not None
     assert accuracy_metric is not None
-    
+
     # Test custom metric registration
     def sum_tp_tn(tp, tn, fp, fn):
         return tp + tn
 
     register("sum_tp_tn", sum_tp_tn)
-    
+
     # Test that custom metric was registered
     sum_metric = get("sum_tp_tn")
     assert sum_metric is not None

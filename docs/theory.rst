@@ -237,4 +237,3 @@ References
 .. [Platt1999] Platt, J. (1999). "Probabilistic Outputs for Support Vector Machines and Comparisons to Regularized Likelihood Methods". In *Advances in Large Margin Classifiers*.
 
 .. [ZadroznyCElkan2002] Zadrozny, B. & Elkan, C. (2002). "Transforming classifier scores into accurate multiclass probability estimates". In *Proceedings of the eighth ACM SIGKDD international conference on Knowledge discovery and data mining*.
-

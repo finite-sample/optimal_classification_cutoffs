@@ -96,9 +96,7 @@ class TestCoordinateAscentCore:
         y_true = rng.integers(0, C, size=n)
 
         # Compare coordinate ascent to OvR baseline
-        result0 = optimize_thresholds(
-            y_true, P, metric="f1", method="unique_scan"
-        )
+        result0 = optimize_thresholds(y_true, P, metric="f1", method="unique_scan")
         tau0 = result0.thresholds
 
         y_pred0 = _assign_labels_shifted(P, tau0)
@@ -195,9 +193,7 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Test through main API
-        result = optimize_thresholds(
-            y_true, P, metric="f1", method="coord_ascent"
-        )
+        result = optimize_thresholds(y_true, P, metric="f1", method="coord_ascent")
         tau = result.thresholds
 
         assert len(tau) == C
@@ -224,9 +220,7 @@ class TestCoordinateAscentIntegration:
 
         # Only F1 metric supported currently
         with pytest.raises(NotImplementedError, match="supports 'f1' metric only"):
-            optimize_thresholds(
-                y_true, P, metric="accuracy", method="coord_ascent"
-            )
+            optimize_thresholds(y_true, P, metric="accuracy", method="coord_ascent")
 
     def test_coordinate_ascent_direct_api(self):
         """Test coordinate ascent through direct API."""
@@ -236,9 +230,7 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Test through direct API instead of removed wrapper
-        result = optimize_thresholds(
-            y_true, P, metric="f1", method="coord_ascent"
-        )
+        result = optimize_thresholds(y_true, P, metric="f1", method="coord_ascent")
         thresholds = result.thresholds
 
         # Check that thresholds were learned
@@ -280,9 +272,7 @@ class TestCoordinateAscentPerformance:
             P[i] /= P[i].sum()  # Renormalize
 
         # Compare OvR vs coordinate ascent
-        result_ovr = optimize_thresholds(
-            y_true, P, metric="f1", method="unique_scan"
-        )
+        result_ovr = optimize_thresholds(y_true, P, metric="f1", method="unique_scan")
         tau_ovr = result_ovr.thresholds
         y_pred_ovr = _assign_labels_shifted(P, tau_ovr)
         macro_f1_ovr = float(

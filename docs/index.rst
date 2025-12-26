@@ -10,7 +10,7 @@ Most classifiers output probabilities, but decisions need thresholds. The defaul
 **API 2.0.0 Features:**
 
 * **🎯 Clean API** - 2 core functions, progressive disclosure design
-* **⚡ Auto-selection** - intelligent algorithm + task detection with explanations  
+* **⚡ Auto-selection** - intelligent algorithm + task detection with explanations
 * **🚀 O(n log n) optimization** - exact solutions for piecewise metrics
 * **💰 Cost-matrix decisions** - Bayes-optimal without thresholds
 * **🔧 Namespaced power tools** - metrics/, cv/, bayes/, algorithms/

@@ -265,9 +265,7 @@ class TestCoordinateAscent:
         """Test basic coordinate ascent functionality."""
         y_true, y_prob = generate_multiclass_data(40, n_classes=3, random_state=42)
 
-        result = optimize_thresholds(
-            y_true, y_prob, method="coord_ascent", metric="f1"
-        )
+        result = optimize_thresholds(y_true, y_prob, method="coord_ascent", metric="f1")
 
         thresholds = result.thresholds
         assert len(thresholds) == 3
@@ -322,9 +320,7 @@ class TestCoordinateAscent:
         """Test that coordinate ascent produces single-label predictions."""
         y_true, y_prob = generate_multiclass_data(40, n_classes=3, random_state=42)
 
-        result = optimize_thresholds(
-            y_true, y_prob, method="coord_ascent", metric="f1"
-        )
+        result = optimize_thresholds(y_true, y_prob, method="coord_ascent", metric="f1")
         thresholds = result.thresholds
 
         # Test prediction logic (simplified version)
@@ -398,9 +394,7 @@ class TestMulticlassWithWeights:
         y_true, y_prob = generate_multiclass_data(40, n_classes=3, random_state=42)
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
-        result = optimize_thresholds(
-            y_true, y_prob, metric="f1", sample_weight=weights
-        )
+        result = optimize_thresholds(y_true, y_prob, metric="f1", sample_weight=weights)
 
         thresholds = result.thresholds
         assert len(thresholds) == 3
@@ -448,9 +442,7 @@ class TestMulticlassWithWeights:
         # Expansion approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(pred_prob, weights, axis=0)
-        result_expanded = optimize_thresholds(
-            y_expanded, p_expanded, metric="accuracy"
-        )
+        result_expanded = optimize_thresholds(y_expanded, p_expanded, metric="accuracy")
         thresholds_expanded = result_expanded.thresholds
 
         # Should be nearly identical

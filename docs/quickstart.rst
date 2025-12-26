@@ -67,7 +67,7 @@ For multiclass problems, the library automatically detects the problem type and 
    result = optimize_thresholds(y_true, y_prob, metric='f1')
    print(f"Optimal thresholds per class: {result.thresholds}")
    print(f"Task detected: {result.task.value}")
-   
+
    # Make predictions
    predictions = result.predict(y_prob)
 
@@ -102,7 +102,7 @@ API 2.0.0 uses progressive disclosure - simple for basic use, powerful when need
    print(f"Optimal threshold: {result.threshold:.3f}")
    print(f"Test accuracy: {np.mean(y_pred == y_test):.3f}")
    print(f"Method used: {result.method}")
-   
+
    # Advanced: Cross-validation with threshold tuning
    cv_scores = cv.cross_validate(clf, X, y, metric='f1')
 
@@ -121,7 +121,7 @@ The library provides several optimization methods:
 
    # Scipy-based continuous optimization
    result = optimize_thresholds(y_true, y_prob, metric='f1', method='minimize')
-   
+
    # Explainable auto-selection
    print(f"Method selected: {result.method}")
    print(f"Reasoning: {result.notes}")
@@ -134,12 +134,12 @@ For applications where different types of errors have different costs:
 .. code-block:: python
 
    from optimal_cutoffs import optimize_decisions, bayes
-   
+
    # Option 1: Use cost matrix (no thresholds needed)
    cost_matrix = [[0, 1], [5, 0]]  # FN costs 5x more than FP
    result = optimize_decisions(y_prob, cost_matrix)
    predictions = result.predict(y_prob)
-   
+
    # Option 2: Bayes-optimal threshold calculation
    threshold = bayes.threshold(cost_fp=1.0, cost_fn=5.0)
    print(f"Bayes-optimal threshold: {threshold:.3f}")  # = 1/(1+5) = 0.167

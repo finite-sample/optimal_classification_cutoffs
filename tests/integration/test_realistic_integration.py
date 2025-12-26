@@ -117,9 +117,7 @@ class TestRealisticBinaryOptimization:
         y_true, y_prob = CALIBRATED_BINARY.y_true, CALIBRATED_BINARY.y_prob
 
         # Empirical optimization
-        result_emp = optimize_thresholds(
-            y_true, y_prob, metric="f1", mode="empirical"
-        )
+        result_emp = optimize_thresholds(y_true, y_prob, metric="f1", mode="empirical")
         threshold_emp = result_emp.threshold
 
         # Expected optimization
@@ -155,9 +153,7 @@ class TestRealisticBinaryOptimization:
         y_true, y_prob = STANDARD_BINARY.y_true, STANDARD_BINARY.y_prob
 
         result_excl = optimize_thresholds(y_true, y_prob, metric="f1", comparison=">")
-        result_incl = optimize_thresholds(
-            y_true, y_prob, metric="f1", comparison=">="
-        )
+        result_incl = optimize_thresholds(y_true, y_prob, metric="f1", comparison=">=")
         threshold_excl = result_excl.threshold
         threshold_incl = result_incl.threshold
 
@@ -285,12 +281,8 @@ class TestRealisticMulticlassOptimization:
         n_classes = IMBALANCED_MULTICLASS.n_classes
 
         # Macro and micro averaging should give different results
-        result_macro = optimize_thresholds(
-            y_true, y_prob, metric="f1", average="macro"
-        )
-        result_micro = optimize_thresholds(
-            y_true, y_prob, metric="f1", average="micro"
-        )
+        result_macro = optimize_thresholds(y_true, y_prob, metric="f1", average="macro")
+        result_micro = optimize_thresholds(y_true, y_prob, metric="f1", average="micro")
 
         thresholds_macro = result_macro.thresholds
         assert len(thresholds_macro) == n_classes
@@ -385,9 +377,7 @@ class TestRealisticUtilityOptimization:
         threshold_emp = result_emp.threshold
 
         # Bayes optimization (doesn't need true labels)
-        result_bayes = optimize_thresholds(
-            None, y_prob, utility=utility, mode="bayes"
-        )
+        result_bayes = optimize_thresholds(None, y_prob, utility=utility, mode="bayes")
         threshold_bayes = result_bayes.threshold
 
         # On well-calibrated data, they should be reasonably close

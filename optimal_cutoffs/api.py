@@ -39,30 +39,45 @@ def optimize_thresholds(
 
     Parameters
     ----------
-    y_true : array-like
+    y_true
         True labels
-    y_score : array-like
+    y_score
         Predicted scores/probabilities
         - Binary: 1D array of scores
         - Multiclass: 2D array (n_samples, n_classes)
         - Multilabel: 2D array (n_samples, n_labels)
-    metric : str, default="f1"
+    metric
         Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
-    task : Task, default=Task.AUTO
+    task
         Problem type. AUTO infers from data shape and probability sums.
-    average : Average, default=Average.AUTO
+    average
         Averaging strategy for multiclass/multilabel. AUTO selects sensible default.
-    method : str, default="auto"
+    method
         Optimization algorithm. AUTO selects best method per task+metric.
-    mode : str, default="empirical"
+    mode
         "empirical" (standard) or "expected" (requires calibrated probabilities)
-    sample_weight : array-like, optional
+    sample_weight
         Sample weights
+    **kwargs
+        Additional keyword arguments passed to optimization algorithms.
+        Common options include 'comparison' (">", ">="), 'tolerance', 'utility'.
 
     Returns
     -------
     OptimizationResult
         Result with .thresholds, .predict(), and explanation of auto-selections
+
+    Raises
+    ------
+    TypeError
+        If 'bayes' is passed as a keyword argument (deprecated).
+    ValueError
+        If mode='bayes' requires utility parameter but none provided.
+        If comparison operator is not '>' or '>='.
+        If mode='expected' with unsupported metric.
+        If method is deprecated ('dinkelbach', 'smart_brute').
+        If unknown metric name is provided.
+        If true_labels required for empirical mode but not provided.
 
     Examples
     --------
@@ -86,47 +101,57 @@ def optimize_thresholds(
     # Early validation for mode-specific requirements
     if mode == "bayes" and "utility" not in kwargs:
         raise ValueError("mode='bayes' requires utility parameter")
-    
+
     # Check for deprecated parameters
     if "bayes" in kwargs:
-        raise TypeError("optimize_thresholds() got an unexpected keyword argument 'bayes'")
-    
+        raise TypeError(
+            "optimize_thresholds() got an unexpected keyword argument 'bayes'"
+        )
+
     # Validate comparison operator
     if "comparison" in kwargs and kwargs["comparison"] not in [">", ">="]:
-        raise ValueError(f"Invalid comparison operator: {kwargs['comparison']}. Must be '>' or '>='")
-    
+        raise ValueError(
+            f"Invalid comparison operator: {kwargs['comparison']}. Must be '>' or '>='"
+        )
+
     # Validate expected mode requirements
     if mode == "expected" and metric not in ["f1", "fbeta"]:
         raise ValueError("mode='expected' currently supports F-beta only")
-    
+
     # Handle deprecated method mappings
     method_mappings = {
-        "unique_scan": "sort_scan",    # Map deprecated unique_scan to sort_scan
+        "unique_scan": "sort_scan",  # Map deprecated unique_scan to sort_scan
     }
     if method in method_mappings:
         method = method_mappings[method]
-    
+
     # Validate deprecated/invalid methods
-    deprecated_methods = ["dinkelbach", "smart_brute"]  # Reject these deprecated methods
+    deprecated_methods = [
+        "dinkelbach",
+        "smart_brute",
+    ]  # Reject these deprecated methods
     if method in deprecated_methods:
         raise ValueError(f"Invalid optimization method: '{method}' is deprecated")
-    
+
     # Validate metric exists
     from .metrics_core import METRICS
+
     if metric not in METRICS:
-        raise ValueError(f"Unknown metric: '{metric}'. Available metrics: {list(METRICS.keys())}")
-    
+        raise ValueError(
+            f"Unknown metric: '{metric}'. Available metrics: {list(METRICS.keys())}"
+        )
+
     # Convert string parameters to proper enums
     if isinstance(task, str):
         task = Task(task.lower())
     if isinstance(average, str):
         average = Average(average.lower())
-    
+
     # Check that empirical mode has true labels
     if mode == "empirical" and y_true is None:
         raise ValueError("true_labels required for empirical optimization")
-    
-    # For Bayes and Expected modes, y_true is not needed 
+
+    # For Bayes and Expected modes, y_true is not needed
     # Handle None inputs gracefully for these cases
     if (mode == "bayes" or mode == "expected") and y_true is None:
         # Create dummy y_true for downstream processing
@@ -136,7 +161,7 @@ def optimize_thresholds(
         # Convert inputs normally
         y_true = np.asarray(y_true)
         y_score = np.asarray(y_score)
-    
+
     if sample_weight is not None:
         sample_weight = np.asarray(sample_weight)
 
@@ -180,11 +205,17 @@ def optimize_thresholds(
 
     # 4. Handle auto method selection edge cases
     final_method = inferred_method
-    if (method == "auto" and inferred_method == "coord_ascent" and 
-        inferred_task == Task.MULTICLASS and kwargs.get("comparison", ">") == ">="):
+    if (
+        method == "auto"
+        and inferred_method == "coord_ascent"
+        and inferred_task == Task.MULTICLASS
+        and kwargs.get("comparison", ">") == ">="
+    ):
         # Auto-selected coord_ascent but comparison=">=" provided, fall back to independent
         final_method = "independent"
-        all_notes.append("Switched from coord_ascent to independent due to comparison='>=' requirement")
+        all_notes.append(
+            "Switched from coord_ascent to independent due to comparison='>=' requirement"
+        )
 
     # Route to appropriate implementation
     result = _route_to_implementation(
@@ -222,11 +253,13 @@ def optimize_decisions(
 
     Parameters
     ----------
-    y_prob : array-like
+    y_prob
         Predicted probabilities (n_samples, n_classes)
-    cost_matrix : array-like
+    cost_matrix
         Cost matrix (n_classes, n_actions) or (n_classes, n_classes)
         cost_matrix[i, j] = cost of predicting action j when true class is i
+    **kwargs
+        Additional keyword arguments passed to the Bayes optimal decision function.
 
     Returns
     -------
@@ -317,48 +350,57 @@ def _optimize_binary(
         from .expected import dinkelbach_expected_fbeta_binary
 
         return dinkelbach_expected_fbeta_binary(y_score, **kwargs)
-    
+
     if mode == "bayes":
         from .bayes import threshold as bayes_threshold
         from .core import OptimizationResult, Task
-        
+
         # Extract costs from utility dictionary
         utility = kwargs.get("utility", {})
-        cost_fp = -utility.get("fp", 0)  # Convert from utility (negative cost) to positive cost
-        cost_fn = -utility.get("fn", 0)  # Convert from utility (negative cost) to positive cost
-        
+        cost_fp = -utility.get(
+            "fp", 0
+        )  # Convert from utility (negative cost) to positive cost
+        cost_fn = -utility.get(
+            "fn", 0
+        )  # Convert from utility (negative cost) to positive cost
+
         # Compute Bayes optimal threshold
         optimal_thresh = bayes_threshold(cost_fp=cost_fp, cost_fn=cost_fn)
-        
+
         # Return OptimizationResult format
         def predict_fn(scores):
             return (scores >= optimal_thresh).astype(int)
-        
+
         return OptimizationResult(
             thresholds=np.array([optimal_thresh]),
             scores=np.array([np.nan]),  # Bayes optimization doesn't produce a score
             predict=predict_fn,
-            task=Task.BINARY
+            task=Task.BINARY,
         )
 
     # Empirical mode
     # Check if utility-based optimization is requested
     if "utility" in kwargs:
         from .binary import optimize_utility_binary
+
         return optimize_utility_binary(
             y_true, y_score, utility=kwargs["utility"], sample_weight=sample_weight
         )
-    
+
     match method:
         case "sort_scan":
             from .piecewise import optimal_threshold_sortscan
 
             # Convert comparison parameter to inclusive for sort_scan method
             inclusive = kwargs.pop("comparison", ">") == ">="
-            
+
             return optimal_threshold_sortscan(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, 
-                inclusive=inclusive, **kwargs
+                y_true,
+                y_score,
+                metric=metric,
+                sample_weight=sample_weight,
+                inclusive=inclusive,
+                **kwargs,
             )
 
         case "minimize":
@@ -386,7 +428,9 @@ def _optimize_binary(
             )
 
         case _:
-            raise ValueError(f"Invalid optimization method: '{method}' is not supported for binary classification")
+            raise ValueError(
+                f"Invalid optimization method: '{method}' is not supported for binary classification"
+            )
 
 
 def _optimize_multiclass(
@@ -404,9 +448,13 @@ def _optimize_multiclass(
 
     if mode == "expected":
         from .expected import expected_optimize_multiclass
-        
+
         return expected_optimize_multiclass(
-            y_score, metric=metric, average=average, sample_weight=sample_weight, **kwargs
+            y_score,
+            metric=metric,
+            average=average,
+            sample_weight=sample_weight,
+            **kwargs,
         )
 
     # Empirical mode
@@ -417,8 +465,13 @@ def _optimize_multiclass(
                 raise NotImplementedError("'>' is required for coord_ascent method")
             else:
                 from .multiclass import optimize_ovr_margin
+
                 return optimize_ovr_margin(
-                    y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                    y_true,
+                    y_score,
+                    metric=metric,
+                    sample_weight=sample_weight,
+                    **kwargs,
                 )
 
         case "independent":
@@ -438,11 +491,11 @@ def _optimize_multiclass(
         case "sort_scan":
             # For multiclass, sort_scan should route to appropriate OvR method
             from .multiclass import optimize_ovr_independent
-            
+
             return optimize_ovr_independent(
                 y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
             )
-        
+
         case "minimize":
             # minimize method for multiclass routes to independent optimization
             from .multiclass import optimize_ovr_independent
@@ -450,9 +503,11 @@ def _optimize_multiclass(
             return optimize_ovr_independent(
                 y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
             )
-        
+
         case _:
-            raise ValueError(f"Invalid optimization method: '{method}' is not supported for multiclass classification")
+            raise ValueError(
+                f"Invalid optimization method: '{method}' is not supported for multiclass classification"
+            )
 
 
 def _optimize_multilabel(

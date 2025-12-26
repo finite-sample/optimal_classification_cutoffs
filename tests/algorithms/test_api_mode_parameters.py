@@ -150,9 +150,7 @@ class TestMethodEquivalence:
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
-        result = optimize_thresholds(
-            y_true, y_prob, metric="f1", method="sort_scan"
-        )
+        result = optimize_thresholds(y_true, y_prob, metric="f1", method="sort_scan")
 
         result2 = optimize_thresholds(y_true, y_prob, metric="f1", method="sort_scan")
 
@@ -253,9 +251,7 @@ class TestGoldenTests:
         y_true = np.array([0, 0, 1, 1, 0, 1, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.7, 0.8, 0.2, 0.9, 0.15, 0.85])
 
-        result = optimize_thresholds(
-            y_true, y_prob, metric="f1", method="sort_scan"
-        )
+        result = optimize_thresholds(y_true, y_prob, metric="f1", method="sort_scan")
 
         result2 = optimize_thresholds(y_true, y_prob, metric="f1", method="minimize")
 

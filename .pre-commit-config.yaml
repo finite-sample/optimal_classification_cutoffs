@@ -15,3 +15,12 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
       - id: check-merge-conflict
+
+# Pydoclint is configured for manual use - run via: uv run pydoclint optimal_cutoffs/
+# Commented out from pre-commit to allow baseline workflow for gradual improvement
+#  - repo: https://github.com/jsh9/pydoclint
+#    rev: 0.5.9
+#    hooks:
+#      - id: pydoclint
+#        args: [--style=numpy, --check-return-types=false, --check-arg-order=false]
+#        files: ^optimal_cutoffs/

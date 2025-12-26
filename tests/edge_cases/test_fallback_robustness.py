@@ -148,9 +148,7 @@ class TestOptimizationMethodFallbacks:
 
         for method in methods:
             try:
-                result = optimize_thresholds(
-                    y_true, y_prob, metric="f1", method=method
-                )
+                result = optimize_thresholds(y_true, y_prob, metric="f1", method=method)
                 threshold = result.threshold
                 score = result.score
                 assert_valid_threshold(threshold)

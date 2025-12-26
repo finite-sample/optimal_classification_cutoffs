@@ -12,7 +12,7 @@ Interactive Notebooks
 .. toctree::
    :maxdepth: 1
    :caption: Notebook Examples
-   
+
    examples/01_quickstart
    examples/02_business_value
    examples/03_multiclass
@@ -25,7 +25,7 @@ For the best learning experience, follow this order:
 
 1. **Quickstart** → See immediate 40%+ improvements with minimal code
 2. **Business Value** → Understand cost-sensitive optimization for real ROI
-3. **Multiclass** → Master advanced multiclass threshold strategies  
+3. **Multiclass** → Master advanced multiclass threshold strategies
 4. **Interactive Demo** → Explore mathematical foundations interactively
 
 Each example builds on the previous ones while being self-contained enough to run independently.
@@ -66,7 +66,7 @@ What You'll Learn
 **Real-World Applications:**
 
 - Fraud detection with cost-sensitive optimization
-- Medical diagnosis with asymmetric error costs  
+- Medical diagnosis with asymmetric error costs
 - Document classification with multiclass strategies
 - A/B testing with threshold validation
 - Business ROI calculation from model improvements

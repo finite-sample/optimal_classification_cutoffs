@@ -58,9 +58,9 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- nbsphinx configuration --------------------------------------------------
-nbsphinx_execute = 'always'  # Force execution of notebooks
+nbsphinx_execute = "always"  # Force execution of notebooks
 nbsphinx_allow_errors = True  # Allow errors during execution for debugging
-nbsphinx_kernel_name = 'python3'
+nbsphinx_kernel_name = "python3"
 nbsphinx_timeout = 600  # 10 minute timeout for notebook execution
 nbsphinx_execute_arguments = [
     "--InlineBackend.figure_formats={'svg', 'pdf'}",

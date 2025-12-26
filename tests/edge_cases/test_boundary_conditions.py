@@ -248,9 +248,7 @@ class TestScalingLimits:
 
         y_true, y_prob = generate_binary_data(10000, random_state=42)
 
-        result = optimize_thresholds(
-            y_true, y_prob, metric="f1", method="sort_scan"
-        )
+        result = optimize_thresholds(y_true, y_prob, metric="f1", method="sort_scan")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 

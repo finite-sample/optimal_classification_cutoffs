@@ -112,9 +112,7 @@ class TestSampleWeights:
         y_true, y_prob = generate_binary_data(30, random_state=42)
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
-        result = optimize_thresholds(
-            y_true, y_prob, metric="f1", sample_weight=weights
-        )
+        result = optimize_thresholds(y_true, y_prob, metric="f1", sample_weight=weights)
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -139,9 +137,7 @@ class TestSampleWeights:
         # Expansion approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(y_prob, weights)
-        result_expanded = optimize_thresholds(
-            y_expanded, p_expanded, metric="accuracy"
-        )
+        result_expanded = optimize_thresholds(y_expanded, p_expanded, metric="accuracy")
         threshold_expanded = result_expanded.threshold
 
         # Should be nearly identical
@@ -298,9 +294,7 @@ class TestImbalancedData:
         weights = np.ones(len(y_true))
         weights[y_true == 1] *= 5.0  # Upweight positive class
 
-        result = optimize_thresholds(
-            y_true, y_prob, metric="f1", sample_weight=weights
-        )
+        result = optimize_thresholds(y_true, y_prob, metric="f1", sample_weight=weights)
         threshold = result.threshold
         assert_valid_threshold(threshold)
 

@@ -7,23 +7,26 @@ from optimal_cutoffs.metrics import get
 from optimal_cutoffs.metrics_core import multiclass_metric_ovr
 
 
-def multiclass_confusion_matrices_at_thresholds(y_true, y_prob, thresholds, sample_weight=None):
+def multiclass_confusion_matrices_at_thresholds(
+    y_true, y_prob, thresholds, sample_weight=None
+):
     """Helper function to compute per-class confusion matrices for multiclass OvR."""
     from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold
+
     n_classes = y_prob.shape[1]
     cms = []
-    
+
     for class_idx in range(n_classes):
         # One-vs-Rest for this class
         y_true_binary = (y_true == class_idx).astype(int)
         y_prob_class = y_prob[:, class_idx]
         threshold = thresholds[class_idx]
-        
+
         tp, tn, fp, fn = confusion_matrix_at_threshold(
             y_true_binary, y_prob_class, threshold, sample_weight
         )
         cms.append((tp, tn, fp, fn))
-        
+
     return cms
 
 

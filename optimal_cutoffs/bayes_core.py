@@ -44,15 +44,17 @@ class UtilitySpec:
     @classmethod
     def from_dict(cls, utility_dict: dict[str, float]) -> Self:
         """Create from dictionary with keys 'tp', 'tn', 'fp', 'fn'.
-        
+
         Missing keys default to 0.0.
         """
         valid_keys = {"tp", "tn", "fp", "fn"}
-        
+
         # Check for unknown keys
         unknown_keys = set(utility_dict.keys()) - valid_keys
         if unknown_keys:
-            raise ValueError(f"Unknown utility keys: {unknown_keys}. Valid keys: {valid_keys}")
+            raise ValueError(
+                f"Unknown utility keys: {unknown_keys}. Valid keys: {valid_keys}"
+            )
 
         # Use defaults for missing keys
         defaults = {"tp": 0.0, "tn": 0.0, "fp": 0.0, "fn": 0.0}
