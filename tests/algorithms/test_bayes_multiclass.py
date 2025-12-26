@@ -3,9 +3,8 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs import optimize_decisions
-from optimal_cutoffs.bayes import threshold, thresholds_from_costs, policy
+from optimal_cutoffs import optimize_decisions, optimize_thresholds
+from optimal_cutoffs.bayes import threshold, thresholds_from_costs
 
 
 class TestBayesDecisionFromUtilityMatrix:
@@ -258,7 +257,7 @@ class TestBayesEdgeCases:
 
         # Should be very low threshold (almost always predict positive)
         expected = 1.0 / 1001.0
-        assert abs(threshold - expected) < 1e-10
+        assert abs(result_threshold - expected) < 1e-10
 
         # Very high FP cost relative to FN cost
         fp_cost = 1000.0
@@ -268,7 +267,7 @@ class TestBayesEdgeCases:
 
         # Should be very high threshold (almost never predict positive)
         expected = 1000.0 / 1001.0
-        assert abs(threshold - expected) < 1e-10
+        assert abs(result_threshold - expected) < 1e-10
 
     def test_utility_matrix_validation(self):
         """Test utility matrix validation."""

@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.cv import cross_validate, nested_cross_validate
 from optimal_cutoffs.bayes import threshold as bayes_threshold
+from optimal_cutoffs.cv import cross_validate, nested_cross_validate
 
 
 class TestModeParameter:

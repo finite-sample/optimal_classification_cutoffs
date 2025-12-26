@@ -3,7 +3,7 @@ import pytest
 from sklearn.metrics import confusion_matrix
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.metrics import get, register, list_available
+from optimal_cutoffs.metrics import get, register
 
 
 def confusion_matrix_at_threshold(y_true, y_prob, threshold):

@@ -2,9 +2,9 @@
 
 import numpy as np
 import pytest
+from sklearn.metrics import confusion_matrix
 
 from optimal_cutoffs import optimize_thresholds
-from sklearn.metrics import confusion_matrix
 
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 
