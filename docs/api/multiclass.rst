@@ -33,7 +33,7 @@ The default multiclass strategy treats each class independently:
    ])
 
    # Returns array of per-class thresholds
-   thresholds = get_optimal_threshold(y_true, y_prob, metric='f1')
+   thresholds = optimize_thresholds(y_true, y_prob, metric='f1')
 
 Coordinate Ascent (Advanced)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -43,7 +43,7 @@ For single-label consistency, use coordinate ascent optimization:
 .. code-block:: python
 
    # Coordinate ascent ensures exactly one prediction per sample
-   thresholds = get_optimal_threshold(
+   thresholds = optimize_thresholds(
        y_true, y_prob,
        metric='f1',
        method='coord_ascent'
@@ -82,7 +82,7 @@ Macro Averaging (Default)
 .. code-block:: python
 
    # Equal weight to all classes
-   thresholds = get_optimal_threshold(
+   thresholds = optimize_thresholds(
        y_true, y_prob,
        metric='f1',
        average='macro'
@@ -96,7 +96,7 @@ Micro Averaging
    # Pool all samples together (treats all samples equally)
    # Note: Only supported for some metrics
    try:
-       thresholds = get_optimal_threshold(
+       thresholds = optimize_thresholds(
            y_true, y_prob,
            metric='f1',
            average='micro'
@@ -110,7 +110,7 @@ Weighted Averaging
 .. code-block:: python
 
    # Weight by class frequency
-   thresholds = get_optimal_threshold(
+   thresholds = optimize_thresholds(
        y_true, y_prob,
        metric='f1',
        average='weighted'
@@ -167,7 +167,7 @@ Class Imbalance Handling
    # Compute sample weights to handle imbalance
    sample_weights = compute_sample_weight('balanced', y_true)
 
-   thresholds = get_optimal_threshold(
+   thresholds = optimize_thresholds(
        y_true, y_prob,
        metric='f1',
        sample_weight=sample_weights
@@ -193,11 +193,11 @@ Custom Class Costs
        # Apply class-specific costs
        class_costs = {"fp": -1.0, "fn": -5.0}  # Customize per class
 
-       threshold = get_optimal_threshold(
+       result = optimize_thresholds(
            y_binary, y_prob_binary,
            utility=class_costs
        )
-       custom_thresholds.append(threshold)
+       custom_thresholds.append(result.thresholds[0])
 
 Performance Considerations
 -------------------------
@@ -226,7 +226,7 @@ For large problems, consider:
            batch_true = y_true[start_idx:end_idx]
            batch_prob = y_prob[start_idx:end_idx]
 
-           thresholds = get_optimal_threshold(batch_true, batch_prob, metric='f1')
+           thresholds = optimize_thresholds(batch_true, batch_prob, metric='f1')
            all_thresholds.append(thresholds)
 
        # Combine results (example: median)
@@ -244,7 +244,7 @@ For multiclass problems:
 .. code-block:: python
 
    # Fast optimization for large multiclass datasets
-   thresholds = get_optimal_threshold(
+   thresholds = optimize_thresholds(
        y_true, y_prob,
        metric='f1',
        method='auto',  # Automatically selects best method

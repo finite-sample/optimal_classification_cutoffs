@@ -8,8 +8,8 @@ Overview
 
 The main entry points are:
 
-* :func:`~optimal_cutoffs.optimizers.get_optimal_threshold` - Core optimization function for binary and multiclass problems
-* :func:`~optimal_cutoffs.cv.cv_threshold_optimization` - Cross-validation utilities
+* :func:`~optimal_cutoffs.api.optimize_thresholds` - Core optimization function for binary and multiclass problems
+* :func:`~optimal_cutoffs.cv.cross_validate` - Cross-validation utilities
 
 Core Functions
 --------------
@@ -52,12 +52,3 @@ Specialized functionality for multiclass classification:
 
    multiclass
 
-Type Definitions
-----------------
-
-Type hints and protocols used throughout the library:
-
-.. automodule:: optimal_cutoffs.types
-   :members:
-   :undoc-members:
-   :show-inheritance:

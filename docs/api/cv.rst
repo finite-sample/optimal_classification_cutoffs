@@ -6,9 +6,9 @@ The cv module provides functions for robust threshold estimation using cross-val
 Cross-Validation Functions
 --------------------------
 
-.. autofunction:: optimal_cutoffs.cv.cv_threshold_optimization
+.. autofunction:: optimal_cutoffs.cv.cross_validate
 
-.. autofunction:: optimal_cutoffs.cv.nested_cv_threshold_optimization
+.. autofunction:: optimal_cutoffs.cv.nested_cross_validate
 
 Usage Examples
 --------------
@@ -18,7 +18,7 @@ Basic Cross-Validation
 
 .. code-block:: python
 
-   from optimal_cutoffs import cv_threshold_optimization
+   from optimal_cutoffs import cv
    import numpy as np
 
    # Your data
@@ -26,7 +26,7 @@ Basic Cross-Validation
    y_prob = np.random.uniform(0, 1, 1000)
 
    # 5-fold cross-validation
-   thresholds, scores = cv_threshold_optimization(
+   thresholds, scores = cv.cross_validate(
        y_true, y_prob,
        metric='f1',
        cv=5,
@@ -47,7 +47,7 @@ Stratified Cross-Validation
    # Use stratified splits for imbalanced data
    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-   thresholds, scores = cv_threshold_optimization(
+   thresholds, scores = cv.cross_validate(
        y_true, y_prob,
        metric='f1',
        cv=cv,  # Pass custom CV splitter
@@ -59,10 +59,10 @@ Nested Cross-Validation
 
 .. code-block:: python
 
-   from optimal_cutoffs import nested_cv_threshold_optimization
+   from optimal_cutoffs import cv
 
    # Nested CV for unbiased performance estimation
-   outer_scores, inner_results = nested_cv_threshold_optimization(
+   outer_scores, inner_results = cv.nested_cross_validate(
        y_true, y_prob,
        metric='f1',
        outer_cv=5,
@@ -83,11 +83,11 @@ Custom Cross-Validation
    # Time series cross-validation
    tscv = TimeSeriesSplit(n_splits=5)
 
-   thresholds, scores = cv_threshold_optimization(
+   thresholds, scores = cv.cross_validate(
        y_true, y_prob,
        metric='precision',
        cv=tscv,
-       method='smart_brute'
+       method='sort_scan'
    )
 
 With Sample Weights
@@ -98,7 +98,7 @@ With Sample Weights
    # Sample weights for imbalanced data
    sample_weights = np.where(y_true == 1, 0.5, 2.0)  # Upweight minority class
 
-   thresholds, scores = cv_threshold_optimization(
+   thresholds, scores = cv.cross_validate(
        y_true, y_prob,
        metric='f1',
        cv=5,
@@ -115,7 +115,7 @@ Multiclass Cross-Validation
    y_prob_mc = np.random.dirichlet([1, 1, 1], 1000)  # 3 classes
 
    # Returns list of threshold arrays (one per fold)
-   thresholds_list, scores = cv_threshold_optimization(
+   thresholds_list, scores = cv.cross_validate(
        y_true_mc, y_prob_mc,
        metric='f1',
        cv=5,
@@ -130,7 +130,7 @@ Best Practices
 --------------
 
 Choosing CV Strategy
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 * **Balanced data**: Use standard ``KFold`` or ``cv=5``
 * **Imbalanced data**: Use ``StratifiedKFold`` to preserve class ratios
@@ -138,12 +138,12 @@ Choosing CV Strategy
 * **Small datasets**: Use ``LeaveOneOut`` or higher k in k-fold
 
 Threshold Aggregation
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    # Multiple strategies for combining CV thresholds
-   thresholds, scores = cv_threshold_optimization(y_true, y_prob, metric='f1', cv=10)
+   thresholds, scores = cv.cross_validate(y_true, y_prob, metric='f1', cv=10)
 
    # Different aggregation methods
    mean_threshold = np.mean(thresholds)
@@ -158,14 +158,14 @@ Threshold Aggregation
    best_threshold = thresholds[best_idx]
 
 Uncertainty Quantification
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    # Bootstrap confidence intervals
    from scipy import stats
 
-   thresholds, scores = cv_threshold_optimization(y_true, y_prob, metric='f1', cv=10)
+   thresholds, scores = cv.cross_validate(y_true, y_prob, metric='f1', cv=10)
 
    # 95% confidence interval for threshold
    threshold_mean = np.mean(thresholds)

@@ -65,8 +65,8 @@ Built-in metrics include:
    # Compare thresholds for different metrics
    metrics = ['f1', 'accuracy', 'precision', 'recall']
    for metric in metrics:
-       threshold = get_optimal_threshold(y_true, y_prob, metric=metric)
-       print(f"{metric}: {threshold:.3f}")
+       result = optimize_thresholds(y_true, y_prob, metric=metric)
+       print(f"{metric}: {result.thresholds[0]:.3f}")
 
 Optimization Methods
 ~~~~~~~~~~~~~~~~~~~
@@ -77,7 +77,7 @@ The library provides several optimization strategies:
 
 .. code-block:: python
 
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='auto')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', method='auto')
 
 The ``auto`` method intelligently selects the best algorithm based on the metric properties and data size.
 
@@ -85,25 +85,18 @@ The ``auto`` method intelligently selects the best algorithm based on the metric
 
 .. code-block:: python
 
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='sort_scan')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', method='sort_scan')
 
 O(n log n) exact optimization for piecewise metrics. Fastest for large datasets.
 
-**Smart Brute Force**
+**Minimize Algorithm**
 
 .. code-block:: python
 
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='smart_brute')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', method='minimize')
 
-Evaluates the metric at all unique probability values. Guaranteed to find the exact optimum.
+Uses scipy optimization with enhanced fallbacks for robustness.
 
-**Scipy Minimize**
-
-.. code-block:: python
-
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='minimize')
-
-Uses ``scipy.optimize.minimize_scalar`` with enhanced fallbacks for robustness.
 
 Comparison Operators
 ~~~~~~~~~~~~~~~~~~~
@@ -113,10 +106,10 @@ Control how threshold comparisons are handled:
 .. code-block:: python
 
    # Exclusive comparison: prediction = 1 if prob > threshold
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', comparison='>')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', comparison='>')
 
    # Inclusive comparison: prediction = 1 if prob >= threshold
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', comparison='>=')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', comparison='>=')
 
 This is important when many probability values are tied or at exact threshold boundaries.
 
@@ -130,7 +123,7 @@ Handle imbalanced datasets or assign different importance to samples:
    # Create sample weights (e.g., inverse frequency weighting)
    sample_weights = np.array([2.0, 2.0, 0.5, 0.5, 2.0, 0.5, 0.5, 2.0])
 
-   threshold = get_optimal_threshold(
+   result = optimize_thresholds(
        y_true, y_prob, metric='f1',
        sample_weight=sample_weights
    )
@@ -156,8 +149,8 @@ The library automatically detects multiclass problems and uses One-vs-Rest strat
    ])
 
    # Returns array of per-class thresholds
-   thresholds = get_optimal_threshold(y_true, y_prob, metric='f1')
-   print(f"Class thresholds: {thresholds}")
+   result = optimize_thresholds(y_true, y_prob, metric='f1')
+   print(f"Class thresholds: {result.thresholds}")
 
 Multiclass Averaging
 ~~~~~~~~~~~~~~~~~~~~
@@ -167,10 +160,10 @@ Control how metrics are aggregated across classes:
 .. code-block:: python
 
    # Macro averaging: equal weight to all classes
-   thresholds = get_optimal_threshold(y_true, y_prob, metric='f1', average='macro')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', average='macro')
 
    # Weighted averaging: weight by class frequency
-   thresholds = get_optimal_threshold(y_true, y_prob, metric='f1', average='weighted')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', average='weighted')
 
 Making Predictions
 ~~~~~~~~~~~~~~~~~~
@@ -199,7 +192,7 @@ Basic Cost Specification
 .. code-block:: python
 
    # False negatives cost 5x more than false positives
-   threshold = get_optimal_threshold(
+   result = optimize_thresholds(
        y_true, y_prob,
        utility={"fp": -1.0, "fn": -5.0}
    )
@@ -210,7 +203,7 @@ Complete Utility Matrix
 .. code-block:: python
 
    # Specify utilities for all outcomes
-   threshold = get_optimal_threshold(
+   result = optimize_thresholds(
        y_true, y_prob,
        utility={
            "tp": 10.0,   # Benefit for correct positive prediction
@@ -228,10 +221,10 @@ For calibrated probabilities, calculate theoretical optimum without training dat
 .. code-block:: python
 
    # Bayes-optimal threshold (no training labels needed)
-   threshold = get_optimal_threshold(
+   result = optimize_thresholds(
        None, y_prob,  # None for true labels
        utility={"fp": -1.0, "fn": -5.0},
-       bayes=True
+       mode="bayes"
    )
 
 Cross-Validation
@@ -274,7 +267,7 @@ Register your own metrics for optimization:
    register_metric('custom', custom_metric)
 
    # Use it for optimization
-   threshold = get_optimal_threshold(y_true, y_prob, metric='custom')
+   result = optimize_thresholds(y_true, y_prob, metric='custom')
 
 Performance Considerations
 -------------------------
@@ -282,9 +275,9 @@ Performance Considerations
 Method Selection Guidelines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* **Small datasets (< 1,000 samples)**: Use ``method='smart_brute'``
+* **Small datasets (< 1,000 samples)**: Use ``method='minimize'``
 * **Large datasets**: Use ``method='auto'`` or ``method='sort_scan'``
-* **High precision needs**: Use ``method='smart_brute'`` for exact results
+* **High precision needs**: Use ``method='sort_scan'`` for exact results
 * **Speed critical**: Use ``method='sort_scan'`` for piecewise metrics
 
 Memory Usage
@@ -302,10 +295,11 @@ For very large datasets:
        chunk_true = y_true[i:i+chunk_size]
        chunk_prob = y_prob[i:i+chunk_size]
 
-       threshold = get_optimal_threshold(
+       result = optimize_thresholds(
            chunk_true, chunk_prob,
            metric='f1', method='sort_scan'
        )
+       threshold = result.thresholds[0]
        thresholds.append(threshold)
 
    # Combine results (example: take median)

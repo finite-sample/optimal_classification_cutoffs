@@ -3,12 +3,12 @@ Core Functions
 
 This module contains the main optimization functions that form the core of the library.
 
-Main Optimization Function
----------------------------
+Main Optimization Functions
+----------------------------
 
-.. autofunction:: optimal_cutoffs.core.get_optimal_threshold
+.. autofunction:: optimal_cutoffs.api.optimize_thresholds
 
-.. autofunction:: optimal_cutoffs.core.infer_problem_type
+.. autofunction:: optimal_cutoffs.api.optimize_decisions
 
 Binary Classification
 ---------------------
@@ -42,13 +42,11 @@ Multilabel Classification
 Bayes-Optimal Decisions
 ------------------------
 
-.. autofunction:: optimal_cutoffs.bayes.bayes_optimal_threshold
+.. autofunction:: optimal_cutoffs.bayes.threshold
 
-.. autofunction:: optimal_cutoffs.bayes.bayes_thresholds_from_costs
+.. autofunction:: optimal_cutoffs.bayes.thresholds_from_costs
 
-.. autofunction:: optimal_cutoffs.bayes.bayes_optimal_decisions
-
-.. autofunction:: optimal_cutoffs.bayes.compute_bayes_threshold
+.. autofunction:: optimal_cutoffs.bayes.policy
 
 Internal Functions
 ------------------

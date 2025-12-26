@@ -109,7 +109,8 @@ Quick Example
    y_prob = clf.predict_proba(X_test)[:, 1]
 
    # Find optimal threshold (automatic algorithm selection)
-   threshold = get_optimal_threshold(y_test, y_prob, metric='f1')
+   result = optimize_thresholds(y_test, y_prob, metric='f1')
+   threshold = result.thresholds[0]
    print(f"Optimal F1 threshold: {threshold:.3f}")
 
    # Compare with default 0.5 threshold

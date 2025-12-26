@@ -29,7 +29,7 @@ While metrics like F1 score are useful, real-world applications often have speci
    }
 
    # Optimize for expected utility
-   threshold_cost = get_optimal_threshold(
+   threshold_cost = optimize_thresholds(
        y_true, y_prob,
        utility=medical_costs
    )
@@ -59,7 +59,7 @@ For well-calibrated probabilities, you can calculate the theoretical optimum wit
    print(f"Equivalent calculation: {threshold_bayes2:.3f}")
 
    # Use Bayes threshold directly (no training labels needed)
-   threshold_empirical = get_optimal_threshold(
+   threshold_empirical = optimize_thresholds(
        None, y_prob,  # None for true labels
        utility=medical_costs,
        bayes=True
@@ -97,8 +97,8 @@ Threshold optimization assumes well-calibrated probabilities. If your model's pr
    y_prob_calibrated = calibrated_clf.predict_proba(X_train)[:, 1]
 
    # Optimize thresholds for both
-   threshold_uncal = get_optimal_threshold(y_train, y_prob_uncalibrated, metric='f1')
-   threshold_cal = get_optimal_threshold(y_train, y_prob_calibrated, metric='f1')
+   threshold_uncal = optimize_thresholds(y_train, y_prob_uncalibrated, metric='f1')
+   threshold_cal = optimize_thresholds(y_train, y_prob_calibrated, metric='f1')
 
    print(f"Uncalibrated threshold: {threshold_uncal:.3f}")
    print(f"Calibrated threshold: {threshold_cal:.3f}")
@@ -114,10 +114,10 @@ For multiclass problems requiring single-label consistency (exactly one predicti
 .. code-block:: python
 
    # Standard One-vs-Rest (default)
-   thresholds_ovr = get_optimal_threshold(y_true, y_prob, metric='f1', method='auto')
+   thresholds_ovr = optimize_thresholds(y_true, y_prob, metric='f1', method='auto')
 
    # Coordinate ascent for single-label consistency
-   thresholds_coord = get_optimal_threshold(y_true, y_prob, metric='f1', method='coord_ascent')
+   thresholds_coord = optimize_thresholds(y_true, y_prob, metric='f1', method='coord_ascent')
 
    print(f"OvR thresholds: {thresholds_ovr}")
    print(f"Coordinate ascent thresholds: {thresholds_coord}")
@@ -145,11 +145,11 @@ For different costs across classes (planned feature):
            # Get costs for this class
            costs = class_costs.get(class_idx, {"fp": -1.0, "fn": -1.0})
 
-           threshold = get_optimal_threshold(
+           result = optimize_thresholds(
                y_binary, y_prob_binary,
                utility=costs
            )
-           thresholds.append(threshold)
+           thresholds.append(result.thresholds[0])
 
        return np.array(thresholds)
 
@@ -181,9 +181,9 @@ Understanding when to use each optimization method:
        for method in methods:
            start_time = time.time()
            try:
-               threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method=method)
+               result = optimize_thresholds(y_true, y_prob, metric='f1', method=method)
                elapsed = time.time() - start_time
-               results[method] = {'threshold': threshold, 'time': elapsed}
+               results[method] = {'threshold': result.thresholds[0], 'time': elapsed}
            except Exception as e:
                results[method] = {'threshold': None, 'time': None, 'error': str(e)}
 
@@ -220,12 +220,12 @@ For very large datasets:
            chunk_true = y_true[start_idx:end_idx]
            chunk_prob = y_prob[start_idx:end_idx]
 
-           threshold = get_optimal_threshold(
+           result = optimize_thresholds(
                chunk_true, chunk_prob,
                metric='f1',
                method=method
            )
-           chunk_thresholds.append(threshold)
+           chunk_thresholds.append(result.thresholds[0])
 
        # Combine results (various strategies possible)
        final_threshold = np.median(chunk_thresholds)  # Robust to outliers
@@ -277,8 +277,8 @@ Advanced Metric Registration
    )
 
    # Use the custom metric
-   threshold = get_optimal_threshold(y_true, y_prob, metric='balanced_accuracy')
-   print(f"Balanced accuracy optimized threshold: {threshold:.3f}")
+   result = optimize_thresholds(y_true, y_prob, metric='balanced_accuracy')
+   print(f"Balanced accuracy optimized threshold: {result.thresholds[0]:.3f}")
 
 Non-Piecewise Metrics
 ~~~~~~~~~~~~~~~~~~~~~
@@ -301,7 +301,7 @@ For metrics that are not piecewise-constant:
    )
 
    # This will use continuous optimization methods
-   threshold = get_optimal_threshold(y_true, y_prob, metric='log_loss_approx', method='minimize')
+   result = optimize_thresholds(y_true, y_prob, metric='log_loss_approx', method='minimize')
 
 Nested Cross-Validation
 -----------------------
@@ -382,7 +382,8 @@ Monitoring and Drift Detection
        from optimal_cutoffs.metrics import get_confusion_matrix, f1_score
 
        # Calculate current optimal threshold
-       current_threshold = get_optimal_threshold(y_true, y_prob, metric='f1')
+       current_result = optimize_thresholds(y_true, y_prob, metric='f1')
+       current_threshold = current_result.thresholds[0]
 
        # Calculate performance with reference threshold
        tp, tn, fp, fn = get_confusion_matrix(y_true, y_prob, reference_threshold)

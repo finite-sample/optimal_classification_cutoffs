@@ -47,13 +47,12 @@ Technical Questions
 
 A: Use ``method='auto'`` (default) for most cases. It automatically selects the best algorithm:
 
-- **sort_scan**: O(n log n) exact algorithm for piecewise metrics (F1, accuracy, precision, recall)
-- **smart_brute**: Evaluates all unique probability values, guaranteed exact result
+- **sort_scan**: O(n log n) exact optimization for piecewise metrics, guaranteed exact result
 - **minimize**: Uses scipy optimization with enhanced fallbacks
 
 For specific needs:
 - **Large datasets**: ``method='sort_scan'``
-- **Highest precision**: ``method='smart_brute'``
+- **Highest precision**: ``method='sort_scan'``
 - **Non-piecewise metrics**: ``method='minimize'``
 
 **Q: What does "piecewise-constant" mean?**
@@ -74,10 +73,10 @@ A: Use the ``comparison`` parameter:
 .. code-block:: python
 
    # Exclusive: prediction = 1 if prob > threshold
-   threshold = get_optimal_threshold(y, prob, comparison='>')
+   result = optimize_thresholds(y, prob, comparison='>')
 
    # Inclusive: prediction = 1 if prob >= threshold
-   threshold = get_optimal_threshold(y, prob, comparison='>=')
+   result = optimize_thresholds(y, prob, comparison='>=')
 
 The choice affects how samples with probabilities exactly equal to the threshold are classified.
 
@@ -107,7 +106,7 @@ A: For best results, yes. Well-calibrated probabilities ensure that the threshol
    calibrated_clf.fit(X_train, y_train)
 
    y_prob = calibrated_clf.predict_proba(X_test)[:, 1]
-   threshold = get_optimal_threshold(y_train, y_prob_train, metric='f1')
+   result = optimize_thresholds(y_train, y_prob_train, metric='f1')
 
 **Q: How much data do I need for reliable threshold optimization?**
 
@@ -130,7 +129,7 @@ A: Yes, all optimization methods support sample weights:
    # Automatic balancing
    weights = compute_sample_weight('balanced', y_train)
 
-   threshold = get_optimal_threshold(
+   result = optimize_thresholds(
        y_train, y_prob, metric='f1',
        sample_weight=weights
    )
@@ -142,7 +141,7 @@ A: Monitor threshold performance and retrain when needed:
 .. code-block:: python
 
    # Regularly check if optimal threshold has drifted
-   current_optimal = get_optimal_threshold(y_recent, y_prob_recent, metric='f1')
+   current_optimal = optimize_thresholds(y_recent, y_prob_recent, metric='f1')
 
    if abs(current_optimal - production_threshold) > 0.05:
        print("Threshold drift detected - consider retraining")
@@ -166,7 +165,7 @@ A: Define utilities for each outcome type:
        "fn": -5000    # Cost: Missed diagnosis costs $5000
    }
 
-   threshold = get_optimal_threshold(
+   result = optimize_thresholds(
        y_true, y_prob,
        utility=medical_utilities
    )
@@ -181,10 +180,10 @@ A:
 .. code-block:: python
 
    # Empirical (default)
-   threshold_emp = get_optimal_threshold(y_true, y_prob, utility=costs)
+   threshold_emp = optimize_thresholds(y_true, y_prob, utility=costs)
 
    # Bayes-optimal
-   threshold_bayes = get_optimal_threshold(None, y_prob, utility=costs, bayes=True)
+   result_bayes = optimize_thresholds(None, y_prob, utility=costs, mode="bayes")
 
 Use empirical for real models; use Bayes-optimal for theoretical analysis or when you trust calibration.
 
@@ -206,8 +205,8 @@ A: Not directly in the current version, but you can optimize each class separate
            # Use class-specific costs
            costs = class_costs[class_idx]
 
-           threshold = get_optimal_threshold(y_binary, y_prob_binary, utility=costs)
-           thresholds.append(threshold)
+           result = optimize_thresholds(y_binary, y_prob_binary, utility=costs)
+           thresholds.append(result.thresholds[0])
 
        return np.array(thresholds)
 
@@ -223,11 +222,11 @@ A: You're trying to use ``method='sort_scan'`` with a metric that doesn't have a
 .. code-block:: python
 
    # This will fail if 'custom_metric' lacks vectorized version
-   threshold = get_optimal_threshold(y, prob, metric='custom_metric', method='sort_scan')
+   result = optimize_thresholds(y, prob, metric='custom_metric', method='sort_scan')
 
    # Solutions:
    # 1. Use different method
-   threshold = get_optimal_threshold(y, prob, metric='custom_metric', method='smart_brute')
+   result = optimize_thresholds(y, prob, metric='custom_metric', method='minimize')
 
    # 2. Register vectorized version of your metric
    from optimal_cutoffs.metrics import register_metric
@@ -247,7 +246,7 @@ A: Multiclass optimization requires class labels to be ``[0, 1, 2, ..., n_classe
    le = LabelEncoder()
    y_good = le.fit_transform(y_bad)
 
-   threshold = get_optimal_threshold(y_good, y_prob, metric='f1')
+   result = optimize_thresholds(y_good, y_prob, metric='f1')
 
 **Q: The optimization is very slow - how can I speed it up?**
 
@@ -256,15 +255,15 @@ A: Several strategies:
 .. code-block:: python
 
    # 1. Use faster method for large datasets
-   threshold = get_optimal_threshold(y, prob, metric='f1', method='sort_scan')
+   result = optimize_thresholds(y, prob, metric='f1', method='sort_scan')
 
    # 2. Reduce data size with sampling
    from sklearn.model_selection import train_test_split
    y_sample, _, prob_sample, _ = train_test_split(y, prob, test_size=0.7, stratify=y)
-   threshold = get_optimal_threshold(y_sample, prob_sample, metric='f1')
+   result = optimize_thresholds(y_sample, prob_sample, metric='f1')
 
    # 3. Use simpler comparison operator
-   threshold = get_optimal_threshold(y, prob, metric='f1', comparison='>')  # Slightly faster than '>='
+   result = optimize_thresholds(y, prob, metric='f1', comparison='>')  # Slightly faster than '>='
 
 **Q: My cross-validation results have high variance - is this normal?**
 
@@ -346,11 +345,11 @@ A: Extract probabilities from your model and apply threshold optimization:
        y_prob = torch.softmax(outputs, dim=1).cpu().numpy()
 
    # For binary classification, use column 1
-   threshold = get_optimal_threshold(y_test, y_prob[:, 1], metric='f1')
+   result = optimize_thresholds(y_test, y_prob[:, 1], metric='f1')
 
    # TensorFlow/Keras example
    y_prob = model.predict(X_test)
-   threshold = get_optimal_threshold(y_test, y_prob, metric='f1')
+   result = optimize_thresholds(y_test, y_prob, metric='f1')
 
 Still Have Questions?
 --------------------
