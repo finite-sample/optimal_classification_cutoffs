@@ -55,7 +55,7 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "examples/*.ipynb"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- nbsphinx configuration --------------------------------------------------
 nbsphinx_execute = 'always'  # Force execution of notebooks
@@ -67,10 +67,9 @@ nbsphinx_execute_arguments = [
     "--InlineBackend.rc={'figure.dpi': 96}",
 ]
 
-# Remove custom formats that might interfere
-# nbsphinx_custom_formats = {
-#     '.ipynb': ['nbsphinx', 'Jupyter Notebook'],
-# }
+# Prevent nbsphinx from auto-creating orphaned notebook documents
+# Only process notebooks explicitly included in toctrees
+nbsphinx_orphan_path = []  # Don't auto-include orphaned notebooks
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
