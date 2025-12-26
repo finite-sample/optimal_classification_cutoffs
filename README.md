@@ -5,25 +5,25 @@
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://finite-sample.github.io/optimal-classification-cutoffs/)
 [![PyPI version](https://img.shields.io/pypi/v/optimal-classification-cutoffs.svg)](https://pypi.org/project/optimal-classification-cutoffs/)
 
-**Transform your ML model performance with optimal decision thresholds.**
+**Optimize classification thresholds for improved model performance.**
 
-Most classifiers output probabilities, but decisions need thresholds. The default τ = 0.5 is **almost always wrong** for real objectives like F1, precision/recall, or business costs. This library finds the exact optimal threshold using O(n log n) algorithms, delivering **40%+ metric improvements** in 3 lines of code.
+Most classifiers output probabilities that need thresholds for decisions. The default 0.5 threshold is often suboptimal for real objectives like F1, precision/recall, or business costs. This library finds optimal thresholds using efficient O(n log n) algorithms, with significant improvements possible especially on imbalanced datasets.
 
-## The Problem: Default 0.5 Thresholds Are Wrong
+## Why Optimize Classification Thresholds
 
 ```python
-# ❌ WRONG: Default 0.5 threshold (what everyone does)
+# Default 0.5 threshold
 y_pred = (model.predict_proba(X)[:, 1] >= 0.5).astype(int)
 # F1 Score: 0.654
 
-# ✅ RIGHT: Optimal threshold (3 lines of code)
+# Optimized threshold
 from optimal_cutoffs import optimize_thresholds
 result = optimize_thresholds(y_true, y_scores, metric="f1") 
 y_pred = result.predict(y_scores_test)
-# F1 Score: 0.891 (+36% improvement!)
+# F1 Score: 0.891 (improvement depends on dataset characteristics)
 ```
 
-**Why this matters:** Default 0.5 assumes equal costs and balanced classes. Real problems have imbalanced data (fraud: 1%, disease: 5%) and asymmetric costs (missing fraud costs $1000, false alarm costs $1). Optimal thresholds are typically 0.05-0.30, not 0.50.
+**Key considerations:** The 0.5 threshold assumes equal costs and balanced classes. Many real-world problems have imbalanced data (e.g., fraud detection: 1% positive rate) and asymmetric costs (e.g., false negatives may be more costly than false positives). In such cases, optimal thresholds often differ significantly from 0.5.
 
 ## Installation
 
@@ -44,7 +44,7 @@ pip install optimal-classification-cutoffs[examples]
 
 ## Quick Start
 
-### Binary Classification: 40%+ F1 Improvement
+### Binary Classification
 
 ```python
 from optimal_cutoffs import optimize_thresholds
@@ -54,7 +54,7 @@ y_scores = model.predict_proba(X_test)[:, 1]
 
 # Find optimal threshold (exact solution, O(n log n))
 result = optimize_thresholds(y_true, y_scores, metric="f1")
-print(f"Optimal threshold: {result.threshold:.3f}")  # e.g., 0.127 not 0.5!
+print(f"Optimal threshold: {result.threshold:.3f}")  # May differ from 0.5
 print(f"Expected F1: {result.scores[0]:.3f}")
 
 # Make optimal predictions
@@ -95,9 +95,9 @@ y_pred = result.predict(y_probs_new)  # Bayes-optimal decisions
 
 ## API Overview
 
-**Clean, minimal API designed around user jobs-to-be-done:**
+**API Overview:**
 
-### Core Functions (The Only Two You Need)
+### Core Functions
 
 ```python
 from optimal_cutoffs import optimize_thresholds, optimize_decisions
@@ -214,7 +214,7 @@ print(f"Improvement: {improvement:+.1f}%")  # ~+40%
 ```python
 from optimal_cutoffs import cv
 
-# Thresholds are hyperparameters - validate them!
+# Cross-validation for threshold selection
 scores = cv.cross_validate(
     model, X, y, 
     metric="f1",
