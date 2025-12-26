@@ -33,7 +33,7 @@ pip install optimal-classification-cutoffs
 
 **Optional Performance Boost:**
 ```bash
-# For 10-100× speedups with Numba JIT compilation
+# For algorithmic speedups with optional Numba acceleration
 pip install optimal-classification-cutoffs[performance]
 
 # For Jupyter examples and visualizations  
@@ -158,9 +158,13 @@ Independent of class priors, depends only on cost ratio.
 
 - **O(n log n)** exact optimization for piecewise metrics
 - **O(1)** closed-form solutions for cost-sensitive objectives
-- **Optional Numba acceleration** (10-100× speedups) with automatic pure Python fallback
+- **Optional Numba acceleration** with automatic pure Python fallback
 
-Typical speedups: 10-100× faster than grid search, with **exact** solutions. Performance optimizations are optional - core functionality works everywhere.
+The O(n log n) sort-scan algorithm provides significant speedups compared to naive approaches:
+- **50-300× faster** than grid search (101 points)
+- **1000-8000× faster** than exhaustive unique threshold evaluation
+- Performance scales as O(n log n) vs O(n·k) for naive methods
+- Exact solutions guaranteed for piecewise-constant metrics
 
 ## Complete Example: Real Impact
 
