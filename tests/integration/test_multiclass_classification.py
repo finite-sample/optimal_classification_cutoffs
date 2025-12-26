@@ -7,10 +7,10 @@ different averaging methods, coordinate ascent, and multiclass-specific features
 import numpy as np
 import pytest
 
-from optimal_cutoffs import (
+from optimal_cutoffs import optimize_thresholds
+from optimal_cutoffs.metrics_core import (
     multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
-    optimize_thresholds,
 )
 from tests.fixtures.assertions import (
     assert_valid_confusion_matrix,

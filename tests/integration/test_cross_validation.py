@@ -17,10 +17,11 @@ from hypothesis import strategies as st
 from sklearn.model_selection import KFold, StratifiedKFold
 
 from optimal_cutoffs.cv import (
-    _average_threshold_dicts,
     cross_validate,
     nested_cross_validate,
 )
+# Import from the cv.py module file, not the cv/ package
+from optimal_cutoffs import cv as cv_module
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
     assert_valid_threshold,
@@ -288,7 +289,7 @@ class TestThresholdAveraging:
         """Test averaging of threshold dictionaries."""
         # Test with scalar thresholds
         dicts = [{"threshold": 0.5}, {"threshold": 0.7}, {"threshold": 0.3}]
-        result = _average_threshold_dicts(dicts)
+        result = cv_module._average_threshold_dicts(dicts)
         assert abs(result["threshold"] - 0.5) < 1e-10
 
         # Test with array thresholds
@@ -297,7 +298,7 @@ class TestThresholdAveraging:
             {"thresholds": np.array([0.7, 0.8])},
             {"thresholds": np.array([0.3, 0.4])},
         ]
-        result = _average_threshold_dicts(dicts)
+        result = cv_module._average_threshold_dicts(dicts)
         expected = np.array([0.5, 0.6])
         np.testing.assert_allclose(result["thresholds"], expected)
 
@@ -391,7 +392,7 @@ class TestRobustness:
             {"threshold": 0.999},
             {"threshold": 0.5},
         ]
-        result = _average_threshold_dicts(dicts)
+        result = cv_module._average_threshold_dicts(dicts)
         assert 0.0 <= result["threshold"] <= 1.0
 
 

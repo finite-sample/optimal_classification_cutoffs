@@ -15,8 +15,10 @@ from optimal_cutoffs import optimize_thresholds
 # Local tolerance for test precision
 from optimal_cutoffs.metrics import (
     accuracy_score,
-    confusion_matrix_at_threshold,
     f1_score,
+)
+from optimal_cutoffs.metrics_core import (
+    confusion_matrix_at_threshold,
 )
 
 # Import test fixtures
