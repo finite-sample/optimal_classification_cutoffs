@@ -7,7 +7,7 @@ numerical precision limits that could cause optimization algorithms to fail.
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import compute_metric_at_threshold
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
@@ -29,7 +29,7 @@ class TestLabelDistributionEdgeCases:
         y_prob = np.array([0.2, 0.5, 0.7, 0.9])
 
         # Should find threshold that predicts all positive
-        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        result = optimize_thresholds(y_true, y_prob, metric="accuracy")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -43,7 +43,7 @@ class TestLabelDistributionEdgeCases:
         y_prob = np.array([0.1, 0.3, 0.6, 0.8])
 
         # Should find threshold that predicts all negative
-        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        result = optimize_thresholds(y_true, y_prob, metric="accuracy")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -56,7 +56,7 @@ class TestLabelDistributionEdgeCases:
         y_true = np.array([0, 0, 0, 1])
         y_prob = np.array([0.1, 0.3, 0.5, 0.9])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -69,7 +69,7 @@ class TestLabelDistributionEdgeCases:
             1000, imbalance_ratio=0.001, random_state=42
         )
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -85,7 +85,7 @@ class TestProbabilityDistributionEdgeCases:
         y_true = np.array([0, 0, 0, 1, 1, 1])
         y_prob = np.array([0.1, 0.2, 0.3, 0.7, 0.8, 0.9])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -99,7 +99,7 @@ class TestProbabilityDistributionEdgeCases:
             20, base_prob=0.5, tie_fraction=1.0, random_state=42
         )
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -110,7 +110,7 @@ class TestProbabilityDistributionEdgeCases:
         """Test optimization with extreme probability values."""
         y_true, y_prob = generate_extreme_probabilities(30, random_state=42)
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -122,7 +122,7 @@ class TestProbabilityDistributionEdgeCases:
         y_true = np.array([0, 0, 1, 1])
         y_prob = np.array([0.0, 0.0, 1.0, 1.0])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -140,7 +140,7 @@ class TestNumericalEdgeCases:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([0.5, 0.5 + eps, 0.5 + 2 * eps, 0.5 + 3 * eps])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -154,7 +154,7 @@ class TestNumericalEdgeCases:
             [0.5000001, 0.5000002, 0.5000003, 0.5000004, 0.5000005, 0.5000006]
         )
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -171,7 +171,7 @@ class TestDegenrateCaseHandling:
         y_true = np.array([0, 0, 0, 0])
         y_prob = np.array([0.1, 0.2, 0.3, 0.4])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        result = optimize_thresholds(y_true, y_prob, metric="accuracy")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -185,7 +185,7 @@ class TestDegenrateCaseHandling:
         y_true = np.array([1, 1, 1, 1])
         y_prob = np.array([0.6, 0.7, 0.8, 0.9])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        result = optimize_thresholds(y_true, y_prob, metric="accuracy")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -200,7 +200,7 @@ class TestDegenrateCaseHandling:
         y_prob = np.array([0.1, 0.2, 0.3, 0.4])  # All below typical threshold
 
         # Optimization should still work even if some thresholds give undefined metrics
-        result = get_optimal_threshold(y_true, y_prob, metric="precision")
+        result = optimize_thresholds(y_true, y_prob, metric="precision")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -217,8 +217,8 @@ class TestComparisonOperatorEdgeCases:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])  # All tied
 
         # Both operators should work
-        result_gt = get_optimal_threshold(y_true, y_prob, metric="f1", comparison=">")
-        result_gte = get_optimal_threshold(y_true, y_prob, metric="f1", comparison=">=")
+        result_gt = optimize_thresholds(y_true, y_prob, metric="f1", comparison=">")
+        result_gte = optimize_thresholds(y_true, y_prob, metric="f1", comparison=">=")
         threshold_gt = result_gt.threshold
         threshold_gte = result_gte.threshold
 
@@ -248,8 +248,8 @@ class TestScalingLimits:
 
         y_true, y_prob = generate_binary_data(10000, random_state=42)
 
-        result = get_optimal_threshold(
-            y_true, y_prob, metric="f1", method="unique_scan"
+        result = optimize_thresholds(
+            y_true, y_prob, metric="f1", method="sort_scan"
         )
         threshold = result.threshold
         assert_valid_threshold(threshold)

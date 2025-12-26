@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .types_minimal import OptimizationResult
+from .core import OptimizationResult
 from .validation import validate_binary_classification
 
 
@@ -74,7 +74,7 @@ def optimize_f1_binary(
         metric_name = "f1"
     else:
         # Register F-beta metric if not already registered
-        from .metrics import register_metric
+        from .metrics_core import register_metric
 
         def fbeta_metric(tp, tn, fp, fn):
             # Vectorized F-beta metric
@@ -243,7 +243,7 @@ def optimize_metric_binary(
     >>> result = optimize_metric_binary(y_true, y_prob, metric="precision")
     >>> result = optimize_metric_binary(y_true, y_prob, metric="f1", method="sort_scan")
     """
-    from .metrics import is_piecewise_metric
+    from .metrics_core import is_piecewise_metric
     from .optimize import optimize_gradient, optimize_scipy
     from .piecewise import optimal_threshold_sortscan
 
@@ -257,26 +257,37 @@ def optimize_metric_binary(
         method = "sort_scan" if is_piecewise_metric(metric) else "minimize"
 
     # Route to appropriate optimizer
-    if method == "sort_scan":
-        result = optimal_threshold_sortscan(
-            true_labels,
-            pred_proba,
-            metric=metric,
-            sample_weight=sample_weight,
-            inclusive=(comparison == ">="),
-            require_proba=True,
-            tolerance=tolerance,
-        )
-    elif method == "minimize":
-        result = optimize_scipy(
-            true_labels, pred_proba, metric, sample_weight, comparison, tolerance
-        )
-    elif method == "gradient":
-        result = optimize_gradient(
-            true_labels, pred_proba, metric, sample_weight, comparison, tolerance
-        )
-    else:
-        raise ValueError(f"Unknown method: {method}")
+    match method:
+        case "sort_scan":
+            result = optimal_threshold_sortscan(
+                true_labels,
+                pred_proba,
+                metric=metric,
+                sample_weight=sample_weight,
+                inclusive=(comparison == ">="),
+                require_proba=True,
+                tolerance=tolerance,
+            )
+        case "minimize":
+            result = optimize_scipy(
+                true_labels,
+                pred_proba,
+                metric,
+                sample_weight,
+                comparison,
+                tol=tolerance,
+            )
+        case "gradient":
+            result = optimize_gradient(
+                true_labels,
+                pred_proba,
+                metric,
+                sample_weight,
+                comparison,
+                tol=tolerance,
+            )
+        case _:
+            raise ValueError(f"Unknown method: {method}")
 
     def predict_binary(probs: ArrayLike) -> np.ndarray:
         p = np.asarray(probs)

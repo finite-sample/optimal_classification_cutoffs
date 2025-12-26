@@ -5,7 +5,7 @@ import pytest
 
 from optimal_cutoffs import (
     METRICS,
-    get_optimal_threshold,
+    optimize_thresholds,
     has_vectorized_implementation,
     is_piecewise_metric,
 )
@@ -50,7 +50,7 @@ class TestRegistryIntegration:
         """Test error when requesting non-existent vectorized metric."""
         # Test should verify that unknown metrics raise errors
         with pytest.raises(ValueError, match="Unknown metric"):
-            get_optimal_threshold(
+            optimize_thresholds(
                 self.y_true, self.pred_prob, metric="custom_metric", method="sort_scan"
             )
 
@@ -58,7 +58,7 @@ class TestRegistryIntegration:
         """Test sort_scan method with sample weights."""
         weights = np.random.uniform(0.5, 2.0, size=len(self.y_true))
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             self.y_true,
             self.pred_prob,
             metric="f1",
@@ -71,7 +71,7 @@ class TestRegistryIntegration:
     def test_comparison_operators_with_sort_scan(self):
         """Test different comparison operators with sort_scan."""
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 self.y_true,
                 self.pred_prob,
                 metric="f1",
@@ -84,12 +84,12 @@ class TestRegistryIntegration:
     def test_validation_of_new_methods(self):
         """Test validation of new optimization methods."""
         # Valid methods should work
-        valid_methods = ["auto", "sort_scan", "unique_scan", "minimize", "gradient"]
+        valid_methods = ["auto", "sort_scan", "sort_scan", "minimize", "gradient"]
 
         for method in valid_methods:
             # Should not raise validation error
             try:
-                get_optimal_threshold(
+                optimize_thresholds(
                     self.y_true, self.pred_prob, metric="f1", method=method
                 )
             except ValueError as e:
@@ -100,7 +100,7 @@ class TestRegistryIntegration:
 
         # Invalid method should raise error
         with pytest.raises(ValueError, match="Invalid optimization method"):
-            get_optimal_threshold(
+            optimize_thresholds(
                 self.y_true, self.pred_prob, metric="f1", method="invalid_method"
             )
 
@@ -115,12 +115,12 @@ class TestBackwardCompatibility:
         pred_prob = np.random.random(100)
 
         # Default method should work
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
         # Should be equivalent to explicit auto method
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1", method="auto")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1", method="auto")
         assert threshold == threshold
 
     def test_existing_api_unchanged(self):
@@ -130,9 +130,9 @@ class TestBackwardCompatibility:
         pred_prob = np.random.random(50)
 
         # All these should work as before
-        result = get_optimal_threshold(y_true, pred_prob)
-        result = get_optimal_threshold(y_true, pred_prob, metric="accuracy")
-        result = get_optimal_threshold(
+        result = optimize_thresholds(y_true, pred_prob)
+        result = optimize_thresholds(y_true, pred_prob, metric="accuracy")
+        result = optimize_thresholds(
             y_true, pred_prob, metric="f1", method="minimize"
         )
 

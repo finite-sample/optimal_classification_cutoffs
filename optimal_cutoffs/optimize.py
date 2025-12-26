@@ -20,8 +20,8 @@ from typing import Any
 import numpy as np
 from scipy import optimize
 
+from .core import OptimizationResult
 from .numba_utils import NUMBA_AVAILABLE, jit, numba_with_fallback
-from .types_minimal import OptimizationResult
 from .validation import validate_binary_classification
 
 logger = logging.getLogger(__name__)
@@ -649,7 +649,7 @@ def _generic_sort_scan(
     if len(labels) == 0:
         return 0.5, 0.0
 
-    from .metrics import METRICS
+    from .metrics_core import METRICS
 
     metric_fn = METRICS[metric].fn
 
@@ -691,7 +691,7 @@ def optimize_scipy(
     logger.debug("Using scipy optimization (%s) for %s metric", method, metric)
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
-    from .metrics import METRICS
+    from .metrics_core import METRICS
 
     # All metric functions now available through registry
     metric_fn = METRICS[metric].fn
@@ -753,7 +753,7 @@ def optimize_gradient(
     )
     labels, scores, weights = validate_binary_classification(labels, scores, weights)
 
-    from .metrics import METRICS, is_piecewise_metric
+    from .metrics_core import METRICS, is_piecewise_metric
 
     # All metric functions now available through registry
     metric_fn = METRICS[metric].fn
@@ -881,20 +881,21 @@ def find_optimal_threshold_multiclass(
         )
 
     # Map method to binary optimization function
-    if method == "auto":
-        from .metrics import is_piecewise_metric
+    match method:
+        case "auto":
+            from .metrics_core import is_piecewise_metric
 
-        optimize_fn = (
-            optimize_sort_scan if is_piecewise_metric(metric) else optimize_scipy
-        )
-    elif method == "sort_scan":
-        optimize_fn = optimize_sort_scan
-    elif method == "scipy":
-        optimize_fn = optimize_scipy
-    elif method == "gradient":
-        optimize_fn = optimize_gradient
-    else:
-        optimize_fn = optimize_sort_scan
+            optimize_fn = (
+                optimize_sort_scan if is_piecewise_metric(metric) else optimize_scipy
+            )
+        case "sort_scan":
+            optimize_fn = optimize_sort_scan
+        case "scipy":
+            optimize_fn = optimize_scipy
+        case "gradient":
+            optimize_fn = optimize_gradient
+        case _:
+            optimize_fn = optimize_sort_scan
 
     operator = ">=" if comparison == ">=" else ">"
 
@@ -1030,7 +1031,7 @@ def find_optimal_threshold(
             raise ValueError("Scores must be in [0, 1] when require_probability=True")
 
     if strategy == "auto":
-        from .metrics import is_piecewise_metric
+        from .metrics_core import is_piecewise_metric
 
         if is_piecewise_metric(metric):
             return optimize_sort_scan(labels, scores, metric, weights, operator)

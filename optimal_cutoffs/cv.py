@@ -9,8 +9,8 @@ from sklearn.model_selection import (
     StratifiedKFold,
 )
 
-from .core import get_optimal_threshold
-from .metrics import (
+from .api import optimize_thresholds
+from .metrics_core import (
     METRICS,
     confusion_matrix_at_threshold,
     multiclass_confusion_matrices_at_thresholds,
@@ -53,7 +53,7 @@ def cv_threshold_optimization(
     metric : str, default="f1"
         Metric name to optimize; must exist in the metric registry.
     method : OptimizationMethod, default="auto"
-        Optimization strategy passed to get_optimal_threshold.
+        Optimization strategy passed to optimize_thresholds.
     cv : int or cross-validator, default=5
         Number of folds or custom cross-validator object.
     random_state : int, optional
@@ -65,7 +65,7 @@ def cv_threshold_optimization(
     average : str, default="macro"
         Averaging strategy for multiclass metrics.
     **opt_kwargs : Any
-        Additional arguments passed to get_optimal_threshold.
+        Additional arguments passed to optimize_thresholds.
 
     Returns
     -------
@@ -102,7 +102,7 @@ def cv_threshold_optimization(
         train_weights = None if sample_weight is None else sample_weight[train_idx]
         test_weights = None if sample_weight is None else sample_weight[test_idx]
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             true_labs[train_idx],
             pred_prob[train_idx],
             metric=metric,
@@ -158,7 +158,7 @@ def nested_cv_threshold_optimization(
     metric : str, default="f1"
         Metric name to optimize.
     method : OptimizationMethod, default="auto"
-        Optimization strategy passed to get_optimal_threshold.
+        Optimization strategy passed to optimize_thresholds.
     inner_cv : int, default=5
         Number of folds in the inner loop used to estimate thresholds.
     outer_cv : int, default=5
@@ -172,7 +172,7 @@ def nested_cv_threshold_optimization(
     average : str, default="macro"
         Averaging strategy for multiclass metrics.
     **opt_kwargs : Any
-        Additional arguments passed to get_optimal_threshold.
+        Additional arguments passed to optimize_thresholds.
 
     Returns
     -------
@@ -256,10 +256,10 @@ def nested_cv_threshold_optimization(
 def _extract_thresholds(thr_result: Any) -> Any:
     """Extract thresholds from OptimizationResult objects.
 
-    Now primarily handles OptimizationResult objects since get_optimal_threshold
+    Now primarily handles OptimizationResult objects since optimize_thresholds
     returns unified OptimizationResult. Maintains backward compatibility for legacy formats.
     """
-    from .types_minimal import OptimizationResult
+    from .core import OptimizationResult
 
     # OptimizationResult (new unified format)
     if isinstance(thr_result, OptimizationResult):

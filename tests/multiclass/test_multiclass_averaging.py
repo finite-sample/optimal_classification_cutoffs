@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    get_optimal_threshold,  # Use unified function instead of multiclass-specific
+    optimize_thresholds,  # Use unified function instead of multiclass-specific
     multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
 )
@@ -179,14 +179,14 @@ class TestMulticlassOptimizationAveraging:
 
         for method in methods:
             # Get thresholds for different averaging strategies
-            result_macro = get_optimal_threshold(
+            result_macro = optimize_thresholds(
                 self.true_labs,
                 self.pred_prob,
                 metric="f1",
                 method=method,
                 average="macro",
             )
-            result_micro = get_optimal_threshold(
+            result_micro = optimize_thresholds(
                 self.true_labs,
                 self.pred_prob,
                 metric="f1",
@@ -223,25 +223,25 @@ class TestMulticlassOptimizationAveraging:
         )
 
         # Get thresholds (should be identical for balanced data)
-        result_macro = get_optimal_threshold(
+        result_macro = optimize_thresholds(
             true_labs_balanced,
             pred_prob_balanced,
             metric="f1",
-            method="unique_scan",
+            method="sort_scan",
             average="macro",
         )
-        result_none = get_optimal_threshold(
+        result_none = optimize_thresholds(
             true_labs_balanced,
             pred_prob_balanced,
             metric="f1",
-            method="unique_scan",
+            method="sort_scan",
             average="macro",
         )
-        result_weighted = get_optimal_threshold(
+        result_weighted = optimize_thresholds(
             true_labs_balanced,
             pred_prob_balanced,
             metric="f1",
-            method="unique_scan",
+            method="sort_scan",
             average="macro",
         )
 
@@ -255,11 +255,11 @@ class TestMulticlassOptimizationAveraging:
 
     def test_standard_optimization_works(self):
         """Test that standard optimization produces valid results."""
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             self.true_labs,
             self.pred_prob,
             metric="f1",
-            method="unique_scan",
+            method="sort_scan",
             average="macro",
         )
 
@@ -277,11 +277,11 @@ class TestMulticlassOptimizationAveraging:
         averages = ["macro", "micro"]  # Only test supported averaging strategies
 
         for average in averages:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 self.true_labs,
                 self.pred_prob,
                 metric="f1",
-                method="unique_scan",
+                method="sort_scan",
                 average=average,
             )
 
@@ -296,10 +296,10 @@ class TestMulticlassOptimizationAveraging:
     def test_backward_compatibility(self):
         """Test that default behavior is unchanged."""
         # Default should be macro averaging
-        result_default = get_optimal_threshold(
+        result_default = optimize_thresholds(
             self.true_labs, self.pred_prob, metric="f1"
         )
-        result_explicit = get_optimal_threshold(
+        result_explicit = optimize_thresholds(
             self.true_labs, self.pred_prob, metric="f1", average="macro"
         )
 
@@ -310,10 +310,10 @@ class TestMulticlassOptimizationAveraging:
     def test_micro_optimization_different_from_macro(self):
         """Test that micro optimization can produce different results from macro."""
         # For some datasets, micro and macro optimization should differ
-        result_macro = get_optimal_threshold(
+        result_macro = optimize_thresholds(
             self.true_labs, self.pred_prob, metric="f1", method="auto", average="macro"
         )
-        result_micro = get_optimal_threshold(
+        result_micro = optimize_thresholds(
             self.true_labs, self.pred_prob, metric="f1", method="auto", average="micro"
         )
 
@@ -335,8 +335,8 @@ class TestPerformanceImprovements:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without errors
-        result = get_optimal_threshold(
-            true_labs, pred_prob, metric="f1", method="unique_scan", average="macro"
+        result = optimize_thresholds(
+            true_labs, pred_prob, metric="f1", method="sort_scan", average="macro"
         )
 
         assert isinstance(result.thresholds, np.ndarray)
@@ -359,8 +359,8 @@ class TestPerformanceImprovements:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should complete without errors on larger datasets
-        result = get_optimal_threshold(
-            true_labs, pred_prob, metric="f1", method="unique_scan", average="macro"
+        result = optimize_thresholds(
+            true_labs, pred_prob, metric="f1", method="sort_scan", average="macro"
         )
 
         assert isinstance(result.thresholds, np.ndarray)

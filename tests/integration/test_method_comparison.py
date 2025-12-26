@@ -9,7 +9,7 @@ import time
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import confusion_matrix_at_threshold
 
 
@@ -23,12 +23,12 @@ class TestMethodConsistency:
         y_true = [0, 0, 0, 1, 1, 1]
         pred_prob = [0.1, 0.2, 0.3, 0.7, 0.8, 0.9]
 
-        methods = ["unique_scan", "minimize", "gradient"]
+        methods = ["sort_scan", "minimize", "gradient"]
         thresholds = {}
         scores = {}
 
         for method in methods:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, pred_prob, metric=metric, method=method
             )
             thresholds[method] = result.threshold
@@ -51,7 +51,7 @@ class TestMethodConsistency:
         pred_prob = [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]
 
         # Methods that should agree for piecewise metrics
-        methods = ["unique_scan", "sort_scan", "minimize"]
+        methods = ["sort_scan", "sort_scan", "minimize"]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
             thresholds = {}
@@ -59,7 +59,7 @@ class TestMethodConsistency:
 
             for method in methods:
                 try:
-                    result = get_optimal_threshold(
+                    result = optimize_thresholds(
                         y_true, pred_prob, metric=metric, method=method
                     )
                     thresholds[method] = result.threshold
@@ -93,12 +93,12 @@ class TestMethodConsistency:
             ([0, 1, 0, 1], [0.5, 0.5, 0.5, 0.5]),
         ]
 
-        methods = ["unique_scan", "minimize", "gradient"]
+        methods = ["sort_scan", "minimize", "gradient"]
 
         for y_true, pred_prob in edge_cases:
             for method in methods:
                 try:
-                    result = get_optimal_threshold(
+                    result = optimize_thresholds(
                         y_true, pred_prob, metric="f1", method=method
                     )
                     # Should produce valid threshold
@@ -149,14 +149,14 @@ class TestPerformanceCharacteristics:
         y_true = np.random.default_rng(42).integers(0, 2, size=n_samples)
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
-        methods_to_test = ["unique_scan", "sort_scan", "minimize"]
+        methods_to_test = ["sort_scan", "sort_scan", "minimize"]
 
         timing_results = {}
 
         for method in methods_to_test:
             try:
                 start_time = time.time()
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     y_true, pred_prob, metric="f1", method=method
                 )
                 end_time = time.time()
@@ -171,10 +171,10 @@ class TestPerformanceCharacteristics:
                 print(f"Method {method} failed with {n_samples} samples: {e}")
 
         # Sort_scan should be faster for large datasets
-        if "sort_scan" in timing_results and "unique_scan" in timing_results:
+        if "sort_scan" in timing_results and "sort_scan" in timing_results:
             if n_samples >= 1000:
                 # For large datasets, sort_scan should be competitive or faster
-                ratio = timing_results["sort_scan"] / timing_results["unique_scan"]
+                ratio = timing_results["sort_scan"] / timing_results["sort_scan"]
                 assert (
                     ratio < 2.0
                 ), f"Sort_scan too slow compared to unique_scan: {ratio}"
@@ -187,8 +187,8 @@ class TestPerformanceCharacteristics:
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         # Should complete without memory issues
-        result = get_optimal_threshold(
-            y_true, pred_prob, metric="f1", method="unique_scan"
+        result = optimize_thresholds(
+            y_true, pred_prob, metric="f1", method="sort_scan"
         )
         threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
@@ -205,8 +205,8 @@ class TestPerformanceCharacteristics:
         pred_prob = np.linspace(0.001, 0.999, n_samples)  # All unique values
 
         start_time = time.time()
-        result = get_optimal_threshold(
-            y_true, pred_prob, metric="f1", method="unique_scan"
+        result = optimize_thresholds(
+            y_true, pred_prob, metric="f1", method="sort_scan"
         )
         end_time = time.time()
 
@@ -224,12 +224,12 @@ class TestMulticlassMethodConsistency:
         pred_prob = np.random.RandomState(42).uniform(0, 1, (9, 3))
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
-        methods = ["unique_scan", "minimize"]
+        methods = ["sort_scan", "minimize"]
         thresholds = {}
 
         for method in methods:
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     y_true, pred_prob, metric="f1", method=method
                 )
                 thresholds[method] = result.thresholds
@@ -261,7 +261,7 @@ class TestMulticlassMethodConsistency:
 
         try:
             # Coordinate ascent should work for F1
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, pred_prob, metric="f1", method="coord_ascent"
             )
 
@@ -282,14 +282,14 @@ class TestComparisonOperatorConsistency:
         y_true = [0, 1, 0, 1, 1, 0]
         pred_prob = [0.4, 0.6, 0.4, 0.6, 0.6, 0.4]  # Some tied values
 
-        methods = ["unique_scan", "minimize"]
+        methods = ["sort_scan", "minimize"]
 
         for method in methods:
             try:
-                result_gt = get_optimal_threshold(
+                result_gt = optimize_thresholds(
                     y_true, pred_prob, metric="f1", method=method, comparison=">"
                 )
-                result_gte = get_optimal_threshold(
+                result_gte = optimize_thresholds(
                     y_true, pred_prob, metric="f1", method=method, comparison=">="
                 )
 
@@ -324,7 +324,7 @@ class TestRegressionTests:
         y_true = [0, 0, 1, 1, 1, 0, 1, 0]
         pred_prob = [0.1, 0.2, 0.6, 0.7, 0.8, 0.3, 0.9, 0.4]
 
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         threshold = result.threshold
         tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, pred_prob, threshold)
 
@@ -350,7 +350,7 @@ class TestRegressionTests:
             ]
         )
 
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
 
         # Should return valid per-class thresholds
         thresholds = result.thresholds

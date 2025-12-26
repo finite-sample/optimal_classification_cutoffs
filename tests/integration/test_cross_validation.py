@@ -16,10 +16,10 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from sklearn.model_selection import KFold, StratifiedKFold
 
-from optimal_cutoffs import cv_threshold_optimization
+from optimal_cutoffs.cv import cross_validate
 from optimal_cutoffs.cv import (
     _average_threshold_dicts,
-    nested_cv_threshold_optimization,
+    nested_cross_validate,
 )
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
@@ -69,12 +69,12 @@ def _generate_test_data(n_samples=50, random_state=42):
 class TestBasicCrossValidation:
     """Test basic cross-validation functionality."""
 
-    def test_cv_threshold_optimization_basic(self):
+    def test_cross_validate_basic(self):
         """Test basic cross-validation threshold optimization."""
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
-        thresholds, scores = cv_threshold_optimization(
-            y_true, y_prob, method="unique_scan", cv=5, random_state=42
+        thresholds, scores = cross_validate(
+            y_true, y_prob, method="sort_scan", cv=5, random_state=42
         )
 
         # Should return arrays of correct length
@@ -95,7 +95,7 @@ class TestBasicCrossValidation:
         y_true, y_prob = generate_binary_data(80, random_state=42)
 
         for cv in [3, 5, 10]:
-            thresholds, scores = cv_threshold_optimization(
+            thresholds, scores = cross_validate(
                 y_true, y_prob, cv=cv, random_state=42
             )
 
@@ -106,7 +106,7 @@ class TestBasicCrossValidation:
         """Test that cross_val_score_threshold produces reasonable results."""
         y_true, y_prob = _generate_cv_data(100, random_state=42)
 
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, metric="f1", cv=5, random_state=42
         )
 
@@ -132,7 +132,7 @@ class TestNestedCrossValidation:
         """Test basic nested CV functionality."""
         y_true, y_prob = _generate_cv_data(100, random_state=42)
 
-        thresholds, scores = nested_cv_threshold_optimization(
+        thresholds, scores = nested_cross_validate(
             y_true, y_prob, metric="f1", outer_cv=3, inner_cv=3, random_state=42
         )
 
@@ -154,7 +154,7 @@ class TestNestedCrossValidation:
         """Test that threshold selection uses inner CV mean, not best fold."""
         y_true, y_prob = _generate_cv_data(120, random_state=42)
 
-        thresholds, scores = nested_cv_threshold_optimization(
+        thresholds, scores = nested_cross_validate(
             y_true, y_prob, metric="f1", outer_cv=3, inner_cv=4, random_state=42
         )
 
@@ -175,7 +175,7 @@ class TestNestedCrossValidation:
 class TestEarlyValidation:
     """Test that CV functions validate parameters early."""
 
-    def test_cv_threshold_optimization_invalid_cv(self):
+    def test_cross_validate_invalid_cv(self):
         """Test early validation of cv parameter."""
         y_true, y_prob = _generate_test_data()
 
@@ -183,19 +183,19 @@ class TestEarlyValidation:
         with pytest.raises(
             ValueError, match="k-fold cross-validation requires at least one"
         ):
-            cv_threshold_optimization(y_true, y_prob, cv=1)
+            cross_validate(y_true, y_prob, cv=1)
 
         with pytest.raises(
             ValueError, match="k-fold cross-validation requires at least one"
         ):
-            cv_threshold_optimization(y_true, y_prob, cv=0)
+            cross_validate(y_true, y_prob, cv=0)
 
-    def test_cv_threshold_optimization_invalid_metric(self):
+    def test_cross_validate_invalid_metric(self):
         """Test early validation of metric parameter."""
         y_true, y_prob = _generate_test_data()
 
         with pytest.raises(ValueError, match="Unknown metric"):
-            cv_threshold_optimization(y_true, y_prob, metric="invalid_metric")
+            cross_validate(y_true, y_prob, metric="invalid_metric")
 
     def test_nested_cv_invalid_parameters(self):
         """Test early validation of nested CV parameters."""
@@ -205,13 +205,13 @@ class TestEarlyValidation:
         with pytest.raises(
             ValueError, match="k-fold cross-validation requires at least one"
         ):
-            nested_cv_threshold_optimization(y_true, y_prob, outer_cv=1)
+            nested_cross_validate(y_true, y_prob, outer_cv=1)
 
         # Invalid inner_cv
         with pytest.raises(
             ValueError, match="k-fold cross-validation requires at least one"
         ):
-            nested_cv_threshold_optimization(y_true, y_prob, inner_cv=1)
+            nested_cross_validate(y_true, y_prob, inner_cv=1)
 
 
 class TestValidParametersStillWork:
@@ -222,18 +222,18 @@ class TestValidParametersStillWork:
         y_true, y_prob = _generate_test_data()
 
         # These should all work
-        cv_threshold_optimization(y_true, y_prob, cv=3)
-        cv_threshold_optimization(y_true, y_prob, cv=5)
-        cv_threshold_optimization(y_true, y_prob, metric="f1")
-        cv_threshold_optimization(y_true, y_prob, metric="accuracy")
+        cross_validate(y_true, y_prob, cv=3)
+        cross_validate(y_true, y_prob, cv=5)
+        cross_validate(y_true, y_prob, metric="f1")
+        cross_validate(y_true, y_prob, metric="accuracy")
 
     def test_valid_nested_cv_parameters_work(self):
         """Test that valid nested CV parameters work."""
         y_true, y_prob = _generate_test_data()
 
         # These should all work
-        nested_cv_threshold_optimization(y_true, y_prob, outer_cv=3, inner_cv=3)
-        nested_cv_threshold_optimization(y_true, y_prob, outer_cv=5, inner_cv=3)
+        nested_cross_validate(y_true, y_prob, outer_cv=3, inner_cv=3)
+        nested_cross_validate(y_true, y_prob, outer_cv=5, inner_cv=3)
 
 
 class TestMultipleInvalidParameters:
@@ -245,7 +245,7 @@ class TestMultipleInvalidParameters:
 
         # Both cv and metric are invalid, should report metric error first (validation order)
         with pytest.raises(ValueError, match="Unknown metric"):
-            cv_threshold_optimization(y_true, y_prob, cv=1, metric="invalid")
+            cross_validate(y_true, y_prob, cv=1, metric="invalid")
 
 
 class TestErrorMessageQuality:
@@ -256,7 +256,7 @@ class TestErrorMessageQuality:
         y_true, y_prob = _generate_test_data()
 
         with pytest.raises(ValueError) as exc_info:
-            cv_threshold_optimization(y_true, y_prob, cv=0)
+            cross_validate(y_true, y_prob, cv=0)
 
         error_msg = str(exc_info.value)
         assert "cross-validation" in error_msg.lower()
@@ -274,7 +274,7 @@ class TestPerformanceImprovement:
         # Early validation should fail very quickly
         start_time = time.time()
         with pytest.raises(ValueError):
-            cv_threshold_optimization(y_true, y_prob, cv=0)
+            cross_validate(y_true, y_prob, cv=0)
         early_time = time.time() - start_time
 
         # Should fail in much less than 1 second
@@ -305,7 +305,7 @@ class TestThresholdAveraging:
         """Test that nested CV averages thresholds rather than selecting best."""
         y_true, y_prob = _generate_cv_data(80, random_state=42)
 
-        thresholds, scores = nested_cv_threshold_optimization(
+        thresholds, scores = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=3, random_state=42
         )
 
@@ -323,7 +323,7 @@ class TestStatisticalSoundness:
         """Test that thresholds are selected by inner CV mean performance."""
         y_true, y_prob = _generate_cv_data(100, random_state=42)
 
-        thresholds, scores = nested_cv_threshold_optimization(
+        thresholds, scores = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=4, random_state=42
         )
 
@@ -345,10 +345,10 @@ class TestStatisticalSoundness:
 
         # This is tested implicitly by using different random states
         # and ensuring consistent results
-        thresholds1, scores1 = nested_cv_threshold_optimization(
+        thresholds1, scores1 = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=3, random_state=42
         )
-        thresholds2, scores2 = nested_cv_threshold_optimization(
+        thresholds2, scores2 = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=3, random_state=42
         )
 
@@ -369,7 +369,7 @@ class TestRobustness:
         """Test nested CV works with various data characteristics."""
         y_true, y_prob = _generate_cv_data(n_samples, random_state=random_state)
 
-        thresholds, scores = nested_cv_threshold_optimization(
+        thresholds, scores = nested_cross_validate(
             y_true, y_prob, outer_cv=3, inner_cv=3, random_state=42
         )
 
@@ -403,7 +403,7 @@ class TestCrossValidationWithWeights:
         y_true, y_prob = generate_binary_data(100, random_state=42)
         weights = np.random.uniform(0.5, 2.0, size=len(y_true))
 
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, sample_weight=weights, cv=3, random_state=42
         )
 
@@ -419,7 +419,7 @@ class TestCrossValidationStrategies:
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
         cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, cv=cv_strategy, random_state=42
         )
 
@@ -431,7 +431,7 @@ class TestCrossValidationStrategies:
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
         cv_strategy = KFold(n_splits=4, shuffle=True, random_state=42)
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, cv=cv_strategy, random_state=42
         )
 
@@ -447,10 +447,10 @@ class TestCrossValidationConsistency:
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
         # Run CV twice with same random state
-        thresholds1, scores1 = cv_threshold_optimization(
+        thresholds1, scores1 = cross_validate(
             y_true, y_prob, cv=5, random_state=42
         )
-        thresholds2, scores2 = cv_threshold_optimization(
+        thresholds2, scores2 = cross_validate(
             y_true, y_prob, cv=5, random_state=42
         )
 
@@ -466,7 +466,7 @@ class TestCrossValidationMulticlass:
         """Test basic CV with multiclass data."""
         y_true, y_prob = generate_multiclass_data(100, n_classes=3, random_state=42)
 
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, metric="f1", average="macro", cv=3, random_state=42
         )
 
@@ -485,7 +485,7 @@ class TestCrossValidationEdgeCases:
         """Test CV with very small dataset."""
         y_true, y_prob = generate_binary_data(20, random_state=42)
 
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, cv=3, random_state=42
         )
 
@@ -497,7 +497,7 @@ class TestCrossValidationEdgeCases:
         # Use 0.1 ratio (10%) to ensure at least 10 samples per class for 3-fold CV
         y_true, y_prob = generate_binary_data(100, imbalance_ratio=0.1, random_state=42)
 
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, cv=3, random_state=42
         )
 
@@ -516,7 +516,7 @@ class TestCrossValidationPerformance:
 
         start_time = time.time()
 
-        thresholds, scores = cv_threshold_optimization(
+        thresholds, scores = cross_validate(
             y_true, y_prob, cv=5, random_state=42
         )
 
@@ -533,7 +533,7 @@ class TestCrossValidationErrorHandling:
         y_prob = np.array([0.1, 0.9])  # Wrong length
 
         with pytest.raises(ValueError):
-            cv_threshold_optimization(y_true, y_prob, cv=3)
+            cross_validate(y_true, y_prob, cv=3)
 
 
 class TestCrossValidationIntegration:
@@ -543,8 +543,8 @@ class TestCrossValidationIntegration:
         """Test CV with different optimization methods."""
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
-        for method in ["unique_scan", "minimize"]:
-            thresholds, scores = cv_threshold_optimization(
+        for method in ["sort_scan", "minimize"]:
+            thresholds, scores = cross_validate(
                 y_true, y_prob, method=method, cv=3, random_state=42
             )
 
@@ -556,7 +556,7 @@ class TestCrossValidationIntegration:
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            thresholds, scores = cv_threshold_optimization(
+            thresholds, scores = cross_validate(
                 y_true, y_prob, metric=metric, cv=3, random_state=42
             )
 

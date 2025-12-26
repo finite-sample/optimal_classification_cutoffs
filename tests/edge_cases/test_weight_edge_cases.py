@@ -5,15 +5,13 @@ import pytest
 
 from optimal_cutoffs import (
     confusion_matrix_at_threshold,
-    cv_threshold_optimization,
-    get_optimal_multiclass_thresholds,
-    get_optimal_threshold,
+    optimize_thresholds,
     multiclass_confusion_matrices_at_thresholds,
     needs_probability_scores,
-    nested_cv_threshold_optimization,
     register_metric,
     should_maximize_metric,
 )
+from optimal_cutoffs.cv import cross_validate, nested_cv_threshold_optimization
 
 
 def test_confusion_matrix_with_sample_weights():
@@ -91,8 +89,8 @@ def test_optimal_threshold_with_sample_weights():
     # Equal weights should give same result as no weights
     equal_weights = np.ones(len(true_labs))
 
-    result_no_weights = get_optimal_threshold(true_labs, pred_prob, metric="f1")
-    result_equal_weights = get_optimal_threshold(
+    result_no_weights = optimize_thresholds(true_labs, pred_prob, metric="f1")
+    result_equal_weights = optimize_thresholds(
         true_labs, pred_prob, metric="f1", sample_weight=equal_weights
     )
     threshold_no_weights = result_no_weights.threshold
@@ -103,7 +101,7 @@ def test_optimal_threshold_with_sample_weights():
     # Different weights should potentially give different result
     # Weight the positive class more heavily
     heavy_positive_weights = np.array([1.0, 1.0, 1.0, 5.0, 5.0, 5.0])
-    result_weighted = get_optimal_threshold(
+    result_weighted = optimize_thresholds(
         true_labs, pred_prob, metric="f1", sample_weight=heavy_positive_weights
     )
     threshold_weighted = result_weighted.threshold
@@ -129,7 +127,7 @@ def test_multiclass_optimal_thresholds_with_sample_weights():
 
     sample_weight = np.array([1.0, 2.0, 1.5, 0.5, 2.0, 1.0])
 
-    result = get_optimal_multiclass_thresholds(
+    result = optimize_thresholds(
         true_labs, pred_prob, metric="f1", sample_weight=sample_weight
     )
     thresholds = result.thresholds
@@ -147,7 +145,7 @@ def test_direct_api_with_sample_weights():
     sample_weight = np.array([1.0, 1.0, 2.0, 2.0, 2.0])  # Weight positive class more
 
     # Use direct API instead of removed wrapper
-    result = get_optimal_threshold(
+    result = optimize_thresholds(
         true_labs, pred_prob, metric="f1", sample_weight=sample_weight
     )
 
@@ -165,7 +163,7 @@ def test_cv_with_sample_weights():
     pred_prob = np.array([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9])
     sample_weight = np.array([1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0])
 
-    thresholds, scores = cv_threshold_optimization(
+    thresholds, scores = cross_validate(
         true_labs, pred_prob, metric="f1", cv=3, sample_weight=sample_weight
     )
 
@@ -182,7 +180,7 @@ def test_nested_cv_with_sample_weights():
     pred_prob = np.array([0.1, 0.15, 0.2, 0.3, 0.4, 0.6, 0.7, 0.75, 0.8, 0.9])
     sample_weight = np.array([1.0] * 5 + [2.0] * 5)
 
-    thresholds, scores = nested_cv_threshold_optimization(
+    thresholds, scores = nested_cross_validate(
         true_labs,
         pred_prob,
         metric="f1",
@@ -246,7 +244,7 @@ def test_sample_weights_piecewise_optimization():
     sample_weight = np.array([1.0, 1.0, 2.0, 2.0, 2.0])
 
     # F1 is piecewise, so should use the fast algorithm
-    result = get_optimal_threshold(
+    result = optimize_thresholds(
         true_labs,
         pred_prob,
         metric="f1",

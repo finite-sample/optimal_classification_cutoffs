@@ -1,0 +1,389 @@
+"""Main API for threshold optimization.
+
+Two canonical functions:
+- optimize_thresholds(): For threshold-based optimization
+- optimize_decisions(): For cost-matrix based decisions (no thresholds)
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
+
+from .core import (
+    Average,
+    OptimizationResult,
+    Task,
+    infer_task_with_explanation,
+    select_average_with_explanation,
+    select_method_with_explanation,
+)
+
+
+def optimize_thresholds(
+    y_true: ArrayLike,
+    y_score: ArrayLike,
+    *,
+    metric: str = "f1",
+    task: Task = Task.AUTO,
+    average: Average = Average.AUTO,
+    method: str = "auto",
+    mode: str = "empirical",
+    sample_weight: ArrayLike | None = None,
+    **kwargs,
+) -> OptimizationResult:
+    """Find optimal thresholds for classification problems.
+
+    This is THE canonical entry point for threshold optimization.
+    Auto-detects problem type and selects appropriate algorithms.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True labels
+    y_score : array-like
+        Predicted scores/probabilities
+        - Binary: 1D array of scores
+        - Multiclass: 2D array (n_samples, n_classes)
+        - Multilabel: 2D array (n_samples, n_labels)
+    metric : str, default="f1"
+        Metric to optimize ("f1", "precision", "recall", "accuracy", etc.)
+    task : Task, default=Task.AUTO
+        Problem type. AUTO infers from data shape and probability sums.
+    average : Average, default=Average.AUTO
+        Averaging strategy for multiclass/multilabel. AUTO selects sensible default.
+    method : str, default="auto"
+        Optimization algorithm. AUTO selects best method per task+metric.
+    mode : str, default="empirical"
+        "empirical" (standard) or "expected" (requires calibrated probabilities)
+    sample_weight : array-like, optional
+        Sample weights
+
+    Returns
+    -------
+    OptimizationResult
+        Result with .thresholds, .predict(), and explanation of auto-selections
+
+    Examples
+    --------
+    >>> # Binary classification - simple case
+    >>> result = optimize_thresholds(y_true, y_scores, metric="f1")
+    >>> print(f"Optimal threshold: {result.threshold}")
+
+    >>> # Multiclass classification
+    >>> result = optimize_thresholds(y_true, y_probs, metric="f1")
+    >>> print(f"Per-class thresholds: {result.thresholds}")
+    >>> print(f"Task inferred as: {result.task.value}")
+
+    >>> # Explicit control when needed
+    >>> result = optimize_thresholds(
+    ...     y_true, y_probs,
+    ...     metric="precision",
+    ...     task=Task.MULTICLASS,
+    ...     average=Average.MACRO
+    ... )
+    """
+    # Convert inputs
+    y_true = np.asarray(y_true)
+    y_score = np.asarray(y_score)
+    if sample_weight is not None:
+        sample_weight = np.asarray(sample_weight)
+
+    # Track all notes and warnings for explainability
+    all_notes = []
+    all_warnings = []
+
+    # 1. Task inference
+    match task:
+        case Task.AUTO:
+            inferred_task, task_notes, task_warnings = infer_task_with_explanation(
+                y_true, y_score
+            )
+            all_notes.extend(task_notes)
+            all_warnings.extend(task_warnings)
+        case _:
+            inferred_task = task
+            all_notes.append(f"Using explicit task: {task.value}")
+
+    # 2. Average strategy selection
+    match average:
+        case Average.AUTO:
+            inferred_average, avg_notes = select_average_with_explanation(
+                inferred_task, metric
+            )
+            all_notes.extend(avg_notes)
+        case _:
+            inferred_average = average
+            all_notes.append(f"Using explicit averaging: {average.value}")
+
+    # 3. Method selection
+    if method == "auto":
+        n_samples = len(y_true)
+        inferred_method, method_notes = select_method_with_explanation(
+            inferred_task, metric, n_samples
+        )
+        all_notes.extend(method_notes)
+    else:
+        inferred_method = method
+        all_notes.append(f"Using explicit method: {method}")
+
+    # 4. Route to appropriate implementation
+    result = _route_to_implementation(
+        y_true,
+        y_score,
+        task=inferred_task,
+        metric=metric,
+        average=inferred_average,
+        method=inferred_method,
+        mode=mode,
+        sample_weight=sample_weight,
+        **kwargs,
+    )
+
+    # 5. Add explainability metadata
+    result.task = inferred_task
+    result.method = inferred_method
+    result.average = inferred_average
+    result.notes = all_notes
+    result.warnings = all_warnings
+    result.metric = metric
+
+    return result
+
+
+def optimize_decisions(
+    y_prob: ArrayLike,
+    cost_matrix: ArrayLike,
+    **kwargs,
+) -> OptimizationResult:
+    """Find optimal decisions using cost matrix (no thresholds).
+
+    For problems where thresholds aren't the right abstraction.
+    Uses Bayes-optimal decision rule: argmin_action E[cost | probabilities].
+
+    Parameters
+    ----------
+    y_prob : array-like
+        Predicted probabilities (n_samples, n_classes)
+    cost_matrix : array-like
+        Cost matrix (n_classes, n_actions) or (n_classes, n_classes)
+        cost_matrix[i, j] = cost of predicting action j when true class is i
+
+    Returns
+    -------
+    OptimizationResult
+        Result with .predict() function (no .thresholds)
+
+    Examples
+    --------
+    >>> # Cost matrix: rows=true class, cols=predicted class
+    >>> costs = [[0, 1, 10], [5, 0, 1], [50, 10, 0]]  # FN costs 5x more than FP
+    >>> result = optimize_decisions(y_probs, costs)
+    >>> y_pred = result.predict(y_probs_test)
+    """
+    from .bayes_core import bayes_optimal_decisions
+
+    return bayes_optimal_decisions(
+        np.asarray(y_prob), cost_matrix=np.asarray(cost_matrix), **kwargs
+    )
+
+
+def _route_to_implementation(
+    y_true: NDArray,
+    y_score: NDArray,
+    *,
+    task: Task,
+    metric: str,
+    average: Average,
+    method: str,
+    mode: str,
+    sample_weight: NDArray | None = None,
+    **kwargs,
+) -> OptimizationResult:
+    """Route to appropriate implementation based on task and method."""
+
+    match task:
+        case Task.BINARY:
+            return _optimize_binary(
+                y_true,
+                y_score,
+                metric=metric,
+                method=method,
+                mode=mode,
+                sample_weight=sample_weight,
+                **kwargs,
+            )
+
+        case Task.MULTICLASS:
+            return _optimize_multiclass(
+                y_true,
+                y_score,
+                metric=metric,
+                average=average,
+                method=method,
+                mode=mode,
+                sample_weight=sample_weight,
+                **kwargs,
+            )
+
+        case Task.MULTILABEL:
+            return _optimize_multilabel(
+                y_true,
+                y_score,
+                metric=metric,
+                average=average,
+                method=method,
+                mode=mode,
+                sample_weight=sample_weight,
+                **kwargs,
+            )
+
+        case _:
+            raise ValueError(f"Unknown task: {task}")
+
+
+def _optimize_binary(
+    y_true: NDArray,
+    y_score: NDArray,
+    *,
+    metric: str,
+    method: str,
+    mode: str,
+    sample_weight: NDArray | None = None,
+    **kwargs,
+) -> OptimizationResult:
+    """Route binary optimization to appropriate algorithm."""
+
+    if mode == "expected":
+        from .expected import dinkelbach_expected_fbeta_binary
+
+        return dinkelbach_expected_fbeta_binary(y_score, **kwargs)
+
+    # Empirical mode
+    match method:
+        case "sort_scan":
+            from .piecewise import optimal_threshold_sortscan
+
+            return optimal_threshold_sortscan(
+                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+            )
+
+        case "minimize":
+            from .binary import optimize_metric_binary
+
+            return optimize_metric_binary(
+                y_true,
+                y_score,
+                metric=metric,
+                method="minimize",
+                sample_weight=sample_weight,
+                **kwargs,
+            )
+
+        case "gradient":
+            from .binary import optimize_metric_binary
+
+            return optimize_metric_binary(
+                y_true,
+                y_score,
+                metric=metric,
+                method="gradient",
+                sample_weight=sample_weight,
+                **kwargs,
+            )
+
+        case _:
+            raise ValueError(f"Unknown binary method: {method}")
+
+
+def _optimize_multiclass(
+    y_true: NDArray,
+    y_score: NDArray,
+    *,
+    metric: str,
+    average: Average,
+    method: str,
+    mode: str,
+    sample_weight: NDArray | None = None,
+    **kwargs,
+) -> OptimizationResult:
+    """Route multiclass optimization to appropriate algorithm."""
+
+    if mode == "expected":
+        raise NotImplementedError("Expected mode not yet supported for multiclass")
+
+    # Empirical mode
+    match method:
+        case "coord_ascent":
+            from .multiclass import optimize_ovr_margin
+
+            return optimize_ovr_margin(
+                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+            )
+
+        case "independent":
+            from .multiclass import optimize_ovr_independent
+
+            return optimize_ovr_independent(
+                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+            )
+
+        case "micro":
+            from .multiclass import optimize_micro_multiclass
+
+            return optimize_micro_multiclass(
+                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+            )
+
+        case _:
+            raise ValueError(f"Unknown multiclass method: {method}")
+
+
+def _optimize_multilabel(
+    y_true: NDArray,
+    y_score: NDArray,
+    *,
+    metric: str,
+    average: Average,
+    method: str,
+    mode: str,
+    sample_weight: NDArray | None = None,
+    **kwargs,
+) -> OptimizationResult:
+    """Route multilabel optimization to appropriate algorithm."""
+
+    if mode == "expected":
+        from .expected import dinkelbach_expected_fbeta_multilabel
+
+        return dinkelbach_expected_fbeta_multilabel(
+            y_score, average=average.value, **kwargs
+        )
+
+    # Empirical mode
+    match (method, average):
+        case ("independent", Average.MACRO):
+            from .multilabel import optimize_macro_multilabel
+
+            return optimize_macro_multilabel(
+                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+            )
+
+        case ("coordinate_ascent", Average.MICRO):
+            from .multilabel import optimize_micro_multilabel
+
+            return optimize_micro_multilabel(
+                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+            )
+
+        case _:
+            # Fallback to general multilabel router
+            from .multilabel import optimize_multilabel
+
+            return optimize_multilabel(
+                y_true,
+                y_score,
+                metric=metric,
+                average=average.value,
+                sample_weight=sample_weight,
+                **kwargs,
+            )

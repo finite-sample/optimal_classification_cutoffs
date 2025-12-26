@@ -15,7 +15,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold, multiclass_metric_single_label
+from optimal_cutoffs import optimize_thresholds, multiclass_metric_single_label
 
 
 def _generate_multiclass_data(n_samples, n_classes, random_state=42):
@@ -53,7 +53,7 @@ class TestExclusiveVsOvRDistinction:
 
         # Get thresholds using coordinate ascent (which ensures exclusive predictions)
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -95,7 +95,7 @@ class TestExclusiveVsOvRDistinction:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 
@@ -130,7 +130,7 @@ class TestExclusiveVsOvRDistinction:
         )
 
         # Get OvR thresholds (standard approach)
-        result_ovr = get_optimal_threshold(
+        result_ovr = optimize_thresholds(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
 
@@ -204,7 +204,7 @@ class TestExclusiveVsOvRDistinction:
         labels, probs = _generate_multiclass_data(n_samples=20, n_classes=3)
 
         # Get OvR thresholds
-        result_ovr = get_optimal_threshold(
+        result_ovr = optimize_thresholds(
             labels, probs, metric="f1", method="auto", comparison=">"
         )
 
@@ -254,7 +254,7 @@ class TestMulticlassAccuracySemantics:
         # Try to compute multiclass accuracy with OvR approach
         # This should either work by converting to exclusive or raise an error
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="accuracy", method="auto", comparison=">"
             )
 
@@ -279,7 +279,7 @@ class TestMulticlassAccuracySemantics:
 
         # F1 should work with OvR approach
         try:
-            result_f1 = get_optimal_threshold(
+            result_f1 = optimize_thresholds(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
             thresholds_f1 = result_f1.thresholds
@@ -290,7 +290,7 @@ class TestMulticlassAccuracySemantics:
 
         # Accuracy should require exclusive approach or raise error
         try:
-            result_accuracy = get_optimal_threshold(
+            result_accuracy = optimize_thresholds(
                 labels, probs, metric="accuracy", method="auto", comparison=">"
             )
 
@@ -322,7 +322,7 @@ class TestMulticlassAccuracySemantics:
         # Any method that produces single-label predictions should be consistent
         # with the exclusive accuracy computation
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -369,7 +369,7 @@ class TestMulticlassEdgeCases:
 
         # This is technically binary, but might be handled as multiclass
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 
@@ -396,7 +396,7 @@ class TestMulticlassEdgeCases:
 
         for method in ["auto", "sort_scan"]:
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="f1", method=method, comparison=">"
                 )
 
@@ -425,7 +425,7 @@ class TestMulticlassEdgeCases:
         )
 
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 
@@ -455,7 +455,7 @@ class TestMulticlassEdgeCases:
 
         try:
             # Use any method that should produce reasonable thresholds
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 

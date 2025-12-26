@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import confusion_matrix_at_threshold, get_optimal_threshold
+from optimal_cutoffs import confusion_matrix_at_threshold, optimize_thresholds
 from optimal_cutoffs.metrics import METRICS, register_metric, register_metrics
 
 # Local tolerance for test precision
@@ -41,6 +41,6 @@ def test_metric_registry_and_custom_registration():
 
     y_true = np.array([0, 0, 1, 1])
     y_prob = np.array([0.1, 0.4, 0.6, 0.9])
-    result = get_optimal_threshold(y_true, y_prob, metric="tpr")
+    result = optimize_thresholds(y_true, y_prob, metric="tpr")
     threshold = result.threshold
     assert -TOLERANCE <= threshold <= 1.0

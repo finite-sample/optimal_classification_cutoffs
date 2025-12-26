@@ -15,16 +15,16 @@ Notes on `require_proba`:
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
-from .metrics import (
+from .core import OptimizationResult
+from .metrics_core import (
     apply_metric_to_confusion_counts,
     compute_vectorized_confusion_matrices,
     confusion_matrix_from_predictions,
 )
-from .types_minimal import OptimizationResult
 from .validation import validate_binary_classification, validate_weights
 
 Array = np.ndarray[Any, Any]
@@ -109,10 +109,9 @@ def _compute_threshold_midpoint(
 
 def _realized_k(p_sorted: Array, threshold: float, inclusive: bool) -> int:
     """Given a threshold and comparison mode, return #positives among p_sorted (desc)."""
-    # Convert to ascending by negation and use searchsorted with the right side
     q = -p_sorted
     t = -threshold
-    side = "right" if inclusive else "left"
+    side: Literal["left", "right"] = "right" if inclusive else "left"
     return int(np.searchsorted(q, t, side=side))
 
 
@@ -182,7 +181,7 @@ def optimal_threshold_sortscan(
     """
     # 0) Resolve metric to vectorized function
     if isinstance(metric, str):
-        from .metrics import get_metric_function
+        from .metrics_core import get_metric_function
 
         metric_fn = get_metric_function(metric)
     else:

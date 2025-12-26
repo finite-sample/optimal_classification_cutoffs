@@ -35,7 +35,7 @@ Basic Usage
 
 .. code-block:: python
 
-   from optimal_cutoffs import get_optimal_threshold
+   from optimal_cutoffs import optimize_thresholds
    import numpy as np
 
    # Your classification results
@@ -43,7 +43,12 @@ Basic Usage
    y_prob = np.array([0.1, 0.4, 0.35, 0.8, 0.2, 0.9, 0.7, 0.3])
 
    # Find optimal threshold
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1')
+   result = optimize_thresholds(y_true, y_prob, metric='f1')
+   print(f"Optimal threshold: {result.threshold:.3f}")
+   print(f"Expected F1: {result.scores[0]:.3f}")
+   
+   # Make predictions
+   predictions = result.predict(y_prob)
 
 Supported Metrics
 ~~~~~~~~~~~~~~~~~

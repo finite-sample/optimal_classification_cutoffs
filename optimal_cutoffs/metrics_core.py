@@ -743,78 +743,79 @@ def multiclass_metric_ovr(
     """
     metric_func = get_metric_function(metric_name)
 
-    if average == "macro":
-        scores = [metric_func(*cm) for cm in confusion_matrices]
-        return float(np.mean(scores))
+    match average:
+        case "macro":
+            scores = [metric_func(*cm) for cm in confusion_matrices]
+            return float(np.mean(scores))
 
-    elif average == "micro":
-        # Sum only TP, FP, FN (TN inflated in OvR)
-        total_tp = sum(cm[0] for cm in confusion_matrices)
-        total_fp = sum(cm[2] for cm in confusion_matrices)
-        total_fn = sum(cm[3] for cm in confusion_matrices)
+        case "micro":
+            # Sum only TP, FP, FN (TN inflated in OvR)
+            total_tp = sum(cm[0] for cm in confusion_matrices)
+            total_fp = sum(cm[2] for cm in confusion_matrices)
+            total_fn = sum(cm[3] for cm in confusion_matrices)
 
-        # Compute micro metrics directly
-        if metric_name == "precision":
-            return float(
-                total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
+            # Compute micro metrics directly
+            if metric_name == "precision":
+                return float(
+                    total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
+                )
+            elif metric_name in ("recall", "sensitivity", "tpr"):
+                return float(
+                    total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
+                )
+            elif metric_name == "f1":
+                precision = (
+                    total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
+                )
+                recall = (
+                    total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
+                )
+                return float(
+                    2 * precision * recall / (precision + recall)
+                    if (precision + recall) > 0
+                    else 0.0
+                )
+            elif metric_name == "accuracy":
+                raise ValueError(
+                    "Micro-averaged accuracy requires exclusive single-label predictions. "
+                    "Use multiclass_metric_single_label() instead."
+                )
+            else:
+                raise ValueError(
+                    f"Micro-averaged '{metric_name}' is not defined in OvR. "
+                    "Supported: 'precision', 'recall', 'f1'."
+                )
+
+        case "weighted":
+            scores = []
+            supports = []
+            for cm in confusion_matrices:
+                tp, tn, fp, fn = cm
+                scores.append(metric_func(*cm))
+                supports.append(tp + fn)  # True positives for this class
+
+            total_support = sum(supports)
+            if total_support == 0:
+                return 0.0
+
+            weighted_score = (
+                sum(
+                    score * support
+                    for score, support in zip(scores, supports, strict=False)
+                )
+                / total_support
             )
-        elif metric_name in ("recall", "sensitivity", "tpr"):
-            return float(
-                total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
-            )
-        elif metric_name == "f1":
-            precision = (
-                total_tp / (total_tp + total_fp) if total_tp + total_fp > 0 else 0.0
-            )
-            recall = (
-                total_tp / (total_tp + total_fn) if total_tp + total_fn > 0 else 0.0
-            )
-            return float(
-                2 * precision * recall / (precision + recall)
-                if (precision + recall) > 0
-                else 0.0
-            )
-        elif metric_name == "accuracy":
+            return float(weighted_score)
+
+        case "none":
+            scores = [metric_func(*cm) for cm in confusion_matrices]
+            return np.array(scores)
+
+        case _:
             raise ValueError(
-                "Micro-averaged accuracy requires exclusive single-label predictions. "
-                "Use multiclass_metric_single_label() instead."
+                f"Unknown averaging method: {average}. "
+                f"Must be one of: 'macro', 'micro', 'weighted', 'none'."
             )
-        else:
-            raise ValueError(
-                f"Micro-averaged '{metric_name}' is not defined in OvR. "
-                "Supported: 'precision', 'recall', 'f1'."
-            )
-
-    elif average == "weighted":
-        scores = []
-        supports = []
-        for cm in confusion_matrices:
-            tp, tn, fp, fn = cm
-            scores.append(metric_func(*cm))
-            supports.append(tp + fn)  # True positives for this class
-
-        total_support = sum(supports)
-        if total_support == 0:
-            return 0.0
-
-        weighted_score = (
-            sum(
-                score * support
-                for score, support in zip(scores, supports, strict=False)
-            )
-            / total_support
-        )
-        return float(weighted_score)
-
-    elif average == "none":
-        scores = [metric_func(*cm) for cm in confusion_matrices]
-        return np.array(scores)
-
-    else:
-        raise ValueError(
-            f"Unknown averaging method: {average}. "
-            f"Must be one of: 'macro', 'micro', 'weighted', 'none'."
-        )
 
 
 def compute_multiclass_metrics_from_labels(

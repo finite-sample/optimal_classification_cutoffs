@@ -9,7 +9,7 @@ import time
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import compute_metric_at_threshold
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
@@ -37,7 +37,7 @@ class TestLargeScaleScenarios:
             pytest.skip("Insufficient memory for massive dataset test")
 
         start_time = time.time()
-        result = get_optimal_threshold(y_true, pred_prob, method="unique_scan")
+        result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
         end_time = time.time()
 
         execution_time = end_time - start_time
@@ -67,7 +67,7 @@ class TestLargeScaleScenarios:
             pytest.skip("Insufficient memory for large imbalanced dataset test")
 
         start_time = time.time()
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         end_time = time.time()
 
         execution_time = end_time - start_time
@@ -93,7 +93,7 @@ class TestLargeScaleScenarios:
         )
 
         start_time = time.time()
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         end_time = time.time()
 
         execution_time = end_time - start_time
@@ -120,7 +120,7 @@ class TestLongRunningScenarios:
         n_samples = 5000
         n_datasets = 20
 
-        methods = ["unique_scan", "minimize", "gradient"]
+        methods = ["sort_scan", "minimize", "gradient"]
         metrics = ["f1", "accuracy", "precision", "recall"]
 
         results = {method: {metric: [] for metric in metrics} for method in methods}
@@ -135,7 +135,7 @@ class TestLongRunningScenarios:
                 for metric in metrics:
                     try:
                         start_time = time.time()
-                        result = get_optimal_threshold(
+                        result = optimize_thresholds(
                             y_true, pred_prob, method=method, metric=metric
                         )
                         end_time = time.time()
@@ -189,7 +189,7 @@ class TestLongRunningScenarios:
                     start_time = time.time()
                     # Test multiclass optimization if available
                     try:
-                        thresholds = get_optimal_threshold(
+                        thresholds = optimize_thresholds(
                             y_true, pred_prob, metric="f1"
                         )
                         end_time = time.time()
@@ -247,7 +247,7 @@ class TestLongRunningScenarios:
                 # Use training set to optimize threshold
                 y_train, p_train = y_true[train_idx], pred_prob[train_idx]
 
-                result = get_optimal_threshold(y_train, p_train, metric="f1")
+                result = optimize_thresholds(y_train, p_train, metric="f1")
                 threshold = result.threshold
                 assert_valid_threshold(threshold)
 
@@ -318,7 +318,7 @@ class TestExtremeCaseComprehensive:
                 elif np.sum(y_true) == len(y_true):
                     y_true[0] = 0
 
-                result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+                result = optimize_thresholds(y_true, pred_prob, metric="f1")
                 threshold = result.threshold
                 assert_valid_threshold(threshold)
 

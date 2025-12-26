@@ -10,7 +10,7 @@ import pytest
 from sklearn.metrics import accuracy_score as sklearn_accuracy
 from sklearn.metrics import f1_score as sklearn_f1
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 
 # Local tolerance for test precision
 from optimal_cutoffs.metrics import (
@@ -41,11 +41,11 @@ class TestRealisticBinaryOptimization:
         y_true, y_prob = STANDARD_BINARY.y_true, STANDARD_BINARY.y_prob
 
         # Test different optimization methods
-        methods = ["auto", "sort_scan", "unique_scan", "minimize"]
+        methods = ["auto", "sort_scan", "sort_scan", "minimize"]
         thresholds = {}
 
         for method in methods:
-            result = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
+            result = optimize_thresholds(y_true, y_prob, metric="f1", method=method)
             threshold = result.threshold
             thresholds[method] = threshold
 
@@ -65,9 +65,9 @@ class TestRealisticBinaryOptimization:
         y_true, y_prob = IMBALANCED_BINARY.y_true, IMBALANCED_BINARY.y_prob
 
         # With 5% positive class, precision and recall should behave differently
-        result_f1 = get_optimal_threshold(y_true, y_prob, metric="f1")
-        result_precision = get_optimal_threshold(y_true, y_prob, metric="precision")
-        result_recall = get_optimal_threshold(y_true, y_prob, metric="recall")
+        result_f1 = optimize_thresholds(y_true, y_prob, metric="f1")
+        result_precision = optimize_thresholds(y_true, y_prob, metric="precision")
+        result_recall = optimize_thresholds(y_true, y_prob, metric="recall")
 
         # Different metrics should potentially give different thresholds
         # Note: The exact relationship depends on the data distribution
@@ -86,12 +86,12 @@ class TestRealisticBinaryOptimization:
         """Test that algorithm adapts to different class separation levels."""
         # Well-separated classes should allow more extreme thresholds
         y_sep, p_sep = WELL_SEPARATED_BINARY.y_true, WELL_SEPARATED_BINARY.y_prob
-        result_sep = get_optimal_threshold(y_sep, p_sep, metric="f1")
+        result_sep = optimize_thresholds(y_sep, p_sep, metric="f1")
         threshold_sep = result_sep.threshold
 
         # Overlapping classes should result in more moderate thresholds
         y_over, p_over = OVERLAPPING_BINARY.y_true, OVERLAPPING_BINARY.y_prob
-        result_over = get_optimal_threshold(y_over, p_over, metric="f1")
+        result_over = optimize_thresholds(y_over, p_over, metric="f1")
         threshold_over = result_over.threshold
 
         # Both should achieve reasonable performance
@@ -115,13 +115,13 @@ class TestRealisticBinaryOptimization:
         y_true, y_prob = CALIBRATED_BINARY.y_true, CALIBRATED_BINARY.y_prob
 
         # Empirical optimization
-        result_emp = get_optimal_threshold(
+        result_emp = optimize_thresholds(
             y_true, y_prob, metric="f1", mode="empirical"
         )
         threshold_emp = result_emp.threshold
 
         # Expected optimization
-        result_exp = get_optimal_threshold(y_true, y_prob, metric="f1", mode="expected")
+        result_exp = optimize_thresholds(y_true, y_prob, metric="f1", mode="expected")
         threshold_exp, expected_f1 = result_exp.threshold, result_exp.score
 
         # Both should be reasonable
@@ -152,8 +152,8 @@ class TestRealisticBinaryOptimization:
         """Test '>' vs '>=' comparison operators on realistic data."""
         y_true, y_prob = STANDARD_BINARY.y_true, STANDARD_BINARY.y_prob
 
-        result_excl = get_optimal_threshold(y_true, y_prob, metric="f1", comparison=">")
-        result_incl = get_optimal_threshold(
+        result_excl = optimize_thresholds(y_true, y_prob, metric="f1", comparison=">")
+        result_incl = optimize_thresholds(
             y_true, y_prob, metric="f1", comparison=">="
         )
         threshold_excl = result_excl.threshold
@@ -184,8 +184,8 @@ class TestRealisticBinaryOptimization:
         weights = np.ones_like(y_true, dtype=float)
         weights[y_true == 1] = 2.0  # Double weight for positive class
 
-        result_unweighted = get_optimal_threshold(y_true, y_prob, metric="f1")
-        result_weighted = get_optimal_threshold(
+        result_unweighted = optimize_thresholds(y_true, y_prob, metric="f1")
+        result_weighted = optimize_thresholds(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
         threshold_unweighted = result_unweighted.threshold
@@ -211,7 +211,7 @@ class TestRealisticBinaryOptimization:
         y_true, y_prob = LARGE_BINARY.y_true, LARGE_BINARY.y_prob
 
         # Should handle large dataset efficiently
-        result = get_optimal_threshold(y_true, y_prob, metric="f1", method="sort_scan")
+        result = optimize_thresholds(y_true, y_prob, metric="f1", method="sort_scan")
         threshold = result.threshold
 
         # Verify results are reasonable
@@ -233,7 +233,7 @@ class TestRealisticMulticlassOptimization:
 
         # Test different averaging strategies
         for average in ["macro", "micro"]:
-            result = get_optimal_threshold(y_true, y_prob, metric="f1", average=average)
+            result = optimize_thresholds(y_true, y_prob, metric="f1", average=average)
             thresholds = result.thresholds
 
             if average == "micro":
@@ -283,10 +283,10 @@ class TestRealisticMulticlassOptimization:
         n_classes = IMBALANCED_MULTICLASS.n_classes
 
         # Macro and micro averaging should give different results
-        result_macro = get_optimal_threshold(
+        result_macro = optimize_thresholds(
             y_true, y_prob, metric="f1", average="macro"
         )
-        result_micro = get_optimal_threshold(
+        result_micro = optimize_thresholds(
             y_true, y_prob, metric="f1", average="micro"
         )
 
@@ -322,13 +322,13 @@ class TestRealisticMulticlassOptimization:
         y_prob_binary = y_prob_multi[:, 1]  # Probability of class 1
 
         # Optimize as multiclass
-        result_multi = get_optimal_threshold(
+        result_multi = optimize_thresholds(
             y_true, y_prob_multi, metric="f1", average="macro"
         )
         thresholds_multi = result_multi.thresholds
 
         # Optimize as binary
-        result_binary = get_optimal_threshold(y_true, y_prob_binary, metric="f1")
+        result_binary = optimize_thresholds(y_true, y_prob_binary, metric="f1")
         threshold_binary = result_binary.threshold
 
         # The threshold for class 1 in multiclass should be reasonably related to binary threshold
@@ -351,8 +351,8 @@ class TestRealisticUtilityOptimization:
         utility_high_fn_cost = {"tp": 1, "tn": 1, "fp": -1, "fn": -10}
         utility_high_fp_cost = {"tp": 1, "tn": 1, "fp": -10, "fn": -1}
 
-        result_fn = get_optimal_threshold(y_true, y_prob, utility=utility_high_fn_cost)
-        result_fp = get_optimal_threshold(y_true, y_prob, utility=utility_high_fp_cost)
+        result_fn = optimize_thresholds(y_true, y_prob, utility=utility_high_fn_cost)
+        result_fp = optimize_thresholds(y_true, y_prob, utility=utility_high_fp_cost)
         threshold_fn = result_fn.threshold
         threshold_fp = result_fp.threshold
 
@@ -377,13 +377,13 @@ class TestRealisticUtilityOptimization:
         utility = {"tp": 2, "tn": 1, "fp": -1, "fn": -3}
 
         # Empirical optimization
-        result_emp = get_optimal_threshold(
+        result_emp = optimize_thresholds(
             y_true, y_prob, utility=utility, mode="empirical"
         )
         threshold_emp = result_emp.threshold
 
         # Bayes optimization (doesn't need true labels)
-        result_bayes = get_optimal_threshold(
+        result_bayes = optimize_thresholds(
             None, y_prob, utility=utility, mode="bayes"
         )
         threshold_bayes = result_bayes.threshold
@@ -413,10 +413,10 @@ def test_all_methods_on_realistic_data(dataset):
     y_true, y_prob = dataset.y_true, dataset.y_prob
     description = dataset.description
 
-    methods = ["auto", "sort_scan", "unique_scan", "minimize"]
+    methods = ["auto", "sort_scan", "sort_scan", "minimize"]
 
     for method in methods:
-        result = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
+        result = optimize_thresholds(y_true, y_prob, metric="f1", method=method)
 
         threshold = result.threshold
         assert (
@@ -436,7 +436,7 @@ def test_all_metrics_on_realistic_data(metric):
     """Test that all metrics work properly on realistic data."""
     y_true, y_prob = STANDARD_BINARY.y_true, STANDARD_BINARY.y_prob
 
-    result = get_optimal_threshold(y_true, y_prob, metric=metric)
+    result = optimize_thresholds(y_true, y_prob, metric=metric)
 
     threshold = result.threshold
     assert (

@@ -10,7 +10,7 @@ The simplest use case is finding the optimal threshold for binary classification
 
 .. code-block:: python
 
-   from optimal_cutoffs import get_optimal_threshold
+   from optimal_cutoffs import optimize_thresholds
    import numpy as np
 
    # Your binary classification data
@@ -18,11 +18,11 @@ The simplest use case is finding the optimal threshold for binary classification
    y_prob = np.array([0.1, 0.4, 0.35, 0.8, 0.2, 0.9])
 
    # Find optimal threshold for F1 score
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1')
-   print(f"Optimal threshold: {threshold:.3f}")
+   result = optimize_thresholds(y_true, y_prob, metric='f1')
+   print(f"Optimal threshold: {result.threshold:.3f}")
 
    # Make predictions
-   predictions = (y_prob >= threshold).astype(int)
+   predictions = result.predict(y_prob)
    print(f"Predictions: {predictions}")
 
 Other Metrics
@@ -33,17 +33,17 @@ You can optimize for different metrics:
 .. code-block:: python
 
    # Optimize for accuracy
-   threshold_acc = get_optimal_threshold(y_true, y_prob, metric='accuracy')
+   result_acc = optimize_thresholds(y_true, y_prob, metric='accuracy')
 
    # Optimize for precision
-   threshold_prec = get_optimal_threshold(y_true, y_prob, metric='precision')
+   result_prec = optimize_thresholds(y_true, y_prob, metric='precision')
 
    # Optimize for recall
-   threshold_rec = get_optimal_threshold(y_true, y_prob, metric='recall')
+   result_rec = optimize_thresholds(y_true, y_prob, metric='recall')
 
-   print(f"Accuracy threshold: {threshold_acc:.3f}")
-   print(f"Precision threshold: {threshold_prec:.3f}")
-   print(f"Recall threshold: {threshold_rec:.3f}")
+   print(f"Accuracy threshold: {result_acc.threshold:.3f}")
+   print(f"Precision threshold: {result_prec.threshold:.3f}")
+   print(f"Recall threshold: {result_rec.threshold:.3f}")
 
 Multiclass Classification
 -------------------------
@@ -64,17 +64,21 @@ For multiclass problems, the library automatically detects the problem type and 
    ])
 
    # Get per-class optimal thresholds
-   thresholds = get_optimal_threshold(y_true, y_prob, metric='f1')
-   print(f"Optimal thresholds per class: {thresholds}")
+   result = optimize_thresholds(y_true, y_prob, metric='f1')
+   print(f"Optimal thresholds per class: {result.thresholds}")
+   print(f"Task detected: {result.task.value}")
+   
+   # Make predictions
+   predictions = result.predict(y_prob)
 
-Using the Scikit-learn Interface
---------------------------------
+Progressive Disclosure: Power Tools
+-----------------------------------
 
-For integration with scikit-learn pipelines, use the ``ThresholdOptimizer`` class:
+API 2.0.0 uses progressive disclosure - simple for basic use, powerful when needed:
 
 .. code-block:: python
 
-   from optimal_cutoffs import ThresholdOptimizer
+   from optimal_cutoffs import optimize_thresholds, cv, metrics
    from sklearn.model_selection import train_test_split
    from sklearn.ensemble import RandomForestClassifier
 
@@ -91,15 +95,16 @@ For integration with scikit-learn pipelines, use the ``ThresholdOptimizer`` clas
    y_prob_train = clf.predict_proba(X_train)[:, 1]
    y_prob_test = clf.predict_proba(X_test)[:, 1]
 
-   # Optimize threshold
-   optimizer = ThresholdOptimizer(metric='f1', method='smart_brute')
-   optimizer.fit(y_train, y_prob_train)
+   # Simple: Optimize threshold
+   result = optimize_thresholds(y_train, y_prob_train, metric='f1')
+   y_pred = result.predict(y_prob_test)
 
-   # Make optimized predictions
-   y_pred = optimizer.predict(y_prob_test)
-
-   print(f"Optimal threshold: {optimizer.threshold_:.3f}")
+   print(f"Optimal threshold: {result.threshold:.3f}")
    print(f"Test accuracy: {np.mean(y_pred == y_test):.3f}")
+   print(f"Method used: {result.method}")
+   
+   # Advanced: Cross-validation with threshold tuning
+   cv_scores = cv.cross_validate(clf, X, y, metric='f1')
 
 Optimization Methods
 --------------------
@@ -109,16 +114,17 @@ The library provides several optimization methods:
 .. code-block:: python
 
    # Auto method selection (recommended)
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='auto')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', method='auto')
 
    # Fast O(n log n) algorithm for piecewise metrics
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='sort_scan')
-
-   # Brute force evaluation of all unique probabilities
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='smart_brute')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', method='sort_scan')
 
    # Scipy-based continuous optimization
-   threshold = get_optimal_threshold(y_true, y_prob, metric='f1', method='minimize')
+   result = optimize_thresholds(y_true, y_prob, metric='f1', method='minimize')
+   
+   # Explainable auto-selection
+   print(f"Method selected: {result.method}")
+   print(f"Reasoning: {result.notes}")
 
 Cost-Sensitive Optimization
 ---------------------------
@@ -127,17 +133,16 @@ For applications where different types of errors have different costs:
 
 .. code-block:: python
 
-   # False negatives cost 5x more than false positives
-   threshold = get_optimal_threshold(
-       y_true, y_prob,
-       utility={"fp": -1.0, "fn": -5.0}
-   )
-
-   # With benefits for correct predictions
-   threshold = get_optimal_threshold(
-       y_true, y_prob,
-       utility={"tp": 2.0, "tn": 1.0, "fp": -1.0, "fn": -5.0}
-   )
+   from optimal_cutoffs import optimize_decisions, bayes
+   
+   # Option 1: Use cost matrix (no thresholds needed)
+   cost_matrix = [[0, 1], [5, 0]]  # FN costs 5x more than FP
+   result = optimize_decisions(y_prob, cost_matrix)
+   predictions = result.predict(y_prob)
+   
+   # Option 2: Bayes-optimal threshold calculation
+   threshold = bayes.threshold(cost_fp=1.0, cost_fn=5.0)
+   print(f"Bayes-optimal threshold: {threshold:.3f}")  # = 1/(1+5) = 0.167
 
 Next Steps
 ----------

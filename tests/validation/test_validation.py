@@ -7,8 +7,7 @@ import pytest
 
 from optimal_cutoffs import (
     confusion_matrix_at_threshold,
-    get_optimal_multiclass_thresholds,
-    get_optimal_threshold,
+    optimize_thresholds,
 )
 from optimal_cutoffs.validation import (
     _validate_averaging_method,
@@ -432,31 +431,31 @@ class TestParameterValidation:
 class TestPublicAPIValidation:
     """Test that public functions properly validate their inputs."""
 
-    def test_get_optimal_threshold_validation(self):
-        """Test that get_optimal_threshold validates inputs properly."""
+    def test_optimize_thresholds_validation(self):
+        """Test that optimize_thresholds validates inputs properly."""
         valid_labels = [0, 1, 0, 1]
         valid_probs = [0.2, 0.8, 0.3, 0.7]
 
         # Should work with valid inputs
-        result = get_optimal_threshold(valid_labels, valid_probs)
+        result = optimize_thresholds(valid_labels, valid_probs)
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
         # Should fail with invalid metric
         with pytest.raises(ValueError, match="Unknown metric"):
-            get_optimal_threshold(valid_labels, valid_probs, metric="invalid_metric")
+            optimize_thresholds(valid_labels, valid_probs, metric="invalid_metric")
 
         # Should fail with invalid method
         with pytest.raises(ValueError, match="Invalid optimization method"):
-            get_optimal_threshold(valid_labels, valid_probs, method="invalid_method")
+            optimize_thresholds(valid_labels, valid_probs, method="invalid_method")
 
         # Should fail with invalid comparison
         with pytest.raises(ValueError, match="Invalid comparison operator"):
-            get_optimal_threshold(valid_labels, valid_probs, comparison="<")
+            optimize_thresholds(valid_labels, valid_probs, comparison="<")
 
         # Should fail with invalid labels (testing binary case explicitly)
         with pytest.raises(ValueError, match="Labels must be binary"):
-            get_optimal_threshold([-1, 0, 1, 0], valid_probs)
+            optimize_thresholds([-1, 0, 1, 0], valid_probs)
 
     def test_get_confusion_matrix_validation(self):
         """Test that get_confusion_matrix validates inputs properly."""
@@ -488,7 +487,7 @@ class TestPublicAPIValidation:
         probs = probs / probs.sum(axis=1, keepdims=True)
 
         # Should work with valid data
-        result = get_optimal_multiclass_thresholds(labels, probs, method="unique_scan")
+        result = optimize_thresholds(labels, probs, method="unique_scan")
         assert len(result.thresholds) == 3
 
 
@@ -501,7 +500,7 @@ class TestErrorHandling:
         y_prob = [0.2, 0.8, 0.4, 0.6]
 
         with pytest.raises(ValueError, match="Unknown metric"):
-            get_optimal_threshold(y_true, y_prob, metric="nonexistent_metric")
+            optimize_thresholds(y_true, y_prob, metric="nonexistent_metric")
 
     def test_invalid_method_error(self):
         """Test error handling for invalid optimization methods."""
@@ -509,7 +508,7 @@ class TestErrorHandling:
         y_prob = [0.2, 0.8, 0.4, 0.6]
 
         with pytest.raises(ValueError, match="Invalid optimization method"):
-            get_optimal_threshold(y_true, y_prob, method="nonexistent_method")
+            optimize_thresholds(y_true, y_prob, method="nonexistent_method")
 
     def test_invalid_comparison_error(self):
         """Test error handling for invalid comparison operators."""
@@ -517,17 +516,17 @@ class TestErrorHandling:
         y_prob = [0.2, 0.8, 0.4, 0.6]
 
         with pytest.raises(ValueError, match="Invalid comparison operator"):
-            get_optimal_threshold(y_true, y_prob, comparison="<=")
+            optimize_thresholds(y_true, y_prob, comparison="<=")
 
     def test_wrong_array_dimensions_error(self):
         """Test error handling for wrong array dimensions."""
         # 2D labels (should fail)
         with pytest.raises(ValueError, match="Labels must be 1D"):
-            get_optimal_threshold([[0, 1]], [0.5, 0.7])
+            optimize_thresholds([[0, 1]], [0.5, 0.7])
 
         # 2D probabilities now get treated as multiclass instead of error
         # This is a change in API behavior - the library is more permissive now
-        result = get_optimal_threshold([0, 1], [[0.3, 0.7], [0.2, 0.8]])
+        result = optimize_thresholds([0, 1], [[0.3, 0.7], [0.2, 0.8]])
         assert result is not None  # Should succeed, not fail
 
     def test_sample_weight_errors(self):
@@ -537,15 +536,15 @@ class TestErrorHandling:
 
         # Wrong length
         with pytest.raises(ValueError, match="Length mismatch"):
-            get_optimal_threshold(y_true, y_prob, sample_weight=[1.0, 2.0])
+            optimize_thresholds(y_true, y_prob, sample_weight=[1.0, 2.0])
 
         # Negative weights
         with pytest.raises(ValueError, match="Sample weights must be non-negative"):
-            get_optimal_threshold(y_true, y_prob, sample_weight=[1.0, -1.0, 1.0, 1.0])
+            optimize_thresholds(y_true, y_prob, sample_weight=[1.0, -1.0, 1.0, 1.0])
 
         # NaN weights
         with pytest.raises(ValueError, match="Sample weights contain NaN values"):
-            get_optimal_threshold(y_true, y_prob, sample_weight=[1.0, np.nan, 1.0, 1.0])
+            optimize_thresholds(y_true, y_prob, sample_weight=[1.0, np.nan, 1.0, 1.0])
 
     def test_threshold_range_errors(self):
         """Test errors for thresholds outside valid range."""
@@ -623,13 +622,13 @@ class TestEdgeCasesAndRobustness:
         # All class 0
         y_true = [0, 0, 0, 0]
         y_prob = [0.1, 0.2, 0.3, 0.4]
-        result = get_optimal_threshold(y_true, y_prob)
+        result = optimize_thresholds(y_true, y_prob)
         assert 0 <= result.threshold <= 1
 
         # All class 1
         y_true = [1, 1, 1, 1]
         y_prob = [0.6, 0.7, 0.8, 0.9]
-        result = get_optimal_threshold(y_true, y_prob)
+        result = optimize_thresholds(y_true, y_prob)
         assert 0 <= result.threshold <= 1
 
     def test_extreme_probability_validation(self):
@@ -638,10 +637,10 @@ class TestEdgeCasesAndRobustness:
 
         # Probabilities at exact boundaries
         y_prob = [0.0, 1.0, 0.0, 1.0]
-        result = get_optimal_threshold(y_true, y_prob)
+        result = optimize_thresholds(y_true, y_prob)
         assert 0 <= result.threshold <= 1
 
         # Very close to boundaries
         y_prob = [1e-10, 1 - 1e-10, 1e-10, 1 - 1e-10]
-        result = get_optimal_threshold(y_true, y_prob)
+        result = optimize_thresholds(y_true, y_prob)
         assert 0 <= result.threshold <= 1

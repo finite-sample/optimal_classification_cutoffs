@@ -5,7 +5,7 @@ import pytest
 
 from optimal_cutoffs import (
     confusion_matrix_at_threshold,
-    get_optimal_threshold,
+    optimize_thresholds,
     multiclass_confusion_matrices_at_thresholds,
 )
 
@@ -53,10 +53,10 @@ class TestComparisonOperators:
         pred_probs = np.random.rand(100)
 
         # Get optimal thresholds with both operators
-        thresh_gt = get_optimal_threshold(
+        thresh_gt = optimize_thresholds(
             true_labels, pred_probs, metric="f1", comparison=">"
         )
-        thresh_gte = get_optimal_threshold(
+        thresh_gte = optimize_thresholds(
             true_labels, pred_probs, metric="f1", comparison=">="
         )
 
@@ -120,10 +120,10 @@ class TestComparisonOperators:
         pred_probs = pred_probs / pred_probs.sum(axis=1, keepdims=True)
 
         # Get optimal thresholds with both operators
-        thresh_gt = get_optimal_threshold(
+        thresh_gt = optimize_thresholds(
             true_labels, pred_probs, metric="f1", comparison=">"
         )
-        thresh_gte = get_optimal_threshold(
+        thresh_gte = optimize_thresholds(
             true_labels, pred_probs, metric="f1", comparison=">="
         )
 
@@ -138,12 +138,12 @@ class TestComparisonOperators:
         assert np.all(np.isfinite(thresh_gte.thresholds)), "Thresholds should be finite"
 
     @pytest.mark.skip(
-        reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly"
+        reason="ThresholdOptimizer wrapper removed - use optimize_thresholds directly"
     )
     def test_threshold_optimizer_comparison_operators(self):
         """Test ThresholdOptimizer class with comparison operators."""
         # This test was for the removed ThresholdOptimizer wrapper
-        # Use get_optimal_threshold() directly instead
+        # Use optimize_thresholds() directly instead
         pass
 
     def test_comparison_operator_validation(self):
@@ -153,10 +153,10 @@ class TestComparisonOperators:
 
         # Invalid comparison operators should raise ValueError
         with pytest.raises(ValueError, match="Invalid comparison operator"):
-            get_optimal_threshold(true_labels, pred_probs, comparison="<")
+            optimize_thresholds(true_labels, pred_probs, comparison="<")
 
         with pytest.raises(ValueError, match="Invalid comparison operator"):
-            get_optimal_threshold(true_labels, pred_probs, comparison="==")
+            optimize_thresholds(true_labels, pred_probs, comparison="==")
 
         with pytest.raises(ValueError, match="Invalid comparison operator"):
             confusion_matrix_at_threshold(true_labels, pred_probs, 0.5, comparison="!=")

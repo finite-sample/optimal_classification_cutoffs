@@ -8,15 +8,13 @@ from hypothesis.extra.numpy import arrays
 
 from optimal_cutoffs import (
     confusion_matrix_at_threshold,
-    get_optimal_multiclass_thresholds,
-    get_optimal_threshold,
+    optimize_thresholds,
 )
 from optimal_cutoffs.metrics import (
     compute_metric_at_threshold,
     multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
 )
-from optimal_cutoffs.optimize import find_optimal_threshold
 
 
 # Custom strategies for generating test data
@@ -131,7 +129,7 @@ class TestCoreInvariants:
         # Test on multiple metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
             # Use piecewise optimization
-            piecewise_result = find_optimal_threshold(labels, probabilities, metric)
+            piecewise_result = optimize_thresholds(labels, probabilities, metric=metric)
             piecewise_threshold = piecewise_result.threshold
 
             # Use naive brute force
@@ -193,7 +191,7 @@ class TestCoreInvariants:
             return
 
         # Get original optimal threshold
-        original_result = find_optimal_threshold(labels, probabilities, "f1")
+        original_result = optimize_thresholds(labels, probabilities, metric="f1")
         original_threshold = original_result.threshold
 
         # Shift probabilities by epsilon (both directions)
@@ -201,8 +199,8 @@ class TestCoreInvariants:
         shifted_down = probabilities - epsilon
 
         # Get new optimal thresholds
-        threshold_up = find_optimal_threshold(labels, shifted_up, "f1")
-        threshold_down = find_optimal_threshold(labels, shifted_down, "f1")
+        threshold_up = optimize_thresholds(labels, shifted_up, metric="f1")
+        threshold_down = optimize_thresholds(labels, shifted_down, metric="f1")
 
         # For cases without extensive ties, threshold should shift approximately by epsilon
         # But allow larger tolerance for edge cases
@@ -232,7 +230,7 @@ class TestCoreInvariants:
             return
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = find_optimal_threshold(labels, probabilities, metric)
+            result = optimize_thresholds(labels, probabilities, metric=metric)
             threshold = result.threshold
             # Allow small tolerance outside [0,1] for boundary conditions and tie-breaking
             tolerance = 1e-9
@@ -253,7 +251,7 @@ class TestCoreInvariants:
         # Run optimization multiple times
         thresholds = []
         for _ in range(3):
-            result = find_optimal_threshold(labels, probabilities, "f1")
+            result = optimize_thresholds(labels, probabilities, metric="f1")
             threshold = result.threshold
             thresholds.append(threshold)
 
@@ -268,7 +266,7 @@ class TestCoreInvariants:
         """Confusion matrix elements should sum to total samples."""
         labels, probabilities = data
 
-        result = get_optimal_threshold(labels, probabilities, "f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         tp, tn, fp, fn = confusion_matrix_at_threshold(
             labels, probabilities, result.threshold
         )
@@ -295,10 +293,10 @@ class TestCoreInvariants:
             return
 
         # Get thresholds with both comparison operators
-        threshold_gt = get_optimal_threshold(
+        threshold_gt = optimize_thresholds(
             labels, probabilities, "f1", comparison=">"
         )
-        threshold_gte = get_optimal_threshold(
+        threshold_gte = optimize_thresholds(
             labels, probabilities, "f1", comparison=">="
         )
 
@@ -334,7 +332,7 @@ class TestStatisticalProperties:
             return
 
         # Check if original separation is already very good
-        original_result = get_optimal_threshold(labels, probabilities, "f1")
+        original_result = optimize_thresholds(labels, probabilities, metric="f1")
         original_f1 = compute_metric_at_threshold(
             labels, probabilities, original_result.threshold, "f1"
         )
@@ -372,7 +370,7 @@ class TestStatisticalProperties:
 
         # Compare metrics
         for metric in ["accuracy", "f1"]:
-            perfect_result = get_optimal_threshold(labels, perfect_probs, metric)
+            perfect_result = optimize_thresholds(labels, perfect_probs, metric)
 
             original_score = compute_metric_at_threshold(
                 labels, probabilities, original_result.threshold, metric
@@ -410,7 +408,7 @@ class TestStatisticalProperties:
         if len(np.unique(labels)) < 2:
             return
 
-        result = get_optimal_threshold(labels, probabilities, "f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
 
         # Test all registered metrics
         for metric_name in ["f1", "accuracy", "precision", "recall"]:
@@ -435,7 +433,7 @@ class TestStatisticalProperties:
             return
 
         try:
-            result = get_optimal_threshold(labels, probabilities, "f1", method=method)
+            result = optimize_thresholds(labels, probabilities, "f1", method=method)
 
             # Threshold should be valid
             threshold = result.threshold
@@ -470,7 +468,7 @@ class TestNumericalStability:
         labels = np.array([i % 2 for i in range(size)])
 
         # Should handle gracefully without numerical issues
-        result = get_optimal_threshold(labels, probabilities, "f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -494,7 +492,7 @@ class TestNumericalStability:
             return
 
         # Should handle extreme values gracefully
-        result = get_optimal_threshold(labels, probabilities, "accuracy")
+        result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -585,7 +583,7 @@ class TestMulticlassPropertyBased:
         if len(unique_labels) < 2:
             return  # Skip degenerate cases
 
-        thresholds = get_optimal_multiclass_thresholds(
+        thresholds = optimize_thresholds(
             labels, probabilities, "f1", average="macro"
         )
 
@@ -605,7 +603,7 @@ class TestMulticlassPropertyBased:
             return
 
         # Get thresholds using macro averaging (independent optimization)
-        thresholds = get_optimal_multiclass_thresholds(
+        thresholds = optimize_thresholds(
             labels, probabilities, "f1", average="macro"
         )
 
@@ -619,7 +617,7 @@ class TestMulticlassPropertyBased:
 
                 # Skip if this class has no positive examples
                 if np.sum(binary_labels) > 0 and np.sum(1 - binary_labels) > 0:
-                    binary_result = get_optimal_threshold(
+                    binary_result = optimize_thresholds(
                         binary_labels, binary_probs, "f1"
                     )
                     manual_thresholds.append(binary_result.threshold)
@@ -654,7 +652,7 @@ class TestMulticlassPropertyBased:
             return
 
         try:
-            thresholds = get_optimal_multiclass_thresholds(
+            thresholds = optimize_thresholds(
                 labels, probabilities, "f1", average=average
             )
 
@@ -696,7 +694,7 @@ class TestMulticlassPropertyBased:
         # Run optimization multiple times
         thresholds_list = []
         for _ in range(3):
-            thresholds = get_optimal_multiclass_thresholds(
+            thresholds = optimize_thresholds(
                 labels, probabilities, "accuracy", average="macro"
             )
             thresholds_list.append(thresholds)
@@ -721,7 +719,7 @@ class TestMulticlassPropertyBased:
             return
 
         try:
-            thresholds = get_optimal_multiclass_thresholds(
+            thresholds = optimize_thresholds(
                 labels, probabilities, metric, average="macro"
             )
 
@@ -759,10 +757,10 @@ class TestMulticlassPropertyBased:
             return
 
         # Get thresholds with both comparison operators
-        thresholds_gt = get_optimal_multiclass_thresholds(
+        thresholds_gt = optimize_thresholds(
             labels, probabilities, "f1", comparison=">"
         )
-        thresholds_gte = get_optimal_multiclass_thresholds(
+        thresholds_gte = optimize_thresholds(
             labels, probabilities, "f1", comparison=">="
         )
 
@@ -801,7 +799,7 @@ class TestMulticlassMathematicalProperties:
 
         try:
             # Get thresholds (use macro for independent optimization)
-            thresholds = get_optimal_multiclass_thresholds(
+            thresholds = optimize_thresholds(
                 labels, probabilities, "f1", average="macro"
             )
 
@@ -844,7 +842,7 @@ class TestMulticlassMathematicalProperties:
         if len(np.unique(labels)) < 2:
             return
 
-        thresholds = get_optimal_multiclass_thresholds(
+        thresholds = optimize_thresholds(
             labels, probabilities, "precision", average="macro"
         )
 
@@ -897,7 +895,7 @@ class TestPerformanceProperties:
 
         # Time the piecewise optimization
         start_time = time.time()
-        result = find_optimal_threshold(labels, probabilities, "f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
         piecewise_time = time.time() - start_time
 
@@ -922,7 +920,7 @@ class TestPerformanceProperties:
 
         # The algorithm should not create data structures that scale quadratically
         # This is mainly tested by ensuring it completes without memory errors
-        result = get_optimal_threshold(labels, probabilities, "accuracy")
+        result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -949,7 +947,7 @@ class TestPerformanceProperties:
         for method in methods:
             start_time = time.time()
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probabilities, "f1", method=method
                 )
                 end_time = time.time()
@@ -983,7 +981,7 @@ class TestPerformanceProperties:
         import time
 
         start_time = time.time()
-        thresholds = get_optimal_multiclass_thresholds(
+        thresholds = optimize_thresholds(
             labels, probabilities, "f1", average="macro"
         )
         end_time = time.time()
@@ -1019,7 +1017,7 @@ class TestPerformanceProperties:
         import time
 
         start_time = time.time()
-        result = get_optimal_threshold(labels, probabilities, "f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         end_time = time.time()
 
         # Time should scale with number of unique values, not total samples
@@ -1056,7 +1054,7 @@ class TestPerformanceProperties:
         for case_name, test_labels, test_probs in edge_cases:
             start_time = time.time()
             try:
-                result = get_optimal_threshold(test_labels, test_probs, "accuracy")
+                result = optimize_thresholds(test_labels, test_probs, "accuracy")
                 end_time = time.time()
 
                 # Should complete in reasonable time
@@ -1085,13 +1083,13 @@ class TestPerformanceProperties:
 
         # Time both comparison operators
         start_time = time.time()
-        threshold_gt = get_optimal_threshold(
+        threshold_gt = optimize_thresholds(
             labels, probabilities, "f1", comparison=">"
         )
         time_gt = time.time() - start_time
 
         start_time = time.time()
-        threshold_gte = get_optimal_threshold(
+        threshold_gte = optimize_thresholds(
             labels, probabilities, "f1", comparison=">="
         )
         time_gte = time.time() - start_time

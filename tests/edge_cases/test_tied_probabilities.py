@@ -7,7 +7,7 @@ unique challenges for threshold optimization algorithms.
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import confusion_matrix_at_threshold, get_metric_function
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 from tests.fixtures.assertions import (
@@ -25,7 +25,7 @@ class TestTiedProbabilityHandling:
         y_true = np.array([0, 1, 0, 1, 0, 1])
         y_prob = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -39,7 +39,7 @@ class TestTiedProbabilityHandling:
             30, tie_fraction=0.4, random_state=42
         )
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -50,7 +50,7 @@ class TestTiedProbabilityHandling:
 
         # Test both comparison operators
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
             threshold = result.threshold
@@ -102,7 +102,7 @@ class TestTiedProbabilityHandling:
         y_true = np.array([0, 0, 1, 1])
         y_prob = np.array([0.0, 0.0, 1.0, 1.0])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -119,7 +119,7 @@ class TestTiedProbabilityHandling:
         # Create values that are effectively tied due to floating point precision
         y_prob = np.array([0.5, 0.5 + eps / 2, 0.5 - eps / 2, 0.5 + eps])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -129,12 +129,12 @@ class TestTiedProbabilityHandling:
             25, tie_fraction=0.6, random_state=42
         )
 
-        methods = ["unique_scan", "minimize"]
+        methods = ["sort_scan", "minimize"]
         results = {}
 
         for method in methods:
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     y_true, y_prob, metric="f1", method=method
                 )
                 threshold = result.threshold
@@ -169,8 +169,8 @@ class TestTieBreakingConsistency:
         # Run multiple times to ensure determinism
         thresholds = []
         for _ in range(3):
-            result = get_optimal_threshold(
-                y_true, y_prob, metric="f1", method="unique_scan"
+            result = optimize_thresholds(
+                y_true, y_prob, metric="f1", method="sort_scan"
             )
             threshold = result.threshold
             thresholds.append(threshold)
@@ -184,7 +184,7 @@ class TestTieBreakingConsistency:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])  # All tied
         weights = np.array([1.0, 2.0, 1.0, 2.0])  # Different weights
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
         threshold = result.threshold
@@ -207,7 +207,7 @@ class TestExtremeTieCases:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([0.0, 0.0, 0.0, 0.0])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        result = optimize_thresholds(y_true, y_prob, metric="accuracy")
         threshold = result.threshold
         # Allow slightly negative thresholds due to numerical precision in edge cases
         assert threshold >= -1e-8, f"Threshold {threshold} too negative"
@@ -229,7 +229,7 @@ class TestExtremeTieCases:
         y_true = np.array([0, 1, 0, 1])
         y_prob = np.array([1.0, 1.0, 1.0, 1.0])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        result = optimize_thresholds(y_true, y_prob, metric="accuracy")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -244,7 +244,7 @@ class TestExtremeTieCases:
         y_true = np.array([0, 1, 0, 1, 0, 1, 0, 1])
         y_prob = np.array([0.3, 0.3, 0.7, 0.7, 0.3, 0.3, 0.7, 0.7])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -263,7 +263,7 @@ class TestExtremeTieCases:
         y_true[0] = 0
         y_true[1] = 1
 
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 

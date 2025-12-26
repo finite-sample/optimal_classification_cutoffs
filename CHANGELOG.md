@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-12-25
+
+### Added
+- **Modern Type Support**: Added `py.typed` marker file for PEP 561 compliance enabling type checker support
+
+### Changed
+- **Type Organization**: Modernized type organization following Python 3.12+ best practices
+  - Moved `OptimizationResult` from separate types module to `core.py` where it's used
+  - Types now follow locality principle - defined where they're used rather than centralized
+  - Maintained backward compatibility through `__init__.py` re-exports
+
+### Removed
+- **Legacy Type Module**: Removed separate `types.py` module following modern Python practices
+- **Outdated Test Imports**: Updated test files to import from main package instead of internal modules
+
+## [1.1.1] - 2025-12-25
+
+### Fixed
+- **Documentation Build**: Added nbconvert and pandoc to documentation dependencies for proper Jupyter notebook rendering
+- **Code Organization**: Renamed `types_minimal.py` to `types.py` to better reflect its role as the main types module
+
+### Added
+- **Examples Integration**: Moved examples to documentation as Jupyter notebooks for better integration
+
 ## [1.1.0] - 2025-12-25
 
 ### Added

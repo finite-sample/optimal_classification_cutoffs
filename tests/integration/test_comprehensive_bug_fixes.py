@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
 from optimal_cutoffs.metrics import (
     accuracy_score,
@@ -33,7 +33,7 @@ class TestDegenerateCasesFix:
         y_true = [0, 0, 0, 0]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, pred_prob, metric="accuracy", comparison=">"
         )
         threshold = result.threshold
@@ -49,7 +49,7 @@ class TestDegenerateCasesFix:
         y_true = [0, 0, 0, 0]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, pred_prob, metric="accuracy", comparison=">="
         )
         threshold = result.threshold
@@ -65,7 +65,7 @@ class TestDegenerateCasesFix:
         y_true = [1, 1, 1, 1]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, pred_prob, metric="accuracy", comparison=">"
         )
         threshold = result.threshold
@@ -81,7 +81,7 @@ class TestDegenerateCasesFix:
         y_true = [1, 1, 1, 1]
         pred_prob = [0.1, 0.4, 0.6, 0.9]
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, pred_prob, metric="accuracy", comparison=">="
         )
         threshold = result.threshold
@@ -97,14 +97,14 @@ class TestDegenerateCasesFix:
         # All negative
         y_neg = [0, 0, 0]
         p_neg = [0.2, 0.7, 0.8]
-        result = get_optimal_threshold(y_neg, p_neg, metric="f1")
+        result = optimize_thresholds(y_neg, p_neg, metric="f1")
         thresh_neg = result.threshold
         assert thresh_neg != 0.5, "All-negative should not return arbitrary 0.5"
 
         # All positive
         y_pos = [1, 1, 1]
         p_pos = [0.2, 0.7, 0.8]
-        result = get_optimal_threshold(y_pos, p_pos, metric="f1")
+        result = optimize_thresholds(y_pos, p_pos, metric="f1")
         thresh_pos = result.threshold
         assert thresh_pos != 0.5, "All-positive should not return arbitrary 0.5"
 
@@ -174,10 +174,10 @@ class TestDinkelbachComparisonSupport:
         assert 0 <= thresh_incl <= 1
 
         # Test through main API (mode='expected' returns tuple)
-        result_main_excl = get_optimal_threshold(
+        result_main_excl = optimize_thresholds(
             y_true, pred_prob, mode="expected", metric="f1", comparison=">"
         )
-        result_main_incl = get_optimal_threshold(
+        result_main_incl = optimize_thresholds(
             y_true, pred_prob, mode="expected", metric="f1", comparison=">="
         )
 
@@ -199,7 +199,7 @@ class TestDinkelbachComparisonSupport:
         y_true = [0, 1, 0, 1, 1]
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, pred_prob, mode="expected", metric="f1", comparison=comparison
             )
 
@@ -237,7 +237,7 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without error
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 3
 
@@ -248,7 +248,7 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         with pytest.raises(ValueError, match="Found label 3 but n_classes=3"):
-            get_optimal_threshold(y_true, pred_prob, metric="f1")
+            optimize_thresholds(y_true, pred_prob, metric="f1")
 
     def test_sparse_labels_work(self):
         """Sparse label sets should work correctly."""
@@ -258,7 +258,7 @@ class TestLabelValidationFix:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work and return 4 thresholds
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 4
 
@@ -274,11 +274,11 @@ class TestBinarySearchEfficiency:
 
         # Test both comparison operators
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true,
                 pred_prob,
                 metric="f1",
-                method="unique_scan",
+                method="sort_scan",
                 comparison=comparison,
             )
             threshold = result.threshold
@@ -300,11 +300,11 @@ class TestBinarySearchEfficiency:
         pred_prob = np.random.rand(100)
         sample_weight = np.random.rand(100) * 2  # Random weights
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true,
             pred_prob,
             metric="f1",
-            method="unique_scan",
+            method="sort_scan",
             sample_weight=sample_weight,
         )
         threshold = result.threshold
@@ -329,11 +329,11 @@ class TestMicroOptimizationDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without errors
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true,
             pred_prob,
             metric="f1",
-            method="unique_scan",
+            method="sort_scan",
             sample_weight=None,
             comparison=">",
             average="micro",
@@ -353,7 +353,7 @@ class TestMicroOptimizationDocumentation:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            get_optimal_threshold(
+            optimize_thresholds(
                 y_true,
                 pred_prob,
                 metric="f1",
@@ -381,7 +381,7 @@ class TestCoordinateAscentDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work for basic F1 optimization
-        result = get_optimal_threshold(y_true, pred_prob, method="coord_ascent")
+        result = optimize_thresholds(y_true, pred_prob, method="coord_ascent")
         thresholds = result.thresholds
         assert len(thresholds) == 3
 
@@ -392,7 +392,7 @@ class TestCoordinateAscentDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work with exclusive comparison
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, pred_prob, method="coord_ascent", comparison=">"
         )
         thresholds = result.thresholds
@@ -405,7 +405,7 @@ class TestCoordinateAscentDocumentation:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work with F1 metric
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, pred_prob, method="coord_ascent", metric="f1"
         )
         thresholds = result.thresholds
@@ -494,11 +494,11 @@ class TestPropertyBased:
         weights = np.random.randint(1, 4, n_samples)  # Weights 1, 2, or 3
 
         # Weighted approach
-        result_weighted = get_optimal_threshold(
+        result_weighted = optimize_thresholds(
             y_true,
             pred_prob,
             metric="accuracy",
-            method="unique_scan",
+            method="sort_scan",
             sample_weight=weights,
         )
         threshold_weighted = result_weighted.threshold
@@ -506,8 +506,8 @@ class TestPropertyBased:
         # Expanded approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(pred_prob, weights)
-        result_expanded = get_optimal_threshold(
-            y_expanded, p_expanded, metric="accuracy", method="unique_scan"
+        result_expanded = optimize_thresholds(
+            y_expanded, p_expanded, metric="accuracy", method="sort_scan"
         )
         threshold_expanded = result_expanded.threshold
 
@@ -552,12 +552,12 @@ class TestPropertyBased:
         y_true = np.random.randint(0, 2, n_samples)
 
         # Get thresholds for both comparison operators
-        result_excl = get_optimal_threshold(
+        result_excl = optimize_thresholds(
             y_true, pred_prob, metric="f1", comparison=">"
         )
         thresh_excl = result_excl.threshold
 
-        result_incl = get_optimal_threshold(
+        result_incl = optimize_thresholds(
             y_true, pred_prob, metric="f1", comparison=">="
         )
         thresh_incl = result_incl.threshold
@@ -593,7 +593,7 @@ class TestPropertyBased:
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)
 
         # Should work without error
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == n_classes
 
@@ -625,7 +625,7 @@ class TestRegressionPrevention:
 
         # Should work with all the fixes
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true,
                 pred_prob,
                 metric="f1",
@@ -666,7 +666,7 @@ class TestRegressionPrevention:
 
         # Test both comparison operators
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, pred_prob, mode="expected", metric="f1", comparison=comparison
             )
 
@@ -700,10 +700,10 @@ class TestRegressionPrevention:
         ]
 
         for y_true, pred_prob in test_cases:
-            for method in ["unique_scan", "minimize"]:
+            for method in ["sort_scan", "minimize"]:
                 for comparison in [">", ">="]:
                     try:
-                        result = get_optimal_threshold(
+                        result = optimize_thresholds(
                             y_true,
                             pred_prob,
                             metric="f1",

@@ -5,7 +5,7 @@ import pytest
 
 from optimal_cutoffs import (
     bayes_optimal_threshold,
-    get_optimal_threshold,
+    optimize_thresholds,
     make_cost_metric,
     make_linear_counts_metric,
 )
@@ -120,7 +120,7 @@ class TestBayesThresholds:
 
 
 class TestUtilityOptimization:
-    """Test utility-based threshold optimization through get_optimal_threshold."""
+    """Test utility-based threshold optimization through optimize_thresholds."""
 
     def test_basic_utility_optimization(self):
         """Test basic utility optimization vs manual calculation."""
@@ -131,7 +131,7 @@ class TestUtilityOptimization:
         y = (np.random.uniform(0, 1, size=n) < p).astype(int)  # Calibrated
 
         # Simple cost case: FP=1, FN=5
-        result1 = get_optimal_threshold(
+        result1 = optimize_thresholds(
             y, p, utility={"fp": -1.0, "fn": -5.0}, comparison=">="
         )
 
@@ -163,8 +163,8 @@ class TestUtilityOptimization:
 
         # Cost case: FP=1, FN=5 (with neutral tp=0, tn=0)
         utility_dict = {"tp": 0.0, "tn": 0.0, "fp": -1.0, "fn": -5.0}
-        result1 = get_optimal_threshold(y, p, utility=utility_dict, comparison=">=")
-        result2 = get_optimal_threshold(
+        result1 = optimize_thresholds(y, p, utility=utility_dict, comparison=">=")
+        result2 = optimize_thresholds(
             None, p, utility=utility_dict, mode="bayes", comparison=">="
         )
 
@@ -183,10 +183,10 @@ class TestUtilityOptimization:
         y = (np.random.uniform(0, 1, size=n) < 0.5).astype(int)
 
         # These should be equivalent - same relative utility differences
-        result1 = get_optimal_threshold(
+        result1 = optimize_thresholds(
             y, p, utility={"tp": 0, "tn": 0, "fp": -1.0, "fn": -5.0}
         )
-        result2 = get_optimal_threshold(
+        result2 = optimize_thresholds(
             y, p, utility={"tp": 5, "tn": 1, "fp": 0, "fn": 0}
         )
 
@@ -202,7 +202,7 @@ class TestUtilityOptimization:
         weights = np.random.uniform(0.5, 2.0, size=n)  # Varying weights
 
         # Should not raise an error
-        result1 = get_optimal_threshold(
+        result1 = optimize_thresholds(
             y, p, utility={"tp": 1.0, "fp": -1.0}, sample_weight=weights
         )
         threshold = result1.threshold
@@ -217,7 +217,7 @@ class TestUtilityOptimization:
 
         # Should either work or raise some kind of error without crashing
         try:
-            result1 = get_optimal_threshold(y, p, utility={"fp": -1.0, "fn": -5.0})
+            result1 = optimize_thresholds(y, p, utility={"fp": -1.0, "fn": -5.0})
             # If it works, should return valid thresholds
             thresholds = result1.thresholds
             assert len(thresholds) == 3
@@ -239,10 +239,10 @@ class TestUtilityMetricIntegration:
         y = (np.random.uniform(0, 1, size=n) < 0.4).astype(int)
 
         # F1 optimization
-        result1 = get_optimal_threshold(y, p, metric="f1", method="sort_scan")
+        result1 = optimize_thresholds(y, p, metric="f1", method="sort_scan")
 
         # Utility optimization that rewards TP and penalizes FP/FN equally
-        result2 = get_optimal_threshold(
+        result2 = optimize_thresholds(
             y, p, utility={"tp": 1.0, "fp": -0.5, "fn": -0.5}
         )
 
@@ -263,11 +263,11 @@ class TestUtilityMetricIntegration:
 
         # Base utilities
         base_util = {"tp": 2.0, "tn": 1.0, "fp": -1.0, "fn": -3.0}
-        result1 = get_optimal_threshold(y, p, utility=base_util)
+        result1 = optimize_thresholds(y, p, utility=base_util)
 
         # Scaled utilities (multiply by 10)
         scaled_util = {k: v * 10 for k, v in base_util.items()}
-        result2 = get_optimal_threshold(y, p, utility=scaled_util)
+        result2 = optimize_thresholds(y, p, utility=scaled_util)
 
         # Should give same threshold (up to numerical precision)
         assert abs(result1.threshold - result2.threshold) < 1e-10
@@ -279,7 +279,7 @@ class TestUtilityMetricIntegration:
         y = np.array([0, 0, 1, 0, 1, 1])
 
         for comparison in [">", ">="]:
-            result1 = get_optimal_threshold(
+            result1 = optimize_thresholds(
                 y, p, utility={"tp": 1.0, "fn": -1.0}, comparison=comparison
             )
 
@@ -302,7 +302,7 @@ class TestEdgeCases:
         p = np.array([0.1, 0.5, 0.9])
 
         # This should work (no true_labs needed)
-        result1 = get_optimal_threshold(
+        result1 = optimize_thresholds(
             None, p, utility={"tp": 0, "tn": 0, "fp": -1, "fn": -5}, mode="bayes"
         )
         threshold = result1.threshold
@@ -315,7 +315,7 @@ class TestEdgeCases:
         with pytest.raises(
             ValueError, match="true_labels required for empirical optimization"
         ):
-            get_optimal_threshold(
+            optimize_thresholds(
                 None, p, utility={"fp": -1, "fn": -5}, mode="empirical"
             )
 
@@ -327,12 +327,12 @@ class TestEdgeCases:
         y = np.random.randint(0, 2, size=n)
 
         # Empty dict should work (all utilities = 0)
-        result1 = get_optimal_threshold(y, p, utility={})
+        result1 = optimize_thresholds(y, p, utility={})
         threshold = result1.threshold
         assert 0 <= threshold <= 1
 
         # Single utility should work
-        result2 = get_optimal_threshold(y, p, utility={"tp": 1.0})
+        result2 = optimize_thresholds(y, p, utility={"tp": 1.0})
         threshold = result2.threshold
         assert 0 <= threshold <= 1
 

@@ -10,7 +10,7 @@ from typing import Self
 import numpy as np
 from numpy.typing import NDArray
 
-from .types_minimal import OptimizationResult
+from .core import OptimizationResult
 from .validation import validate_classification
 
 # ============================================================================
@@ -273,6 +273,8 @@ class BayesOptimal:
         probs = np.asarray(probabilities, dtype=np.float64)
 
         if self.decision_rule == DecisionRule.ARGMAX:
+            if not isinstance(self.utility, np.ndarray):
+                raise ValueError("ARGMAX rule requires utility matrix")
             expected = probs @ self.utility.T  # (n, k) @ (k, d) -> (n, d)
             chosen = np.max(expected, axis=1)
             return float(np.mean(chosen))

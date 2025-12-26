@@ -18,7 +18,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from .types_minimal import OptimizationResult
+from .core import OptimizationResult
 
 logger = logging.getLogger(__name__)
 

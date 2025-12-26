@@ -17,7 +17,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold, multiclass_metric_single_label
+from optimal_cutoffs import optimize_thresholds, multiclass_metric_single_label
 
 
 def _generate_multiclass_data(n_samples, n_classes, random_state=42):
@@ -88,7 +88,7 @@ class TestCoordinateAscentMonotonicity:
 
         try:
             # Use coordinate ascent method
-            result1 = get_optimal_threshold(
+            result1 = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result1.thresholds
@@ -133,7 +133,7 @@ class TestCoordinateAscentMonotonicity:
 
         try:
             # Get coordinate ascent result1
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result.thresholds
@@ -179,7 +179,7 @@ class TestCoordinateAscentMonotonicity:
 
         try:
             # Get optimized result1
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result.thresholds
@@ -221,7 +221,7 @@ class TestCoordinateAscentConvergence:
 
         try:
             # This should complete without infinite loops or convergence errors
-            result1 = get_optimal_threshold(
+            result1 = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result1.thresholds
@@ -252,7 +252,7 @@ class TestCoordinateAscentConvergence:
             # Run multiple times - should get identical results
             results = []
             for _ in range(3):
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="f1", method="coord_ascent", comparison=">"
                 )
                 thresholds = result.thresholds
@@ -284,7 +284,7 @@ class TestCoordinateAscentConvergence:
 
             start_time = time.time()
 
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -327,7 +327,7 @@ class TestSingleLabelConsistency:
         )
 
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -367,13 +367,13 @@ class TestSingleLabelConsistency:
 
         try:
             # Get coordinate ascent (single-label) result1
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result.thresholds
 
             # Get independent per-class (OvR) result1
-            result2 = get_optimal_threshold(
+            result2 = optimize_thresholds(
                 labels, probs, metric="f1", method="auto", comparison=">"
             )
 
@@ -423,7 +423,7 @@ class TestSingleLabelConsistency:
         )
 
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
 
@@ -468,7 +468,7 @@ class TestCoordinateAscentEdgeCases:
         )
 
         try:
-            result1 = get_optimal_threshold(
+            result1 = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result1.thresholds
@@ -497,7 +497,7 @@ class TestCoordinateAscentEdgeCases:
         probs = np.full((6, 3), 1 / 3)  # All probabilities equal (uniform)
 
         try:
-            result1 = get_optimal_threshold(
+            result1 = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result1.thresholds
@@ -530,7 +530,7 @@ class TestCoordinateAscentEdgeCases:
         probs = np.array([[0.2, 0.7, 0.1]])
 
         try:
-            result1 = get_optimal_threshold(
+            result1 = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result1.thresholds
@@ -563,7 +563,7 @@ class TestCoordinateAscentEdgeCases:
         labels, probs = _generate_multiclass_data(n_samples, n_classes, random_state=42)
 
         try:
-            result1 = get_optimal_threshold(
+            result1 = optimize_thresholds(
                 labels, probs, metric="f1", method="coord_ascent", comparison=">"
             )
             thresholds = result1.thresholds

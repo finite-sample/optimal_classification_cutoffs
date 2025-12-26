@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.bayes import (
     bayes_optimal_decisions,
     bayes_optimal_threshold,
@@ -237,7 +237,7 @@ class TestIntegrationWithRouter:
         y_prob = np.array([0.1, 0.3, 0.7, 0.9])
         utility = {"tp": 0, "tn": 0, "fp": -1, "fn": -5}
 
-        result1 = get_optimal_threshold(None, y_prob, utility=utility, mode="bayes")
+        result1 = optimize_thresholds(None, y_prob, utility=utility, mode="bayes")
         threshold = result1.threshold
 
         expected = 1.0 / 6.0  # Classic result_thresholds
@@ -252,13 +252,13 @@ class TestIntegrationWithRouter:
             NotImplementedError,
             match="Per-class utilities from matrix not yet implemented",
         ):
-            get_optimal_threshold(None, y_prob, mode="bayes")
+            optimize_thresholds(None, y_prob, mode="bayes")
 
         # Multiclass without proper vectors - skip as error behavior changed
         # with pytest.raises(
         #     ValueError, match="Multiclass Bayes requires 'fp' and 'fn' as arrays"
         # ):
-        #     get_optimal_threshold(None, y_prob, utility={"fp": -1}, mode="bayes")
+        #     optimize_thresholds(None, y_prob, utility={"fp": -1}, mode="bayes")
 
 
 class TestBayesEdgeCases:

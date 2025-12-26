@@ -15,7 +15,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.hypothesis_strategies import beta_bernoulli_calibrated
 
@@ -39,21 +39,21 @@ class TestDinkelbachLabelIndependence:
 
         for comparison in [">", ">="]:
             # Get thresholds for all three label sets
-            result_calibrated = get_optimal_threshold(
+            result_calibrated = optimize_thresholds(
                 labels_calibrated,
                 probs,
                 metric="f1",
                 mode="expected",
                 comparison=comparison,
             )
-            result_random = get_optimal_threshold(
+            result_random = optimize_thresholds(
                 labels_random,
                 probs,
                 metric="f1",
                 mode="expected",
                 comparison=comparison,
             )
-            result_anticorrelated = get_optimal_threshold(
+            result_anticorrelated = optimize_thresholds(
                 labels_anticorrelated,
                 probs,
                 metric="f1",
@@ -96,7 +96,7 @@ class TestDinkelbachLabelIndependence:
 
         thresholds = []
         for labels in label_patterns:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, mode="expected", metric="f1", comparison=">"
             )
             thresholds.append(result.threshold)
@@ -116,10 +116,10 @@ class TestDinkelbachLabelIndependence:
         # Two datasets with same probs but different labels
         labels2 = np.array([0, 1, 0, 1, 1])  # sum = 3 (also different from probs)
 
-        result1 = get_optimal_threshold(
+        result1 = optimize_thresholds(
             labels, probs, mode="expected", metric="f1", comparison=">="
         )
-        result2 = get_optimal_threshold(
+        result2 = optimize_thresholds(
             labels2, probs, mode="expected", metric="f1", comparison=">="
         )
 
@@ -152,7 +152,7 @@ class TestDinkelbachCalibratedPerformance:
             return
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, mode="expected", metric="f1", comparison=comparison
             )
 
@@ -194,11 +194,11 @@ class TestDinkelbachCalibratedPerformance:
             pytest.skip("Degenerate calibrated data")
 
         # Get thresholds from different methods
-        result_dinkelbach = get_optimal_threshold(
+        result_dinkelbach = optimize_thresholds(
             labels, probs, mode="expected", metric="f1", comparison=">"
         )
         threshold_dinkelbach = result_dinkelbach.threshold
-        result_sort_scan = get_optimal_threshold(
+        result_sort_scan = optimize_thresholds(
             labels, probs, metric="f1", method="sort_scan", comparison=">"
         )
         threshold_sort_scan = result_sort_scan.threshold
@@ -237,7 +237,7 @@ class TestDinkelbachCalibratedPerformance:
         if np.sum(labels) <= 1 or np.sum(labels) >= n - 1:
             pytest.skip("Degenerate case")
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             labels, probs, mode="expected", metric="f1", comparison=">"
         )
         threshold = result.threshold
@@ -282,10 +282,10 @@ class TestDinkelbachTieHandling:
         probs = np.array([0.2, 0.5, 0.5, 0.5, 0.8])
         labels = np.array([0, 1, 0, 1, 1])  # Mixed labels (irrelevant for Dinkelbach)
 
-        result_exclusive = get_optimal_threshold(
+        result_exclusive = optimize_thresholds(
             labels, probs, mode="expected", metric="f1", comparison=">"
         )
-        result_inclusive = get_optimal_threshold(
+        result_inclusive = optimize_thresholds(
             labels, probs, mode="expected", metric="f1", comparison=">="
         )
 
@@ -320,7 +320,7 @@ class TestDinkelbachTieHandling:
         labels = np.random.default_rng(42).integers(0, 2, size=20)  # Random labels
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, mode="expected", metric="f1", comparison=comparison
             )
             threshold = result.threshold
@@ -341,7 +341,7 @@ class TestDinkelbachTieHandling:
         labels = np.array([0, 0, 1, 1, 0, 1])  # Labels don't matter for Dinkelbach
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, mode="expected", metric="f1", comparison=comparison
             )
             threshold = result.threshold
@@ -374,7 +374,7 @@ class TestDinkelbachEdgeCases:
         labels = np.array([0, 0, 1, 1])  # Labels don't affect Dinkelbach
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, mode="expected", metric="f1", comparison=comparison
             )
             threshold = result.threshold
@@ -405,7 +405,7 @@ class TestDinkelbachEdgeCases:
         labels = np.array([0, 1, 0])  # Mixed labels
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, mode="expected", metric="f1", comparison=comparison
             )
             threshold = result.threshold
@@ -430,7 +430,7 @@ class TestDinkelbachEdgeCases:
             # Multiple calls should give identical results
             thresholds = []
             for _ in range(5):
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels,
                     probs,
                     metric="f1",
@@ -453,7 +453,7 @@ class TestDinkelbachEdgeCases:
         weights = np.array([1.0, 2.0, 1.5])
 
         # Should not raise an error with sample weights
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             labels, probs, mode="expected", metric="f1", sample_weight=weights
         )
 
@@ -469,7 +469,7 @@ class TestDinkelbachEdgeCases:
         labels = np.array([0, 1])
 
         # Should work with F1
-        result_f1 = get_optimal_threshold(labels, probs, mode="expected", metric="f1")
+        result_f1 = optimize_thresholds(labels, probs, mode="expected", metric="f1")
         threshold_f1 = result_f1.threshold
         assert 0 <= threshold_f1 <= 1
 
@@ -479,7 +479,7 @@ class TestDinkelbachEdgeCases:
         # Test that other metrics work or handle gracefully
         for metric in ["accuracy", "recall"]:
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric=metric, mode="expected"
                 )
                 threshold = result.threshold

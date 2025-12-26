@@ -10,7 +10,7 @@ import time
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import get_metric_function
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 
@@ -72,7 +72,7 @@ class TestAlgorithmicComplexity:
         y_true, pred_prob = generate_test_data(n_samples, random_state=42)
 
         # Time different methods
-        methods = ["unique_scan", "sort_scan"]
+        methods = ["sort_scan", "sort_scan"]
         times = {}
 
         for method in methods:
@@ -89,7 +89,7 @@ class TestAlgorithmicComplexity:
                     threshold = result.threshold
                 else:
                     # High-level interface
-                    result = get_optimal_threshold(y_true, pred_prob, method=method)
+                    result = optimize_thresholds(y_true, pred_prob, method=method)
                     threshold = result.threshold
 
                 end_time = time.perf_counter()
@@ -111,7 +111,7 @@ class TestAlgorithmicComplexity:
         n_samples = 2000
         y_true, pred_prob = generate_test_data(n_samples, random_state=42)
 
-        methods = ["unique_scan", "minimize", "gradient"]
+        methods = ["sort_scan", "minimize", "gradient"]
         times = {}
         results = {}
 
@@ -120,7 +120,7 @@ class TestAlgorithmicComplexity:
 
             try:
                 start_time = time.perf_counter()
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     y_true, pred_prob, method=method, metric="f1"
                 )
                 end_time = time.perf_counter()
@@ -144,7 +144,7 @@ class TestAlgorithmicComplexity:
     def test_sort_scan_vs_brute_force_scaling(self):
         """Compare scaling behavior of sort_scan vs brute force methods."""
         sample_sizes = [100, 500, 1000, 2000]
-        timing_results = {"sort_scan": [], "unique_scan": []}
+        timing_results = {"sort_scan": [], "sort_scan": []}
 
         for n_samples in sample_sizes:
             y_true, pred_prob = generate_test_data(n_samples, random_state=42)
@@ -152,7 +152,7 @@ class TestAlgorithmicComplexity:
             # Time sort_scan method
             try:
                 start_time = time.time()
-                get_optimal_threshold(
+                optimize_thresholds(
                     y_true, pred_prob, metric="f1", method="sort_scan"
                 )
                 end_time = time.time()
@@ -162,16 +162,16 @@ class TestAlgorithmicComplexity:
 
             # Time unique_scan method
             start_time = time.time()
-            get_optimal_threshold(y_true, pred_prob, metric="f1", method="unique_scan")
+            optimize_thresholds(y_true, pred_prob, metric="f1", method="sort_scan")
             end_time = time.time()
-            timing_results["unique_scan"].append(end_time - start_time)
+            timing_results["sort_scan"].append(end_time - start_time)
 
         # For large datasets, sort_scan should be competitive or better
         if len(timing_results["sort_scan"]) > 0 and timing_results["sort_scan"][
             -1
         ] != float("inf"):
             final_ratio = (
-                timing_results["sort_scan"][-1] / timing_results["unique_scan"][-1]
+                timing_results["sort_scan"][-1] / timing_results["sort_scan"][-1]
             )
             # Sort_scan should not be more than 2x slower than unique_scan
             assert (
@@ -206,7 +206,7 @@ class TestMemoryEfficiency:
             baseline = process.memory_info().rss / 1024 / 1024  # MB
 
             y_true, pred_prob = generate_test_data(n_samples, random_state=42)
-            result = get_optimal_threshold(y_true, pred_prob)
+            result = optimize_thresholds(y_true, pred_prob)
 
             peak = process.memory_info().rss / 1024 / 1024  # MB
             memory_usage.append(peak - baseline)
@@ -241,7 +241,7 @@ class TestMemoryEfficiency:
         # Create and process data
         for _ in range(5):
             y_true, pred_prob = generate_test_data(2000, random_state=42)
-            result = get_optimal_threshold(y_true, pred_prob)
+            result = optimize_thresholds(y_true, pred_prob)
             del y_true, pred_prob, result
 
         # Force garbage collection
@@ -267,7 +267,7 @@ class TestWorstCasePerformance:
         pred_prob = np.linspace(0, 1, n_samples)  # All unique values
 
         start_time = time.time()
-        result = get_optimal_threshold(y_true, pred_prob, method="sort_scan")
+        result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
         end_time = time.time()
 
         execution_time = end_time - start_time
@@ -288,7 +288,7 @@ class TestWorstCasePerformance:
         pred_prob = np.random.RandomState(42).uniform(0, 1, n_samples)
 
         start_time = time.time()
-        result = get_optimal_threshold(y_true, pred_prob, method="sort_scan")
+        result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
         end_time = time.time()
 
         execution_time = end_time - start_time
@@ -310,7 +310,7 @@ class TestWorstCasePerformance:
         pred_prob = np.random.RandomState(42).choice(unique_probs, n_samples)
 
         start_time = time.time()
-        result = get_optimal_threshold(y_true, pred_prob, method="sort_scan")
+        result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
         end_time = time.time()
 
         execution_time = end_time - start_time
@@ -333,7 +333,7 @@ class TestConcurrentPerformance:
 
         for trial in range(n_trials):
             y_true, pred_prob = generate_test_data(n_samples, random_state=42 + trial)
-            result = get_optimal_threshold(y_true, pred_prob, method="sort_scan")
+            result = optimize_thresholds(y_true, pred_prob, method="sort_scan")
 
             # Each trial should produce valid results
             assert 0.0 <= result.threshold <= 1.0
@@ -354,8 +354,8 @@ class TestConcurrentPerformance:
 
         for metric in metrics:
             start_time = time.time()
-            result = get_optimal_threshold(
-                y_true, pred_prob, metric=metric, method="unique_scan"
+            result = optimize_thresholds(
+                y_true, pred_prob, metric=metric, method="sort_scan"
             )
             end_time = time.time()
 

@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import (
     compute_vectorized_confusion_matrices,
     get_metric_function,
@@ -422,8 +422,8 @@ class TestBackwardCompatibility:
             result_piecewise = find_optimal_threshold(
                 y_true, pred_prob, metric, strategy="sort_scan"
             )
-            result = get_optimal_threshold(
-                y_true, pred_prob, metric=metric, method="unique_scan"
+            result = optimize_thresholds(
+                y_true, pred_prob, metric=metric, method="sort_scan"
             )
 
             # Should get very close results (allowing for midpoint vs exact probability differences)

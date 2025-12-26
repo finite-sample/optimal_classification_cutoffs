@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .types_minimal import OptimizationResult
+from .core import OptimizationResult
 
 
 def optimize_macro_multilabel(
@@ -190,7 +190,7 @@ def optimize_micro_multilabel(
     >>> result = optimize_micro_multilabel(y_true, y_prob, metric="f1")
     >>> # Thresholds are coupled - changing one affects global metric
     """
-    from .metrics import get_metric_function
+    from .metrics_core import get_metric_function
 
     # Validate inputs for multilabel
     true_labels = np.asarray(true_labels, dtype=np.int8)
@@ -350,28 +350,29 @@ def optimize_multilabel(
     >>> # Coupled optimization for global metric
     >>> result = optimize_multilabel(y_true, y_prob, average="micro")
     """
-    if average == "macro":
-        return optimize_macro_multilabel(
-            true_labels,
-            pred_proba,
-            metric=metric,
-            method=method,
-            sample_weight=sample_weight,
-            comparison=comparison,
-            tolerance=tolerance,
-        )
-    elif average == "micro":
-        return optimize_micro_multilabel(
-            true_labels,
-            pred_proba,
-            metric=metric,
-            max_iter=30,
-            sample_weight=sample_weight,
-            comparison=comparison,
-            tolerance=tolerance,
-        )
-    else:
-        raise ValueError(f"Unknown average: {average}. Use 'macro' or 'micro'")
+    match average:
+        case "macro":
+            return optimize_macro_multilabel(
+                true_labels,
+                pred_proba,
+                metric=metric,
+                method=method,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+            )
+        case "micro":
+            return optimize_micro_multilabel(
+                true_labels,
+                pred_proba,
+                metric=metric,
+                max_iter=30,
+                sample_weight=sample_weight,
+                comparison=comparison,
+                tolerance=tolerance,
+            )
+        case _:
+            raise ValueError(f"Unknown average: {average}. Use 'macro' or 'micro'")
 
 
 __all__ = [

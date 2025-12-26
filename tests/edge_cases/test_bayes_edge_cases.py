@@ -117,7 +117,7 @@ class TestMulticlassApplyFallback:
 
     def test_multiclass_apply_fallback(self):
         """Test fallback when no class meets threshold."""
-        from optimal_cutoffs.types_minimal import OptimizationResult
+        from optimal_cutoffs import OptimizationResult
 
         # Create a predict function that mimics the old BayesThresholdResult.apply behavior
         def predict_func(probs):
@@ -155,7 +155,7 @@ class TestMulticlassApplyFallback:
 
     def test_binary_apply_consistency(self):
         """Test binary apply with consistent tie-breaking."""
-        from optimal_cutoffs.types_minimal import OptimizationResult
+        from optimal_cutoffs import OptimizationResult
 
         def predict_func(probs):
             return (probs >= 0.5).astype(int)

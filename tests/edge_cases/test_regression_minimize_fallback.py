@@ -8,7 +8,7 @@ best threshold from the discrete candidate set.
 import numpy as np
 from scipy import optimize
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import compute_metric_at_threshold
 
 
@@ -47,7 +47,7 @@ class TestMinimizeFallbackRegression:
         best_candidate_score = candidate_scores[best_candidate_idx]
 
         # The fallback mechanism should choose the better of the two
-        fallback_result = get_optimal_threshold(
+        fallback_result = optimize_thresholds(
             true_labels, pred_probs, metric="f1", method="minimize"
         )
         fallback_threshold = fallback_result.threshold
@@ -78,7 +78,7 @@ class TestMinimizeFallbackRegression:
         pred_probs = np.array([0.2, 0.25, 0.35, 0.55, 0.65, 0.75, 0.85])
 
         # Test minimize method (with fallback)
-        result_minimize = get_optimal_threshold(
+        result_minimize = optimize_thresholds(
             true_labels, pred_probs, metric="precision", method="minimize"
         )
         threshold_minimize = result_minimize.threshold
@@ -87,8 +87,8 @@ class TestMinimizeFallbackRegression:
         )
 
         # Test unique_scan (our reference implementation)
-        result_brute = get_optimal_threshold(
-            true_labels, pred_probs, metric="precision", method="unique_scan"
+        result_brute = optimize_thresholds(
+            true_labels, pred_probs, metric="precision", method="sort_scan"
         )
         threshold_brute = result_brute.threshold
         score_brute = compute_metric_at_threshold(
@@ -106,7 +106,7 @@ class TestMinimizeFallbackRegression:
         pred_probs = np.array([0.15, 0.3, 0.45, 0.5, 0.6, 0.8, 0.95])
 
         # Test minimize method (with fallback)
-        result_minimize = get_optimal_threshold(
+        result_minimize = optimize_thresholds(
             true_labels, pred_probs, metric="recall", method="minimize"
         )
         threshold_minimize = result_minimize.threshold
@@ -115,8 +115,8 @@ class TestMinimizeFallbackRegression:
         )
 
         # Test unique_scan (our reference)
-        result_brute = get_optimal_threshold(
-            true_labels, pred_probs, metric="recall", method="unique_scan"
+        result_brute = optimize_thresholds(
+            true_labels, pred_probs, metric="recall", method="sort_scan"
         )
         threshold_brute = result_brute.threshold
         score_brute = compute_metric_at_threshold(
@@ -134,7 +134,7 @@ class TestMinimizeFallbackRegression:
         pred_probs = np.array([0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
 
         # Test minimize method
-        result_minimize = get_optimal_threshold(
+        result_minimize = optimize_thresholds(
             true_labels, pred_probs, metric="accuracy", method="minimize"
         )
         threshold_minimize = result_minimize.threshold
@@ -143,8 +143,8 @@ class TestMinimizeFallbackRegression:
         )
 
         # Test reference method
-        result_brute = get_optimal_threshold(
-            true_labels, pred_probs, metric="accuracy", method="unique_scan"
+        result_brute = optimize_thresholds(
+            true_labels, pred_probs, metric="accuracy", method="sort_scan"
         )
         threshold_brute = result_brute.threshold
         score_brute = compute_metric_at_threshold(
@@ -178,7 +178,7 @@ class TestMinimizeFallbackRegression:
         expected_best_threshold = candidates[np.argmax(scores)]
 
         # 4. Compare with actual implementation
-        actual_result = get_optimal_threshold(
+        actual_result = optimize_thresholds(
             true_labels, pred_probs, metric="f1", method="minimize"
         )
         actual_threshold = actual_result.threshold
@@ -212,7 +212,7 @@ class TestMinimizeFallbackRegression:
             method="bounded",
         )
 
-        fallback_result = get_optimal_threshold(
+        fallback_result = optimize_thresholds(
             true_labels, pred_probs, metric="f1", method="minimize"
         )
         fallback_threshold = fallback_result.threshold
@@ -233,7 +233,7 @@ class TestMinimizeFallbackRegression:
         true_labels = np.array([0, 1])
         pred_probs = np.array([0.3, 0.7])
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             true_labels, pred_probs, metric="f1", method="minimize"
         )
         threshold = result.threshold
@@ -252,14 +252,14 @@ class TestMinimizeFallbackRegression:
 
         for metric in metrics:
             # Test that minimize method works without error
-            result_minimize = get_optimal_threshold(
+            result_minimize = optimize_thresholds(
                 true_labels, pred_probs, metric=metric, method="minimize"
             )
             threshold_minimize = result_minimize.threshold
 
             # Test that unique_scan works as reference
-            result_brute = get_optimal_threshold(
-                true_labels, pred_probs, metric=metric, method="unique_scan"
+            result_brute = optimize_thresholds(
+                true_labels, pred_probs, metric=metric, method="sort_scan"
             )
             threshold_brute = result_brute.threshold
 
@@ -295,7 +295,7 @@ class TestMinimizeFallbackRegression:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result_gradient = get_optimal_threshold(
+            result_gradient = optimize_thresholds(
                 true_labels, pred_probs, metric="f1", method="gradient"
             )
         threshold_gradient = result_gradient.threshold
@@ -319,7 +319,7 @@ class TestFallbackEdgeCases:
         true_labels = np.array([0, 1, 0, 1, 0, 1])
         pred_probs = np.array([0.3, 0.3, 0.7, 0.7, 0.3, 0.7])  # Only two unique values
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             true_labels, pred_probs, metric="f1", method="minimize"
         )
         threshold = result.threshold
@@ -334,7 +334,7 @@ class TestFallbackEdgeCases:
         true_labels = np.array([0, 0, 1, 1])
         pred_probs = np.array([0.0, 0.1, 0.9, 1.0])
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             true_labels, pred_probs, metric="accuracy", method="minimize"
         )
         threshold = result.threshold
@@ -354,7 +354,7 @@ class TestFallbackEdgeCases:
         pred_probs = np.array([0.5 - eps, 0.5 + eps, 0.5 - 2 * eps, 0.5 + 2 * eps])
 
         # Should handle without numerical issues
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             true_labels, pred_probs, metric="f1", method="minimize"
         )
         threshold = result.threshold
@@ -382,15 +382,15 @@ class TestFallbackEdgeCases:
 
         # Time the minimize method (with fallback)
         start_time = time.time()
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             true_labels, pred_probs, metric="f1", method="minimize"
         )
         minimize_time = time.time() - start_time
 
         # Time the unique_scan method
         start_time = time.time()
-        result_brute = get_optimal_threshold(
-            true_labels, pred_probs, metric="f1", method="unique_scan"
+        result_brute = optimize_thresholds(
+            true_labels, pred_probs, metric="f1", method="sort_scan"
         )
         threshold_brute = result_brute.threshold
         brute_time = time.time() - start_time

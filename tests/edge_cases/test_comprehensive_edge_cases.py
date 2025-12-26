@@ -48,7 +48,7 @@ maintaining performance guarantees and clear error reporting.
 import numpy as np
 import pytest
 
-from optimal_cutoffs import confusion_matrix_at_threshold, get_optimal_threshold
+from optimal_cutoffs import confusion_matrix_at_threshold, optimize_thresholds
 
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
 
@@ -62,13 +62,13 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
-        result_f1 = get_optimal_threshold(labels, probabilities, metric="f1")
+        result_f1 = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result_f1.threshold
         # All negatives -> threshold should predict all negative for optimal accuracy
         assert threshold >= 0.9  # Should be >= max probability to predict all negative
 
-        # Test with get_optimal_threshold
-        result = get_optimal_threshold(labels, probabilities, metric="accuracy")
+        # Test with optimize_thresholds
+        result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -84,13 +84,13 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Fixed: degenerate case should return proper threshold, not arbitrary 0.5
-        result_f1 = get_optimal_threshold(labels, probabilities, metric="f1")
+        result_f1 = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result_f1.threshold
         # All positives -> threshold should predict all positive for optimal accuracy
         assert threshold <= 0.1  # Should be <= min probability to predict all positive
 
-        # Test with get_optimal_threshold
-        result = get_optimal_threshold(labels, probabilities, metric="recall")
+        # Test with optimize_thresholds
+        result = optimize_thresholds(labels, probabilities, metric="recall")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -108,7 +108,7 @@ class TestLabelDistributionEdgeCases:
         )
 
         # Should find a reasonable threshold
-        result = get_optimal_threshold(labels, probabilities, metric="f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -129,7 +129,7 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.array([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9])
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(labels, probabilities, metric=metric)
+            result = optimize_thresholds(labels, probabilities, metric=metric)
             threshold = result.threshold
             assert 0 <= threshold <= 1
 
@@ -151,7 +151,7 @@ class TestLabelDistributionEdgeCases:
         probabilities = np.concatenate([neg_probs, pos_probs])
 
         # Should handle extreme imbalance
-        result = get_optimal_threshold(labels, probabilities, metric="f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -191,7 +191,7 @@ class TestProbabilityDistributionEdgeCases:
 
         # Should achieve perfect or near-perfect performance
         for metric in ["accuracy", "f1", "precision", "recall"]:
-            result = get_optimal_threshold(labels, probabilities, metric=metric)
+            result = optimize_thresholds(labels, probabilities, metric=metric)
 
             # Threshold should be reasonable for perfect separation
             # For recall, optimal threshold might be very low to capture all positives
@@ -223,7 +223,7 @@ class TestProbabilityDistributionEdgeCases:
         labels = np.array([0, 0, 1, 1])
         probabilities = np.array([0.0, 0.0, 1.0, 1.0])
 
-        result = get_optimal_threshold(labels, probabilities, metric="accuracy")
+        result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
 
         # Should achieve perfect accuracy
@@ -237,7 +237,7 @@ class TestProbabilityDistributionEdgeCases:
         probabilities = np.array([0.49, 0.50, 0.51, 0.49, 0.51, 0.50])
 
         # Should handle narrow ranges gracefully
-        result = get_optimal_threshold(labels, probabilities, metric="f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
         assert 0.48 <= threshold <= 0.52
 
@@ -252,7 +252,7 @@ class TestProbabilityDistributionEdgeCases:
         # Heavily skewed toward low probabilities
         probabilities = np.array([0.01, 0.02, 0.03, 0.04, 0.95, 0.96, 0.97, 0.98])
 
-        result = get_optimal_threshold(labels, probabilities, metric="f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -301,7 +301,7 @@ class TestNumericalEdgeCases:
         import time
 
         start_time = time.time()
-        result = get_optimal_threshold(labels, probabilities, metric="f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         end_time = time.time()
 
         threshold = result.threshold
@@ -321,7 +321,7 @@ class TestNumericalEdgeCases:
         probabilities = np.array([eps, 2 * eps, 1 - 2 * eps, 1 - eps])
 
         # Should handle near-zero probabilities
-        result = get_optimal_threshold(labels, probabilities, metric="accuracy")
+        result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -341,7 +341,7 @@ class TestNumericalEdgeCases:
         )
 
         # Should handle tiny differences gracefully
-        result = get_optimal_threshold(labels, probabilities, metric="f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -366,7 +366,7 @@ class TestNumericalEdgeCases:
         )
 
         # Should handle precision limits gracefully
-        result = get_optimal_threshold(labels, probabilities, metric="accuracy")
+        result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -378,77 +378,77 @@ class TestErrorConditionEdgeCases:
         """Test that NaN in inputs produces clear error messages."""
         # NaN in labels
         with pytest.raises(ValueError, match="cannot convert float NaN to integer"):
-            get_optimal_threshold([0, np.nan, 1], [0.1, 0.5, 0.9], metric="f1")
+            optimize_thresholds([0, np.nan, 1], [0.1, 0.5, 0.9], metric="f1")
 
         # NaN in probabilities
         with pytest.raises(ValueError, match="Probabilities contains NaN values"):
-            get_optimal_threshold([0, 1, 0], [0.1, np.nan, 0.9], metric="f1")
+            optimize_thresholds([0, 1, 0], [0.1, np.nan, 0.9], metric="f1")
 
     def test_inf_in_inputs_clear_error(self):
         """Test that infinity in inputs produces clear error messages."""
         # Inf in labels
         with pytest.raises((ValueError, OverflowError)):
-            get_optimal_threshold([0, np.inf, 1], [0.1, 0.5, 0.9], metric="f1")
+            optimize_thresholds([0, np.inf, 1], [0.1, 0.5, 0.9], metric="f1")
 
         # Inf in probabilities
         with pytest.raises(ValueError, match="Probabilities contains infinite values"):
-            get_optimal_threshold([0, 1, 0], [0.1, np.inf, 0.9], metric="f1")
+            optimize_thresholds([0, 1, 0], [0.1, np.inf, 0.9], metric="f1")
 
     def test_empty_arrays_clear_error(self):
         """Test that empty arrays produce clear error messages."""
         with pytest.raises(ValueError, match="Labels cannot be empty"):
-            get_optimal_threshold([], [0.5], metric="f1")
+            optimize_thresholds([], [0.5], metric="f1")
 
         with pytest.raises(ValueError, match="Probabilities cannot be empty"):
-            get_optimal_threshold([0], [], metric="f1")
+            optimize_thresholds([0], [], metric="f1")
 
     def test_mismatched_lengths_clear_error(self):
         """Test that mismatched array lengths produce clear error messages."""
         with pytest.raises(ValueError, match="Length mismatch"):
-            get_optimal_threshold([0, 1], [0.5], metric="f1")
+            optimize_thresholds([0, 1], [0.5], metric="f1")
 
         with pytest.raises(ValueError, match="Length mismatch"):
-            get_optimal_threshold([0], [0.1, 0.5], metric="f1")
+            optimize_thresholds([0], [0.1, 0.5], metric="f1")
 
     def test_invalid_data_types_clear_error(self):
         """Test that invalid data types produce clear error messages."""
         # String labels should be handled (converted to numeric if possible)
         # but non-numeric strings should fail with clear message
         with pytest.raises((ValueError, TypeError)):
-            get_optimal_threshold(["a", "b", "c"], [0.1, 0.5, 0.9], metric="f1")
+            optimize_thresholds(["a", "b", "c"], [0.1, 0.5, 0.9], metric="f1")
 
     def test_out_of_range_probabilities_clear_error(self):
         """Test that probabilities outside [0,1] produce clear errors."""
         with pytest.raises(
             ValueError, match="Probabilities must be in \\[0, 1\\], got range"
         ):
-            get_optimal_threshold([0, 1, 0], [-0.1, 0.5, 0.9], metric="f1")
+            optimize_thresholds([0, 1, 0], [-0.1, 0.5, 0.9], metric="f1")
 
         with pytest.raises(
             ValueError, match="Probabilities must be in \\[0, 1\\], got range"
         ):
-            get_optimal_threshold([0, 1, 0], [0.1, 0.5, 1.1], metric="f1")
+            optimize_thresholds([0, 1, 0], [0.1, 0.5, 1.1], metric="f1")
 
 
 class TestWrapperEdgeCases:
     """Test wrapper edge cases - disabled after wrapper removal."""
 
     @pytest.mark.skip(
-        reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly"
+        reason="ThresholdOptimizer wrapper removed - use optimize_thresholds directly"
     )
     def test_wrapper_with_edge_cases(self):
         """Test that the wrapper handles edge cases properly."""
         # This test was for the removed ThresholdOptimizer wrapper
-        # Use get_optimal_threshold() directly instead
+        # Use optimize_thresholds() directly instead
         pass
 
     @pytest.mark.skip(
-        reason="ThresholdOptimizer wrapper removed - use get_optimal_threshold directly"
+        reason="ThresholdOptimizer wrapper removed - use optimize_thresholds directly"
     )
     def test_wrapper_multiclass_edge_cases(self):
         """Test wrapper with multiclass edge cases."""
         # This test was for the removed ThresholdOptimizer wrapper
-        # Use get_optimal_threshold() directly instead
+        # Use optimize_thresholds() directly instead
         pass
 
 
@@ -465,7 +465,7 @@ class TestPerformanceEdgeCases:
         import time
 
         start_time = time.time()
-        result = get_optimal_threshold(labels, probabilities, metric="f1")
+        result = optimize_thresholds(labels, probabilities, metric="f1")
         end_time = time.time()
 
         threshold = result.threshold
@@ -480,7 +480,7 @@ class TestPerformanceEdgeCases:
         probabilities = np.random.random(n_samples)
 
         # Should handle without excessive memory usage
-        result = get_optimal_threshold(labels, probabilities, metric="accuracy")
+        result = optimize_thresholds(labels, probabilities, metric="accuracy")
         threshold = result.threshold
         assert 0 <= threshold <= 1
 
@@ -498,7 +498,7 @@ class TestMinimalDatasets:
         pred_prob = [0.7]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            result = optimize_thresholds(y_true, pred_prob, metric=metric)
             threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
@@ -508,7 +508,7 @@ class TestMinimalDatasets:
         pred_prob = [0.3]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            result = optimize_thresholds(y_true, pred_prob, metric=metric)
             threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
@@ -522,7 +522,7 @@ class TestExtremeProbabilityValues:
         pred_prob = [0.0, 0.0, 0.0, 0.0, 0.0]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            result = optimize_thresholds(y_true, pred_prob, metric=metric)
             threshold = result.threshold
             # Allow small tolerance for edge cases where threshold may be slightly outside [0,1]
             assert -1e-8 <= threshold <= 1.0 + 1e-8
@@ -541,7 +541,7 @@ class TestExtremeProbabilityValues:
         pred_prob = [1.0, 1.0, 1.0, 1.0, 1.0]
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(y_true, pred_prob, metric=metric)
+            result = optimize_thresholds(y_true, pred_prob, metric=metric)
             threshold = result.threshold
             assert 0.0 <= threshold <= 1.0
 
@@ -554,7 +554,7 @@ class TestExtremeProbabilityValues:
         y_true = [0, 1, 0, 1, 1]
         pred_prob = [1e-10, 2e-10, 3e-10, 4e-10, 5e-10]
 
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
@@ -567,7 +567,7 @@ class TestExtremeProbabilityValues:
         y_true = [0, 1, 0, 1, 1]
         pred_prob = [1 - 1e-10, 1 - 2e-10, 1 - 3e-10, 1 - 4e-10, 1 - 5e-10]
 
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         threshold = result.threshold
         assert 0.0 <= threshold <= 1.0
 
@@ -586,7 +586,7 @@ class TestMulticlassExtremeScenarios:
         pred_prob = np.random.RandomState(42).uniform(0, 1, (20, 2))
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)  # Normalize
 
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 2
         # Note: With coordinate ascent and extreme imbalance, thresholds can be outside [0,1]
@@ -601,7 +601,7 @@ class TestMulticlassExtremeScenarios:
         pred_prob = np.random.uniform(0, 1, (100, 3))
         pred_prob = pred_prob / pred_prob.sum(axis=1, keepdims=True)  # Normalize
 
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 3
         # Note: With coordinate ascent and extreme imbalance, thresholds can be outside [0,1]
@@ -622,7 +622,7 @@ class TestMulticlassExtremeScenarios:
             ]
         )
 
-        result = get_optimal_threshold(y_true, pred_prob, metric="f1")
+        result = optimize_thresholds(y_true, pred_prob, metric="f1")
         thresholds = result.thresholds
         assert len(thresholds) == 3
         # Note: With coordinate ascent and extreme cases, thresholds can be outside [0,1]

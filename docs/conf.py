@@ -51,10 +51,21 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
+    "nbsphinx",
 ]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+
+# -- nbsphinx configuration --------------------------------------------------
+nbsphinx_execute = 'never'  # Don't execute notebooks during build
+nbsphinx_allow_errors = True
+nbsphinx_kernel_name = 'python3'
+
+# Custom CSS for notebooks
+nbsphinx_custom_formats = {
+    '.ipynb': ['nbsphinx', 'Jupyter Notebook'],
+}
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

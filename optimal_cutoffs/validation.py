@@ -589,7 +589,7 @@ def _validate_metric_name(metric_name: str) -> None:
     if not isinstance(metric_name, str):
         raise TypeError(f"metric must be a string, got {type(metric_name)}")
 
-    from .metrics import METRICS
+    from .metrics_core import METRICS
 
     if metric_name not in METRICS:
         available = sorted(METRICS.keys())

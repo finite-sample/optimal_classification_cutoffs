@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .types_minimal import OptimizationResult
+from .core import OptimizationResult
 from .validation import validate_multiclass_classification
 
 
@@ -404,67 +404,69 @@ def optimize_multiclass(
     >>> # Micro averaging (single threshold)
     >>> result = optimize_multiclass(y_true, y_prob, average="micro")
     """
-    if average == "micro":
-        return optimize_micro_multiclass(
-            true_labels,
-            pred_proba,
-            metric=metric,
-            method=method,
-            sample_weight=sample_weight,
-            comparison=comparison,
-            tolerance=tolerance,
-        )
-    elif average == "macro":
-        if method == "auto":
-            # Auto method: choose best method based on metric and comparison compatibility
-            if metric == "f1" and comparison == ">":
-                # F1 with ">" is supported by coordinate ascent - use it for better coupling
-                return optimize_ovr_margin(
-                    true_labels,
-                    pred_proba,
-                    metric=metric,
-                    max_iter=30,
-                    sample_weight=sample_weight,
-                    comparison=comparison,
-                    tolerance=tolerance,
-                )
-            else:
-                # Other metrics/comparisons not supported by coord_ascent - use independent
-                return optimize_ovr_independent(
-                    true_labels,
-                    pred_proba,
-                    metric=metric,
-                    method="auto",
-                    sample_weight=sample_weight,
-                    comparison=comparison,
-                    tolerance=tolerance,
-                )
-        elif method == "coord_ascent":
-            return optimize_ovr_margin(
+    match average:
+        case "micro":
+            return optimize_micro_multiclass(
                 true_labels,
                 pred_proba,
                 metric=metric,
-                max_iter=30,
+                method=method,
                 sample_weight=sample_weight,
                 comparison=comparison,
                 tolerance=tolerance,
             )
-        elif method in ["independent", "minimize", "unique_scan", "gradient"]:
-            # Route legacy and scipy methods to independent optimization
-            # minimize, unique_scan, gradient are legacy binary methods - use independent for multiclass
-            return optimize_ovr_independent(
-                true_labels,
-                pred_proba,
-                metric=metric,
-                method="auto",
-                sample_weight=sample_weight,
-                comparison=comparison,
-                tolerance=tolerance,
-            )
-        else:
-            raise ValueError(f"Unknown method for macro averaging: {method}")
-    else:
-        raise ValueError(f"Unknown average: {average}. Use 'macro' or 'micro'")
+        case "macro":
+            match method:
+                case "auto":
+                    # Auto method: choose best method based on metric and comparison compatibility
+                    if metric == "f1" and comparison == ">":
+                        # F1 with ">" is supported by coordinate ascent - use it for better coupling
+                        return optimize_ovr_margin(
+                            true_labels,
+                            pred_proba,
+                            metric=metric,
+                            max_iter=30,
+                            sample_weight=sample_weight,
+                            comparison=comparison,
+                            tolerance=tolerance,
+                        )
+                    else:
+                        # Other metrics/comparisons not supported by coord_ascent - use independent
+                        return optimize_ovr_independent(
+                            true_labels,
+                            pred_proba,
+                            metric=metric,
+                            method="auto",
+                            sample_weight=sample_weight,
+                            comparison=comparison,
+                            tolerance=tolerance,
+                        )
+                case "coord_ascent":
+                    return optimize_ovr_margin(
+                        true_labels,
+                        pred_proba,
+                        metric=metric,
+                        max_iter=30,
+                        sample_weight=sample_weight,
+                        comparison=comparison,
+                        tolerance=tolerance,
+                    )
+                case "independent" | "minimize" | "unique_scan" | "gradient":
+                    # Route legacy and scipy methods to independent optimization
+                    # minimize, unique_scan, gradient are legacy binary methods - use independent for multiclass
+                    return optimize_ovr_independent(
+                        true_labels,
+                        pred_proba,
+                        metric=metric,
+                        method="auto",
+                        sample_weight=sample_weight,
+                        comparison=comparison,
+                        tolerance=tolerance,
+                    )
+                case _:
+                    raise ValueError(f"Unknown method for macro averaging: {method}")
+        case _:
+            raise ValueError(f"Unknown average: {average}. Use 'macro' or 'micro'")
 
 
 __all__ = [

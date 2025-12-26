@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import get_optimal_multiclass_thresholds
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import (
     compute_multiclass_metrics_from_labels,
 )
@@ -96,7 +96,7 @@ class TestCoordinateAscentCore:
         y_true = rng.integers(0, C, size=n)
 
         # Compare coordinate ascent to OvR baseline
-        result0 = get_optimal_multiclass_thresholds(
+        result0 = optimize_thresholds(
             y_true, P, metric="f1", method="unique_scan"
         )
         tau0 = result0.thresholds
@@ -187,7 +187,7 @@ class TestCoordinateAscentCore:
 class TestCoordinateAscentIntegration:
     """Test integration with main API."""
 
-    def test_get_optimal_multiclass_thresholds_coord_ascent_integration(self):
+    def test_optimize_thresholds_coord_ascent_integration(self):
         """Test coordinate ascent through main API."""
         rng = np.random.default_rng(42)
         n, C = 150, 3
@@ -195,7 +195,7 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Test through main API
-        result = get_optimal_multiclass_thresholds(
+        result = optimize_thresholds(
             y_true, P, metric="f1", method="coord_ascent"
         )
         tau = result.thresholds
@@ -211,20 +211,20 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Sample weights are now supported - test that it works
-        result = get_optimal_multiclass_thresholds(
+        result = optimize_thresholds(
             y_true, P, metric="f1", method="coord_ascent", sample_weight=np.ones(n)
         )
         assert len(result.thresholds) == C
 
         # Only '>' comparison supported
         with pytest.raises(NotImplementedError, match="'>' is required"):
-            get_optimal_multiclass_thresholds(
+            optimize_thresholds(
                 y_true, P, metric="f1", method="coord_ascent", comparison=">="
             )
 
         # Only F1 metric supported currently
         with pytest.raises(NotImplementedError, match="supports 'f1' metric only"):
-            get_optimal_multiclass_thresholds(
+            optimize_thresholds(
                 y_true, P, metric="accuracy", method="coord_ascent"
             )
 
@@ -236,7 +236,7 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Test through direct API instead of removed wrapper
-        result = get_optimal_multiclass_thresholds(
+        result = optimize_thresholds(
             y_true, P, metric="f1", method="coord_ascent"
         )
         thresholds = result.thresholds
@@ -254,7 +254,7 @@ class TestCoordinateAscentIntegration:
         y_true = rng.integers(0, C, size=n)
 
         # Get thresholds via coordinate ascent - test that it completes without error
-        get_optimal_multiclass_thresholds(y_true, P, metric="f1", method="coord_ascent")
+        optimize_thresholds(y_true, P, metric="f1", method="coord_ascent")
 
         # This part tested the removed CoordinateAscentOptimizer wrapper
         # The coordinate ascent optimization completed successfully
@@ -280,7 +280,7 @@ class TestCoordinateAscentPerformance:
             P[i] /= P[i].sum()  # Renormalize
 
         # Compare OvR vs coordinate ascent
-        result_ovr = get_optimal_multiclass_thresholds(
+        result_ovr = optimize_thresholds(
             y_true, P, metric="f1", method="unique_scan"
         )
         tau_ovr = result_ovr.thresholds
@@ -291,7 +291,7 @@ class TestCoordinateAscentPerformance:
             )
         )
 
-        result_coord = get_optimal_multiclass_thresholds(
+        result_coord = optimize_thresholds(
             y_true, P, metric="f1", method="coord_ascent"
         )
         tau_coord = result_coord.thresholds

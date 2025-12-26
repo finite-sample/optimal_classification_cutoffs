@@ -11,7 +11,7 @@ reflected consistently in threshold selection and plateau sensitivity.
 import numpy as np
 from hypothesis import given, settings
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.hypothesis_strategies import tied_probabilities
 
@@ -80,10 +80,10 @@ class TestOptimizationWithTies:
         probs = np.array([0.5, 0.5, 0.2])
         labels = np.array([1, 0, 0])  # First tied item is positive, second is negative
 
-        result_exclusive = get_optimal_threshold(
+        result_exclusive = optimize_thresholds(
             labels, probs, metric="f1", method="sort_scan", comparison=">"
         )
-        result_inclusive = get_optimal_threshold(
+        result_inclusive = optimize_thresholds(
             labels, probs, metric="f1", method="sort_scan", comparison=">="
         )
 
@@ -133,10 +133,10 @@ class TestOptimizationWithTies:
 
         for metric in ["f1", "accuracy"]:
             try:
-                result_exclusive = get_optimal_threshold(
+                result_exclusive = optimize_thresholds(
                     labels, probs, metric=metric, method="sort_scan", comparison=">"
                 )
-                result_inclusive = get_optimal_threshold(
+                result_inclusive = optimize_thresholds(
                     labels, probs, metric=metric, method="sort_scan", comparison=">="
                 )
 
@@ -186,10 +186,10 @@ class TestOptimizationWithTies:
         labels = np.array([0, 1, 0, 1, 1])  # Mixed labels with ties at 0.4
 
         for metric in ["f1", "accuracy"]:
-            result_exclusive = get_optimal_threshold(
+            result_exclusive = optimize_thresholds(
                 labels, probs, metric=metric, method="sort_scan", comparison=">"
             )
-            result_inclusive = get_optimal_threshold(
+            result_inclusive = optimize_thresholds(
                 labels, probs, metric=metric, method="sort_scan", comparison=">="
             )
 
@@ -236,10 +236,10 @@ class TestComparisonThreading:
         labels = np.array([0, 1, 0, 1])
 
         # Both should work without error
-        result_exclusive = get_optimal_threshold(
+        result_exclusive = optimize_thresholds(
             labels, probs, metric="f1", method="sort_scan", comparison=">"
         )
-        result_inclusive = get_optimal_threshold(
+        result_inclusive = optimize_thresholds(
             labels, probs, metric="f1", method="sort_scan", comparison=">="
         )
 
@@ -268,11 +268,11 @@ class TestComparisonThreading:
 
         # Test both comparison operators
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels,
                 probs,
                 metric="accuracy",
-                method="unique_scan",
+                method="sort_scan",
                 comparison=comparison,
             )
 
@@ -292,7 +292,7 @@ class TestComparisonThreading:
 
         for comparison in [">", ">="]:
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="f1", method="minimize", comparison=comparison
                 )
 
@@ -321,7 +321,7 @@ class TestEdgeCasesWithComparison:
         labels = np.array([0, 1, 1])
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels,
                 probs,
                 metric="accuracy",
@@ -361,7 +361,7 @@ class TestEdgeCasesWithComparison:
         labels_zero = np.array([0, 1, 0, 1])
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels_zero,
                 probs_zero,
                 metric="accuracy",
@@ -394,7 +394,7 @@ class TestEdgeCasesWithComparison:
         labels_one = np.array([1, 0, 1, 0])
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels_one,
                 probs_one,
                 metric="accuracy",

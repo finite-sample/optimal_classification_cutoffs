@@ -9,7 +9,7 @@ import warnings
 
 import numpy as np
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
 from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.assertions import (
@@ -85,12 +85,12 @@ class TestDinkelbachBasic:
 class TestDinkelbachAPI:
     """Test Dinkelbach through the main API."""
 
-    def test_dinkelbach_through_get_optimal_threshold(self):
+    def test_dinkelbach_through_optimize_thresholds(self):
         """Test Dinkelbach method through the main API."""
         y_true = np.array([0, 0, 1, 1, 1])
         y_prob = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
-        result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
+        result = optimize_thresholds(y_true, y_prob, mode="expected", metric="f1")
 
         threshold = result.threshold
         assert hasattr(result, "threshold") and hasattr(result, "score")
@@ -192,13 +192,13 @@ class TestDinkelbachBasicFunctionality:
         )
         assert 0.0 <= threshold <= 1.0
 
-    def test_dinkelbach_through_get_optimal_threshold(self):
+    def test_dinkelbach_through_optimize_thresholds(self):
         """Test Dinkelbach method through the main API."""
         y_true = np.array([0, 0, 1, 1, 1])
         y_prob = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
 
         # Should work for F1 metric and return a tuple
-        result = get_optimal_threshold(y_true, y_prob, mode="expected", metric="f1")
+        result = optimize_thresholds(y_true, y_prob, mode="expected", metric="f1")
         assert hasattr(result, "threshold") and hasattr(result, "score")
         threshold_dinkelbach, f1_score_dinkelbach = result.threshold, result.score
         # Both should be valid values

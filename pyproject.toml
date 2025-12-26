@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "optimal-classification-cutoffs"
-version = "1.1.0"
+version = "2.0.0"
 description = "Utilities for computing optimal classification cutoffs for binary and multiclass classification"
 readme = "README.md"
 license = "MIT"
@@ -84,7 +84,13 @@ docs = [
     "sphinx>=5.0",
     "furo",
     "sphinx-autodoc-typehints>=1.0",
-    "matplotlib"
+    "nbsphinx>=0.8.0",
+    "nbconvert>=6.0",
+    "pandoc",
+    "jupyter",
+    "matplotlib",
+    "pandas",
+    "ipywidgets"
 ]
 
 # For development and testing
@@ -116,6 +122,34 @@ all = [
     "scikit-optimize>=0.9.0",
     "psutil>=5.0"
 ]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+allow_redefinition = true
+no_implicit_optional = true
+allow_untyped_calls = true
+allow_untyped_decorators = true
+warn_no_return = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = [
+    "sklearn.*",
+    "numba.*",
+    "scipy.*",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "optimal_cutoffs.optimize",
+    "optimal_cutoffs.multilabel",
+]
+allow_untyped_defs = true
+allow_untyped_calls = true
 
 [tool.deptry]
 # Exclude specific paths from analysis

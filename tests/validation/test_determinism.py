@@ -17,7 +17,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import get_optimal_threshold
+from optimal_cutoffs import optimize_thresholds
 
 
 def _create_tied_score_scenario():
@@ -54,14 +54,14 @@ class TestBasicDeterminism:
         labels = np.array([0, 1, 1, 0, 1, 0, 1, 1, 0, 0])
         probs = np.array([0.2, 0.8, 0.7, 0.3, 0.9, 0.1, 0.6, 0.75, 0.25, 0.4])
 
-        methods_to_test = ["sort_scan", "unique_scan", "minimize"]
+        methods_to_test = ["sort_scan", "sort_scan", "minimize"]
 
         for method in methods_to_test:
             thresholds = []
 
             for run in range(5):
                 try:
-                    result = get_optimal_threshold(
+                    result = optimize_thresholds(
                         labels, probs, metric="f1", method=method, comparison=">"
                     )
                     thresholds.append(result.threshold)
@@ -91,7 +91,7 @@ class TestBasicDeterminism:
 
             for run in range(3):
                 try:
-                    result = get_optimal_threshold(
+                    result = optimize_thresholds(
                         labels,
                         probs,
                         metric=metric,
@@ -121,7 +121,7 @@ class TestBasicDeterminism:
         results = []
         for run in range(4):
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels,
                     probs,
                     metric="f1",
@@ -159,7 +159,7 @@ class TestBasicDeterminism:
         try:
             results = []
             for _ in range(3):
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
                 results.append(result.threshold)
@@ -190,7 +190,7 @@ class TestStableSorting:
         results = []
         for _ in range(10):
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
                 results.append(result.threshold)
@@ -214,7 +214,7 @@ class TestStableSorting:
         for comparison in [">", ">="]:
             for _ in range(5):
                 try:
-                    result = get_optimal_threshold(
+                    result = optimize_thresholds(
                         labels,
                         probs,
                         metric="accuracy",
@@ -250,7 +250,7 @@ class TestStableSorting:
         probs = np.array([0.2, 0.5, 0.5, 0.8, 0.5])  # Multiple 0.5 values
 
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
 
@@ -284,7 +284,7 @@ class TestStableSorting:
         thresholds = []
         for _ in range(8):
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="accuracy", method="sort_scan", comparison=">"
                 )
                 thresholds.append(result.threshold)
@@ -308,7 +308,7 @@ class TestNumericalStability:
         labels, probs = _create_numerical_precision_scenario()
 
         try:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
 
@@ -319,7 +319,7 @@ class TestNumericalStability:
             assert not np.isinf(threshold)
 
             # Result should be reproducible
-            result2 = get_optimal_threshold(
+            result2 = optimize_thresholds(
                 labels, probs, metric="f1", method="sort_scan", comparison=">"
             )
             threshold2 = result2.threshold
@@ -336,14 +336,14 @@ class TestNumericalStability:
         labels = np.array([0, 1, 0, 1])
         probs = np.array([1e-15, 1 - 1e-15, 1e-14, 1 - 1e-14])  # Extreme values
 
-        methods_to_test = ["sort_scan", "unique_scan"]
+        methods_to_test = ["sort_scan", "sort_scan"]
 
         for method in methods_to_test:
             results = []
 
             for _ in range(3):
                 try:
-                    result = get_optimal_threshold(
+                    result = optimize_thresholds(
                         labels, probs, metric="accuracy", method=method, comparison=">"
                     )
                     results.append(result.threshold)
@@ -370,7 +370,7 @@ class TestNumericalStability:
         base_probs = np.array([0.2, 0.7, 0.6, 0.3, 0.8])
 
         try:
-            base_result = get_optimal_threshold(
+            base_result = optimize_thresholds(
                 base_labels, base_probs, metric="f1", method="sort_scan", comparison=">"
             )
 
@@ -381,7 +381,7 @@ class TestNumericalStability:
                 perturbed_probs = base_probs + perturbation
                 perturbed_probs = np.clip(perturbed_probs, 0, 1)  # Keep in valid range
 
-                perturbed_result = get_optimal_threshold(
+                perturbed_result = optimize_thresholds(
                     base_labels,
                     perturbed_probs,
                     metric="f1",
@@ -417,7 +417,7 @@ class TestNumericalStability:
         for labels, probs in edge_cases:
             for comparison in [">", ">="]:
                 try:
-                    result = get_optimal_threshold(
+                    result = optimize_thresholds(
                         labels,
                         probs,
                         metric="accuracy",
@@ -434,7 +434,7 @@ class TestNumericalStability:
                     assert not np.isinf(threshold), "Infinite threshold for edge case"
 
                     # Should be reproducible
-                    result2 = get_optimal_threshold(
+                    result2 = optimize_thresholds(
                         labels,
                         probs,
                         metric="accuracy",
@@ -480,7 +480,7 @@ class TestReproducibilityAcrossPlatforms:
         results = []
         for labels, probs in array_types:
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="f1", method="sort_scan", comparison=">"
                 )
                 results.append(result.threshold)
@@ -504,7 +504,7 @@ class TestReproducibilityAcrossPlatforms:
         probs_array = np.array(probs_list)
 
         try:
-            result_list = get_optimal_threshold(
+            result_list = optimize_thresholds(
                 labels_list,
                 probs_list,
                 metric="accuracy",
@@ -512,7 +512,7 @@ class TestReproducibilityAcrossPlatforms:
                 comparison=">",
             )
 
-            result_array = get_optimal_threshold(
+            result_array = optimize_thresholds(
                 labels_array,
                 probs_array,
                 metric="accuracy",
@@ -539,7 +539,7 @@ class TestReproducibilityAcrossPlatforms:
         results = []
         for i in range(20):
             try:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     labels, probs, metric="f1", method="sort_scan", comparison=">="
                 )
                 results.append((i, result.threshold))
@@ -566,11 +566,11 @@ class TestReproducibilityAcrossPlatforms:
         probs_perm = probs[perm]
 
         try:
-            result_original = get_optimal_threshold(
+            result_original = optimize_thresholds(
                 labels, probs, metric="accuracy", method="sort_scan", comparison=">"
             )
 
-            result_permuted = get_optimal_threshold(
+            result_permuted = optimize_thresholds(
                 labels_perm,
                 probs_perm,
                 metric="accuracy",

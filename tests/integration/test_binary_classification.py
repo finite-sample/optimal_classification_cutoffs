@@ -8,8 +8,8 @@ import numpy as np
 
 from optimal_cutoffs import (
     confusion_matrix_at_threshold,
-    cv_threshold_optimization,
-    get_optimal_threshold,
+    cross_validate,
+    optimize_thresholds,
 )
 from tests.fixtures.assertions import (
     assert_method_consistency,
@@ -34,7 +34,7 @@ class TestBinaryClassificationWorkflows:
 
         # Test full workflow with different metrics
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(y_true, y_prob, metric=metric)
+            result = optimize_thresholds(y_true, y_prob, metric=metric)
 
             threshold = result.threshold
             assert_valid_threshold(threshold)
@@ -65,11 +65,11 @@ class TestBinaryClassificationWorkflows:
         """Test binary classification with different optimization methods."""
         y_true, y_prob = generate_binary_data(50, random_state=42)
 
-        methods = ["unique_scan", "minimize", "gradient", "auto"]
+        methods = ["sort_scan", "minimize", "gradient", "auto"]
         results = {}
 
         for method in methods:
-            result = get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
+            result = optimize_thresholds(y_true, y_prob, metric="f1", method=method)
             threshold = result.threshold
             assert_valid_threshold(threshold)
 
@@ -94,12 +94,12 @@ class TestBinaryClassificationWorkflows:
         y_true, y_prob = generate_binary_data(50, random_state=42)
 
         # Empirical mode
-        result = get_optimal_threshold(y_true, y_prob, mode="empirical")
+        result = optimize_thresholds(y_true, y_prob, mode="empirical")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
         # Expected mode (now returns OptimizationResult)
-        result = get_optimal_threshold(y_true, y_prob, mode="expected")
+        result = optimize_thresholds(y_true, y_prob, mode="expected")
         threshold = result.threshold
         score = result.score
         assert_valid_threshold(threshold)
@@ -114,7 +114,7 @@ class TestSampleWeights:
         y_true, y_prob = generate_binary_data(30, random_state=42)
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
         threshold = result.threshold
@@ -133,7 +133,7 @@ class TestSampleWeights:
         weights = np.array([2, 3, 1, 2])  # Integer weights for exact expansion
 
         # Weighted approach
-        result_weighted = get_optimal_threshold(
+        result_weighted = optimize_thresholds(
             y_true, y_prob, metric="accuracy", sample_weight=weights
         )
         threshold_weighted = result_weighted.threshold
@@ -141,7 +141,7 @@ class TestSampleWeights:
         # Expansion approach
         y_expanded = np.repeat(y_true, weights)
         p_expanded = np.repeat(y_prob, weights)
-        result_expanded = get_optimal_threshold(
+        result_expanded = optimize_thresholds(
             y_expanded, p_expanded, metric="accuracy"
         )
         threshold_expanded = result_expanded.threshold
@@ -164,7 +164,7 @@ class TestSampleWeights:
         for weight_type in weight_types:
             weights = generate_sample_weights(len(y_true), weight_type, random_state=42)
 
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, y_prob, metric="f1", sample_weight=weights
             )
             threshold = result.threshold
@@ -176,10 +176,10 @@ class TestSampleWeights:
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
         # Test methods that support weights
-        methods = ["unique_scan", "minimize"]
+        methods = ["sort_scan", "minimize"]
 
         for method in methods:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, y_prob, metric="f1", method=method, sample_weight=weights
             )
             threshold = result.threshold
@@ -194,7 +194,7 @@ class TestComparisonOperators:
         y_true, y_prob = generate_tied_probabilities(30, random_state=42)
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
             threshold = result.threshold
@@ -245,7 +245,7 @@ class TestComparisonOperators:
 
         thresholds = {}
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
             thresholds[comparison] = result.threshold
@@ -265,7 +265,7 @@ class TestImbalancedData:
         )
 
         # Should handle extreme imbalance
-        result = get_optimal_threshold(y_true, y_prob, metric="f1")
+        result = optimize_thresholds(y_true, y_prob, metric="f1")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -283,7 +283,7 @@ class TestImbalancedData:
         metrics = ["f1", "accuracy", "precision", "recall"]
 
         for metric in metrics:
-            result = get_optimal_threshold(y_true, y_prob, metric=metric)
+            result = optimize_thresholds(y_true, y_prob, metric=metric)
             threshold = result.threshold
             assert_valid_threshold(threshold)
 
@@ -300,7 +300,7 @@ class TestImbalancedData:
         weights = np.ones(len(y_true))
         weights[y_true == 1] *= 5.0  # Upweight positive class
 
-        result = get_optimal_threshold(
+        result = optimize_thresholds(
             y_true, y_prob, metric="f1", sample_weight=weights
         )
         threshold = result.threshold
@@ -310,12 +310,12 @@ class TestImbalancedData:
 class TestCrossValidation:
     """Test cross-validation functionality for binary classification."""
 
-    def test_cv_threshold_optimization_basic(self):
+    def test_cross_validate_basic(self):
         """Test basic cross-validation threshold optimization."""
         y_true, y_prob = generate_binary_data(100, random_state=42)
 
-        thresholds, scores = cv_threshold_optimization(
-            y_true, y_prob, method="unique_scan", cv=5, random_state=42
+        thresholds, scores = cross_validate(
+            y_true, y_prob, method="sort_scan", cv=5, random_state=42
         )
 
         assert thresholds.shape == (5, 1)
@@ -327,10 +327,10 @@ class TestCrossValidation:
         """Test cross-validation with different optimization methods."""
         y_true, y_prob = generate_binary_data(80, random_state=42)
 
-        methods = ["unique_scan", "minimize"]
+        methods = ["sort_scan", "minimize"]
 
         for method in methods:
-            thresholds, scores = cv_threshold_optimization(
+            thresholds, scores = cross_validate(
                 y_true, y_prob, method=method, cv=3, random_state=42
             )
 
@@ -346,7 +346,7 @@ class TestCrossValidation:
         y_true, y_prob = generate_binary_data(60, random_state=42)
 
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            thresholds, scores = cv_threshold_optimization(
+            thresholds, scores = cross_validate(
                 y_true, y_prob, metric=metric, cv=3, random_state=42
             )
 
@@ -361,12 +361,12 @@ class TestMethodInteractions:
         """Test all combinations of methods and metrics."""
         y_true, y_prob = generate_binary_data(40, random_state=42)
 
-        methods = ["unique_scan", "minimize", "gradient"]
+        methods = ["sort_scan", "minimize", "gradient"]
         metrics = ["f1", "accuracy", "precision", "recall"]
 
         for method in methods:
             for metric in metrics:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     y_true, y_prob, method=method, metric=metric
                 )
                 threshold = result.threshold
@@ -376,12 +376,12 @@ class TestMethodInteractions:
         """Test methods with different comparison operators."""
         y_true, y_prob = generate_tied_probabilities(30, random_state=42)
 
-        methods = ["unique_scan", "minimize"]
+        methods = ["sort_scan", "minimize"]
         comparisons = [">", ">="]
 
         for method in methods:
             for comparison in comparisons:
-                result = get_optimal_threshold(
+                result = optimize_thresholds(
                     y_true, y_prob, method=method, comparison=comparison
                 )
                 threshold = result.threshold
@@ -393,7 +393,7 @@ class TestMethodInteractions:
         weights = generate_sample_weights(len(y_true), "random", random_state=42)
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, y_prob, comparison=comparison, sample_weight=weights
             )
             threshold = result.threshold
@@ -414,7 +414,7 @@ class TestBinaryPerformance:
             y_true, y_prob = generate_binary_data(size, random_state=42)
 
             start_time = time.time()
-            get_optimal_threshold(y_true, y_prob, metric="f1")
+            optimize_thresholds(y_true, y_prob, metric="f1")
             end_time = time.time()
 
             elapsed = end_time - start_time
@@ -429,12 +429,12 @@ class TestBinaryPerformance:
 
         y_true, y_prob = generate_binary_data(500, random_state=42)
 
-        methods = ["unique_scan", "minimize", "gradient"]
+        methods = ["sort_scan", "minimize", "gradient"]
         times = {}
 
         for method in methods:
             start_time = time.time()
-            get_optimal_threshold(y_true, y_prob, metric="f1", method=method)
+            optimize_thresholds(y_true, y_prob, metric="f1", method=method)
             end_time = time.time()
 
             times[method] = end_time - start_time
@@ -453,7 +453,7 @@ class TestBinaryEdgeCaseIntegration:
 
         # Should achieve perfect or near-perfect performance
         for metric in ["f1", "accuracy", "precision", "recall"]:
-            result = get_optimal_threshold(y_true, y_prob, metric=metric)
+            result = optimize_thresholds(y_true, y_prob, metric=metric)
             threshold = result.threshold
 
             tp, tn, fp, fn = confusion_matrix_at_threshold(y_true, y_prob, threshold)
@@ -474,7 +474,7 @@ class TestBinaryEdgeCaseIntegration:
         y_true = np.array([0, 1])
         y_prob = np.array([0.3, 0.7])
 
-        result = get_optimal_threshold(y_true, y_prob, metric="accuracy")
+        result = optimize_thresholds(y_true, y_prob, metric="accuracy")
         threshold = result.threshold
         assert_valid_threshold(threshold)
 
@@ -488,7 +488,7 @@ class TestBinaryEdgeCaseIntegration:
         y_prob = np.array([0.5, 0.5, 0.5, 0.5])
 
         for comparison in [">", ">="]:
-            result = get_optimal_threshold(
+            result = optimize_thresholds(
                 y_true, y_prob, metric="f1", comparison=comparison
             )
             threshold = result.threshold
