@@ -30,10 +30,6 @@ Most classifiers output probabilities, but decisions need thresholds. The defaul
 
    user_guide
    examples
-   examples/01_quickstart
-   examples/02_business_value
-   examples/03_multiclass
-   examples/04_interactive_demo
    advanced
 
 .. toctree::

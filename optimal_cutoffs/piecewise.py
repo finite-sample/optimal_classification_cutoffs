@@ -6,10 +6,10 @@ predictions once and scans all n cuts in a single pass, achieving true O(n log n
 complexity with vectorized operations.
 
 Notes on `require_proba`:
-- If `require_proba=True`, inputs are validated to lie in [0, 1].
-- The returned threshold is *usually* in [0, 1]; however, in boundary or tie cases,
-  we may nudge it by one floating-point ULP beyond the range to correctly realize
-  strict inclusivity/exclusivity (e.g., to ensure “predict none” with '>=' when max p == 1.0).
+    - If `require_proba=True`, inputs are validated to lie in [0, 1].
+    - The returned threshold is *usually* in [0, 1]; however, in boundary or tie cases,
+      we may nudge it by one floating-point ULP beyond the range to correctly realize
+      strict inclusivity/exclusivity (e.g., to ensure "predict none" with '>=' when max p == 1.0).
 """
 
 from __future__ import annotations
