@@ -86,7 +86,6 @@ docs = [
     "sphinx-autodoc-typehints>=1.0",
     "nbsphinx>=0.8.0",
     "nbconvert>=6.0",
-    "pandoc",
     "jupyter",
     "matplotlib",
     "pandas",
