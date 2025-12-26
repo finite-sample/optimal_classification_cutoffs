@@ -49,9 +49,6 @@ except ImportError:
     # Handle circular import by loading manually
     metrics = _import_metrics()
 
-# Legacy test support imports
-from .metrics_core import METRICS, is_piecewise_metric, has_vectorized_implementation
-
 __all__ = [
     "__version__",
     # === Core API ===
@@ -65,8 +62,4 @@ __all__ = [
     "bayes",  # bayes.threshold(), bayes.policy(), etc.
     "cv",  # cv.cross_validate(), cv.nested_cross_validate()
     "algorithms",  # algorithms.multiclass.ovr_margin(), etc.
-    # === Legacy test support ===
-    "METRICS",  # For test registry access
-    "is_piecewise_metric",  # For test algorithm checks
-    "has_vectorized_implementation",  # For test performance checks
 ]

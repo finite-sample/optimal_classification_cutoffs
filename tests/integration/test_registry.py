@@ -3,13 +3,13 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import (
+from optimal_cutoffs import optimize_thresholds
+from optimal_cutoffs.metrics import get_metric_function
+from optimal_cutoffs.metrics_core import (
     METRICS,
     has_vectorized_implementation,
     is_piecewise_metric,
-    optimize_thresholds,
 )
-from optimal_cutoffs.metrics import get_metric_function
 
 
 class TestRegistryIntegration:

@@ -16,12 +16,12 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from sklearn.model_selection import KFold, StratifiedKFold
 
+# Import from the cv.py module file, not the cv/ package
+from optimal_cutoffs import cv as cv_module
 from optimal_cutoffs.cv import (
     cross_validate,
     nested_cross_validate,
 )
-# Import from the cv.py module file, not the cv/ package
-from optimal_cutoffs import cv as cv_module
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
     assert_valid_threshold,
