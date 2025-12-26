@@ -4,9 +4,12 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.metrics_core import make_cost_metric, make_linear_counts_metric
 from optimal_cutoffs.bayes import threshold as bayes_optimal_threshold
-from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold
+from optimal_cutoffs.metrics_core import (
+    confusion_matrix_at_threshold,
+    make_cost_metric,
+    make_linear_counts_metric,
+)
 
 
 class TestLinearUtilityMetrics:

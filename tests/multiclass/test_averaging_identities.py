@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
+from optimal_cutoffs.metrics import get
 from optimal_cutoffs.metrics_core import multiclass_metric_ovr
-from optimal_cutoffs.metrics import get, list_available
 
 
 def multiclass_confusion_matrices_at_thresholds(y_true, y_prob, thresholds, sample_weight=None):

@@ -8,8 +8,8 @@ from hypothesis.extra.numpy import arrays
 
 from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.metrics_core import (
-    confusion_matrix_at_threshold,
     compute_metric_at_threshold,
+    confusion_matrix_at_threshold,
     multiclass_metric_ovr,
 )
 
