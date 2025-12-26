@@ -117,7 +117,6 @@ def optimize_thresholds(
         raise ValueError(f"Unknown metric: '{metric}'. Available metrics: {list(METRICS.keys())}")
     
     # Convert string parameters to proper enums
-    from .core import Task, Average
     if isinstance(task, str):
         task = Task(task.lower())
     if isinstance(average, str):

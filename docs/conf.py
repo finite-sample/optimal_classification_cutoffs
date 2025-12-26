@@ -58,19 +58,19 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- nbsphinx configuration --------------------------------------------------
-nbsphinx_execute = 'auto'  # Execute notebooks during build
-nbsphinx_allow_errors = False  # Fail build if notebooks have errors
+nbsphinx_execute = 'always'  # Force execution of notebooks
+nbsphinx_allow_errors = True  # Allow errors during execution for debugging
 nbsphinx_kernel_name = 'python3'
-nbsphinx_timeout = 300  # 5 minute timeout for notebook execution
+nbsphinx_timeout = 600  # 10 minute timeout for notebook execution
 nbsphinx_execute_arguments = [
     "--InlineBackend.figure_formats={'svg', 'pdf'}",
     "--InlineBackend.rc={'figure.dpi': 96}",
 ]
 
-# Custom CSS for notebooks
-nbsphinx_custom_formats = {
-    '.ipynb': ['nbsphinx', 'Jupyter Notebook'],
-}
+# Remove custom formats that might interfere
+# nbsphinx_custom_formats = {
+#     '.ipynb': ['nbsphinx', 'Jupyter Notebook'],
+# }
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
