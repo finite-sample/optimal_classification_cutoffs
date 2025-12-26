@@ -1,36 +1,28 @@
 Examples
 ========
 
-This section provides comprehensive examples showing how to use optimal-classification-cutoffs in various scenarios. All examples are available as interactive Jupyter notebooks.
+This section provides comprehensive examples showing how to use optimal-classification-cutoffs in various scenarios. All examples are available as interactive Jupyter notebooks that demonstrate the power of API 2.0.0.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :caption: Interactive Examples
 
-   examples/01_quickstart
-   examples/02_business_value  
-   examples/03_multiclass
-   examples/04_interactive_demo
+   examples/01_quickstart.ipynb
+   examples/02_business_value.ipynb  
+   examples/03_multiclass.ipynb
+   examples/04_interactive_demo.ipynb
 
-Quickstart Example
-------------------
+Learning Path
+-------------
 
-See a 40%+ performance improvement in just 3 lines of code with the quickstart example.
+For the best learning experience, follow this order:
 
+1. **Quickstart** - See a 40%+ performance improvement in just 3 lines of code
+2. **Business Value** - Learn how to optimize for dollars rather than statistical metrics with cost-sensitive optimization
+3. **Multiclass** - Handle complex multi-class scenarios with advanced threshold strategies
+4. **Interactive Demo** - Deep dive into the mathematical foundations with interactive exploration
 
-Business Value Example
-----------------------
-
-Learn how to optimize for dollars rather than statistical metrics with cost-sensitive optimization.
-
-Multiclass Example
-------------------
-
-Handle complex multi-class scenarios with advanced threshold strategies.
-
-Interactive Demo
-----------------
-
-Deep dive into the mathematical foundations with an interactive exploration.
+Each example builds on the previous ones while being self-contained enough to run independently.
 
 Running the Examples
 --------------------
@@ -53,14 +45,24 @@ To run these examples locally:
 
 4. **Open and run** any of the example notebooks
 
-Key Learning Path
------------------
+What You'll Learn
+------------------
 
-For the best learning experience, follow this order:
+**API 2.0.0 Features Demonstrated:**
 
-1. **01_quickstart.ipynb** - See immediate improvements with minimal code
-2. **02_business_value.ipynb** - Understand cost-sensitive optimization  
-3. **03_multiclass.ipynb** - Master advanced multiclass strategies
-4. **04_interactive_demo.ipynb** - Deep dive into mathematical foundations
+- Progressive disclosure design (simple → advanced)
+- Explainable auto-selection with reasoning
+- Enum-based explicit control (Task, Average)
+- Namespace organization (metrics/, cv/, bayes/, algorithms/)
+- Modern match/case performance optimizations
+- Zero backward compatibility - clean slate approach
 
-Each example builds on the previous ones while being self-contained enough to run independently.
+**Real-World Applications:**
+
+- Fraud detection with cost-sensitive optimization
+- Medical diagnosis with asymmetric error costs  
+- Document classification with multiclass strategies
+- A/B testing with threshold validation
+- Business ROI calculation from model improvements
+
+Each notebook contains working code you can run immediately to see 40%+ performance improvements over default 0.5 thresholds.
