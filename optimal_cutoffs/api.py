@@ -83,9 +83,25 @@ def optimize_thresholds(
     ...     average=Average.MACRO
     ... )
     """
-    # Convert inputs
-    y_true = np.asarray(y_true)
-    y_score = np.asarray(y_score)
+    # Early validation for mode-specific requirements
+    if mode == "bayes" and "utility" not in kwargs:
+        raise ValueError("mode='bayes' requires utility parameter")
+    
+    # Check for deprecated parameters
+    if "bayes" in kwargs:
+        raise TypeError("optimize_thresholds() got an unexpected keyword argument 'bayes'")
+    
+    # For Bayes mode, y_true is not needed (optimize on utility alone)
+    # Handle None inputs gracefully for this case
+    if mode == "bayes" and y_true is None:
+        # Create dummy y_true for downstream processing
+        y_score = np.asarray(y_score)
+        y_true = np.zeros(len(y_score), dtype=int)  # Dummy labels
+    else:
+        # Convert inputs normally
+        y_true = np.asarray(y_true)
+        y_score = np.asarray(y_score)
+    
     if sample_weight is not None:
         sample_weight = np.asarray(sample_weight)
 
@@ -258,14 +274,40 @@ def _optimize_binary(
         from .expected import dinkelbach_expected_fbeta_binary
 
         return dinkelbach_expected_fbeta_binary(y_score, **kwargs)
+    
+    if mode == "bayes":
+        from .bayes import threshold as bayes_threshold
+        from .core import OptimizationResult
+        
+        # Extract costs from utility dictionary
+        utility = kwargs.get("utility", {})
+        cost_fp = -utility.get("fp", 0)  # Convert from utility (negative cost) to positive cost
+        cost_fn = -utility.get("fn", 0)  # Convert from utility (negative cost) to positive cost
+        
+        # Compute Bayes optimal threshold
+        optimal_thresh = bayes_threshold(cost_fp=cost_fp, cost_fn=cost_fn)
+        
+        # Return OptimizationResult format
+        def predict_fn(scores):
+            return (scores >= optimal_thresh).astype(int)
+        
+        return OptimizationResult(
+            thresholds=np.array([optimal_thresh]),
+            scores=np.array([np.nan]),  # Bayes optimization doesn't produce a score
+            predict=predict_fn
+        )
 
     # Empirical mode
     match method:
         case "sort_scan":
             from .piecewise import optimal_threshold_sortscan
 
+            # Convert comparison parameter to inclusive for sort_scan method
+            inclusive = kwargs.pop("comparison", ">") == ">="
+            
             return optimal_threshold_sortscan(
-                y_true, y_score, metric=metric, sample_weight=sample_weight, **kwargs
+                y_true, y_score, metric=metric, sample_weight=sample_weight, 
+                inclusive=inclusive, **kwargs
             )
 
         case "minimize":
