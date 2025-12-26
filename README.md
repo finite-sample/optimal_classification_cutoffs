@@ -31,6 +31,17 @@ y_pred = result.predict(y_scores_test)
 pip install optimal-classification-cutoffs
 ```
 
+**Optional Performance Boost:**
+```bash
+# For 10-100× speedups with Numba JIT compilation
+pip install optimal-classification-cutoffs[performance]
+
+# For Jupyter examples and visualizations  
+pip install optimal-classification-cutoffs[examples]
+```
+
+> **Python 3.14+ Support**: The package works on all Python versions 3.12+, including cutting-edge Python 3.14. Numba acceleration is optional and will automatically fall back to pure Python when unavailable.
+
 ## Quick Start
 
 ### Binary Classification: 40%+ F1 Improvement
@@ -147,10 +158,11 @@ Independent of class priors, depends only on cost ratio.
 
 - **O(n log n)** exact optimization for piecewise metrics
 - **O(1)** closed-form solutions for cost-sensitive objectives
-- **Numba acceleration** with pure Python fallback
+- **Optional Numba acceleration** (10-100× speedups) with automatic pure Python fallback
+- **Python 3.14+ compatible** - works on all modern Python versions
 - **640+ tests** ensuring correctness
 
-Typical speedups: 10-100× faster than grid search, with **exact** solutions.
+Typical speedups: 10-100× faster than grid search, with **exact** solutions. Performance optimizations are optional - core functionality works everywhere.
 
 ## Complete Example: Real Impact
 
