@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 from scipy import optimize
 
-from .core import OptimizationResult
+from .core import OptimizationResult, Task
 from .numba_utils import NUMBA_AVAILABLE, jit, numba_with_fallback
 from .validation import validate_binary_classification
 
@@ -629,10 +629,13 @@ def optimize_sort_scan(
             else (p > threshold).astype(np.int32)
         )
 
+    from .core import Task
+    
     return OptimizationResult(
         thresholds=np.array([threshold], dtype=float),
         scores=np.array([score], dtype=float),
         predict=predict_binary,
+        task=Task.BINARY,
         metric=metric,
         n_classes=2,
     )
@@ -732,6 +735,7 @@ def optimize_scipy(
         thresholds=np.array([optimal_threshold], dtype=float),
         scores=np.array([optimal_score], dtype=float),
         predict=predict_binary,
+        task=Task.BINARY,
         metric=metric,
         n_classes=2,
     )
@@ -803,6 +807,7 @@ def optimize_gradient(
         thresholds=np.array([threshold], dtype=float),
         scores=np.array([final_score], dtype=float),
         predict=predict_binary,
+        task=Task.BINARY,
         metric=metric,
         n_classes=2,
     )
@@ -876,6 +881,7 @@ def find_optimal_threshold_multiclass(
             thresholds=thresholds.astype(float),
             scores=scores,
             predict=predict_multiclass_coord,
+            task=Task.MULTICLASS,
             metric=metric,
             n_classes=n_classes,
         )
@@ -950,6 +956,7 @@ def find_optimal_threshold_multiclass(
             thresholds=thresholds,
             scores=scores,
             predict=predict_multiclass_micro,
+            task=Task.MULTICLASS,
             metric=metric,
             n_classes=n_classes,
         )
@@ -1004,6 +1011,7 @@ def find_optimal_threshold_multiclass(
         thresholds=optimal_thresholds,
         scores=optimal_scores,
         predict=predict_multiclass_ovr,
+        task=Task.MULTICLASS,
         metric=metric,
         n_classes=n_classes,
     )

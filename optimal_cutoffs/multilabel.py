@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .core import OptimizationResult
+from .core import OptimizationResult, Task
 
 
 def optimize_macro_multilabel(
@@ -140,6 +140,7 @@ def optimize_macro_multilabel(
         thresholds=optimal_thresholds,
         scores=np.array([macro_score]),
         predict=predict_multilabel,
+        task=Task.MULTILABEL,
         metric=f"macro_{metric}",
         n_classes=n_labels,
     )
@@ -296,6 +297,7 @@ def optimize_micro_multilabel(
         thresholds=thresholds,
         scores=np.array([best_score]),
         predict=predict_multilabel,
+        task=Task.MULTILABEL,
         metric=f"micro_{metric}",
         n_classes=n_labels,
     )

@@ -18,7 +18,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from .core import OptimizationResult
+from .core import OptimizationResult, Task
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +337,7 @@ def dinkelbach_expected_fbeta_binary(
         thresholds=np.array([best_threshold_float]),
         scores=np.array([best_score_float]),
         predict=predict_binary,
+        task=Task.BINARY,
         metric=f"expected_f{beta}",
         n_classes=2,
     )
@@ -483,6 +484,7 @@ def dinkelbach_expected_fbeta_multilabel(
             thresholds=np.full(n_classes, threshold),
             scores=np.full(n_classes, score),
             predict=predict_multiclass_micro,
+            task=Task.MULTICLASS,
             metric=f"expected_f{beta}",
             n_classes=n_classes,
         )
@@ -528,6 +530,7 @@ def dinkelbach_expected_fbeta_multilabel(
             thresholds=thresholds,
             scores=scores,
             predict=predict_multiclass_macro,
+            task=Task.MULTICLASS,
             metric=f"expected_f{beta}",
             n_classes=n_classes,
         )
@@ -620,6 +623,7 @@ def expected_optimize_multiclass(
             thresholds=np.full(n_classes, threshold),
             scores=np.full(n_classes, score),
             predict=predict_micro,
+            task=Task.MULTICLASS,
             metric=f"expected_{metric}",
             n_classes=n_classes,
         )
@@ -676,6 +680,7 @@ def expected_optimize_multiclass(
             thresholds=thresholds,
             scores=scores,
             predict=predict_macro,
+            task=Task.MULTICLASS,
             metric=f"expected_{metric}",
             n_classes=n_classes,
         )

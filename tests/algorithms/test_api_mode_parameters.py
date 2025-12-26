@@ -35,7 +35,7 @@ class TestModeParameter:
         utility = {"tp": 0, "tn": 0, "fp": -1, "fn": -5}
 
         result1 = optimize_thresholds(None, y_prob, mode="bayes", utility=utility)
-        result_expected = bayes_threshold(fp_cost=1, fn_cost=5)
+        result_expected = bayes_threshold(cost_fp=1, cost_fn=5)
 
         assert abs(result1.threshold - result_expected) < 1e-10
 
@@ -241,7 +241,7 @@ class TestGoldenTests:
         utility = {"tp": 2, "tn": 1, "fp": -1, "fn": -5}
 
         # Direct call to Bayes function (use negative costs to match utility convention)
-        result1 = bayes_threshold(fp_cost=1, fn_cost=5)
+        result1 = bayes_threshold(cost_fp=1, cost_fn=5)
 
         # Via optimize_thresholds API
         result2 = optimize_thresholds(None, y_prob, utility=utility, mode="bayes")

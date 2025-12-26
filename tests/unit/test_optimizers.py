@@ -104,11 +104,11 @@ def test_piecewise_edge_cases():
 
     # Empty arrays
     with pytest.raises(ValueError):
-        optimize_thresholds([], [], "f1")
+        optimize_thresholds([], [], metric="f1")
 
     # Mismatched lengths
     with pytest.raises(ValueError):
-        optimize_thresholds([0, 1], [0.1], "f1")
+        optimize_thresholds([0, 1], [0.1], metric="f1")
 
     # Single sample
     opt_result = optimize_thresholds([1], [0.7], metric="f1", method="sort_scan")

@@ -10,7 +10,7 @@ from typing import Self
 import numpy as np
 from numpy.typing import NDArray
 
-from .core import OptimizationResult
+from .core import OptimizationResult, Task
 from .validation import validate_classification
 
 # ============================================================================
@@ -43,23 +43,33 @@ class UtilitySpec:
 
     @classmethod
     def from_dict(cls, utility_dict: dict[str, float]) -> Self:
-        """Create from dictionary with keys 'tp', 'tn', 'fp', 'fn'."""
-        required_keys = {"tp", "tn", "fp", "fn"}
-        if not all(key in utility_dict for key in required_keys):
-            raise ValueError(f"Utility dict must contain keys: {required_keys}")
+        """Create from dictionary with keys 'tp', 'tn', 'fp', 'fn'.
+        
+        Missing keys default to 0.0.
+        """
+        valid_keys = {"tp", "tn", "fp", "fn"}
+        
+        # Check for unknown keys
+        unknown_keys = set(utility_dict.keys()) - valid_keys
+        if unknown_keys:
+            raise ValueError(f"Unknown utility keys: {unknown_keys}. Valid keys: {valid_keys}")
+
+        # Use defaults for missing keys
+        defaults = {"tp": 0.0, "tn": 0.0, "fp": 0.0, "fn": 0.0}
+        full_dict = {**defaults, **utility_dict}
 
         # Validate all values are finite
-        for key, value in utility_dict.items():
-            if key in required_keys and not np.isfinite(value):
+        for key, value in full_dict.items():
+            if not np.isfinite(value):
                 raise ValueError(
                     f"Utility value for '{key}' must be finite, got {value}"
                 )
 
         return cls(
-            tp_utility=utility_dict["tp"],
-            tn_utility=utility_dict["tn"],
-            fp_utility=utility_dict["fp"],
-            fn_utility=utility_dict["fn"],
+            tp_utility=full_dict["tp"],
+            tn_utility=full_dict["tn"],
+            fp_utility=full_dict["fp"],
+            fn_utility=full_dict["fn"],
         )
 
 
@@ -354,6 +364,7 @@ def bayes_optimal_threshold(
         thresholds=np.array([threshold]),
         scores=np.array([expected_utility]),
         predict=predict_binary,
+        task=Task.BINARY,
         metric="expected_utility",
         n_classes=2,
     )
@@ -476,6 +487,7 @@ def bayes_optimal_decisions(
         thresholds=thresholds,
         scores=scores,
         predict=predict_bayes_decisions,
+        task=Task.AUTO,
         metric=metric_name,
         n_classes=n_decisions,
     )
@@ -590,6 +602,7 @@ def bayes_thresholds_from_costs(
         thresholds=thresholds,
         scores=expected_costs,
         predict=predict_multiclass_bayes,
+        task=Task.MULTICLASS,
         metric="expected_cost",
         n_classes=n_classes,
     )
@@ -706,6 +719,7 @@ def optimize_bayes_thresholds(
         thresholds=thresholds,
         scores=np.full(n_classes, expected_util),
         predict=predict_fn,
+        task=Task.MULTICLASS,
         metric="expected_utility",
         n_classes=n_classes,
     )

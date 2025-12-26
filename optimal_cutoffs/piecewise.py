@@ -286,10 +286,13 @@ def optimal_threshold_sortscan(
         "require_proba": require_proba,
     }
 
+    from .core import Task
+    
     return OptimizationResult(
         thresholds=np.array([float(threshold)], dtype=float),
         scores=np.array([float(score_actual)], dtype=float),
         predict=predict_binary,
+        task=Task.BINARY,
         metric="piecewise_metric",
         n_classes=2,
         diagnostics=diagnostics,

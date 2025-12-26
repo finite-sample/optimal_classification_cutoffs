@@ -58,14 +58,14 @@ class TestBayesThresholds:
     def test_bayes_threshold_classic_cost_case(self):
         """Test classic cost case: C_FP=1, C_FN=5."""
         # Expected threshold: C_FP / (C_FP + C_FN) = 1/(1+5) = 1/6 ≈ 0.1667
-        threshold = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
+        threshold = bayes_optimal_threshold(cost_fp=1, cost_fn=5)
         expected = 1.0 / 6.0
         assert abs(threshold - expected) < 1e-10
 
     def test_bayes_threshold_from_costs_equivalent(self):
         """Test that costs wrapper gives same result_threshold as utilities."""
-        result1 = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
-        result2 = bayes_optimal_threshold(fp_cost=1.0, fn_cost=5.0)
+        result1 = bayes_optimal_threshold(cost_fp=1, cost_fn=5)
+        result2 = bayes_optimal_threshold(cost_fp=1.0, cost_fn=5.0)
         assert abs(result1 - result2) < 1e-12
 
     def test_bayes_threshold_with_benefits(self):

@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .core import OptimizationResult
+from .core import OptimizationResult, Task
 from .validation import validate_binary_classification
 
 
@@ -115,6 +115,7 @@ def optimize_f1_binary(
         thresholds=result.thresholds,
         scores=result.scores,
         predict=predict_binary,
+        task=Task.BINARY,
         metric=f"f{beta}_score" if beta != 1.0 else "f1_score",
         n_classes=2,
     )
@@ -192,6 +193,7 @@ def optimize_utility_binary(
         thresholds=np.array([threshold]),
         scores=np.array([expected_utility]),
         predict=predict_binary,
+        task=Task.BINARY,
         metric="expected_utility",
         n_classes=2,
     )
@@ -305,6 +307,7 @@ def optimize_metric_binary(
         thresholds=result.thresholds,
         scores=result.scores,
         predict=predict_binary,
+        task=Task.BINARY,
         metric=metric,
         n_classes=2,
     )

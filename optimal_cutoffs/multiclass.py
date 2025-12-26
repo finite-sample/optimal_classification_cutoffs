@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .core import OptimizationResult
+from .core import OptimizationResult, Task
 from .validation import validate_multiclass_classification
 
 
@@ -121,6 +121,7 @@ def optimize_ovr_independent(
         thresholds=optimal_thresholds,
         scores=np.array([macro_score]),
         predict=predict_multiclass_independent,
+        task=Task.MULTICLASS,
         metric=f"macro_{metric}_ovr_independent",
         n_classes=n_classes,
     )
@@ -226,6 +227,7 @@ def optimize_ovr_margin(
         thresholds=thresholds.astype(np.float64),
         scores=np.array([best_score]),
         predict=predict_multiclass_margin,
+        task=Task.MULTICLASS,
         metric=f"macro_{metric}_margin_rule",
         n_classes=n_classes,
     )
@@ -342,6 +344,7 @@ def optimize_micro_multiclass(
         thresholds=thresholds,
         scores=result.scores,
         predict=predict_multiclass_micro,
+        task=Task.MULTICLASS,
         metric=f"micro_{metric}",
         n_classes=n_classes,
     )
