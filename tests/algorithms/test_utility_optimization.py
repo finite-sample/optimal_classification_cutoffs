@@ -5,9 +5,9 @@ import pytest
 
 from optimal_cutoffs import (
     bayes_optimal_threshold,
-    optimize_thresholds,
     make_cost_metric,
     make_linear_counts_metric,
+    optimize_thresholds,
 )
 from optimal_cutoffs.metrics import confusion_matrix_at_threshold
 

@@ -5,9 +5,9 @@ import pytest
 
 from optimal_cutoffs import (
     METRICS,
-    optimize_thresholds,
     has_vectorized_implementation,
     is_piecewise_metric,
+    optimize_thresholds,
 )
 from optimal_cutoffs.metrics import get_metric_function
 

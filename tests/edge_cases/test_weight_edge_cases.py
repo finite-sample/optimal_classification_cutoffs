@@ -5,13 +5,13 @@ import pytest
 
 from optimal_cutoffs import (
     confusion_matrix_at_threshold,
-    optimize_thresholds,
     multiclass_confusion_matrices_at_thresholds,
     needs_probability_scores,
+    optimize_thresholds,
     register_metric,
     should_maximize_metric,
 )
-from optimal_cutoffs.cv import cross_validate, nested_cv_threshold_optimization
+from optimal_cutoffs.cv import cross_validate, nested_cross_validate
 
 
 def test_confusion_matrix_with_sample_weights():

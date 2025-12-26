@@ -10,7 +10,12 @@ This module tests the new features introduced in API 2.0.0:
 import numpy as np
 import pytest
 
-from optimal_cutoffs import optimize_thresholds, optimize_decisions, Task, Average, OptimizationResult
+from optimal_cutoffs import (
+    Average,
+    Task,
+    optimize_decisions,
+    optimize_thresholds,
+)
 
 
 class TestEnums:
@@ -251,7 +256,7 @@ class TestAPI20ExportCount:
         # Test that star import only gets the clean API  
         # (This is what users will see with "from optimal_cutoffs import *")
         star_imports = set(optimal_cutoffs.__all__)
-        assert len(star_imports) == 10, f"Star import should only expose 10 items"
+        assert len(star_imports) == 10, "Star import should only expose 10 items"
     
     def test_no_backward_compatibility(self):
         """Test that old API functions are not available."""

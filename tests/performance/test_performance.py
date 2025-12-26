@@ -144,7 +144,7 @@ class TestAlgorithmicComplexity:
     def test_sort_scan_vs_brute_force_scaling(self):
         """Compare scaling behavior of sort_scan vs brute force methods."""
         sample_sizes = [100, 500, 1000, 2000]
-        timing_results = {"sort_scan": [], "sort_scan": []}
+        timing_results = {"sort_scan": [], "unique_scan": []}
 
         for n_samples in sample_sizes:
             y_true, pred_prob = generate_test_data(n_samples, random_state=42)
@@ -162,9 +162,9 @@ class TestAlgorithmicComplexity:
 
             # Time unique_scan method
             start_time = time.time()
-            optimize_thresholds(y_true, pred_prob, metric="f1", method="sort_scan")
+            optimize_thresholds(y_true, pred_prob, metric="f1", method="unique_scan")
             end_time = time.time()
-            timing_results["sort_scan"].append(end_time - start_time)
+            timing_results["unique_scan"].append(end_time - start_time)
 
         # For large datasets, sort_scan should be competitive or better
         if len(timing_results["sort_scan"]) > 0 and timing_results["sort_scan"][

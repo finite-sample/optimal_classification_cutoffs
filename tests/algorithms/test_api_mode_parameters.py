@@ -6,8 +6,8 @@ import pytest
 from optimal_cutoffs import (
     bayes_optimal_threshold,
     cross_validate,
-    optimize_thresholds,
     nested_cross_validate,
+    optimize_thresholds,
 )
 
 

@@ -12,15 +12,23 @@ This section provides comprehensive examples showing how to use optimal-classifi
    examples/03_multiclass.ipynb
    examples/04_interactive_demo.ipynb
 
+Quick Links to Notebooks
+-------------------------
+
+* :doc:`examples/01_quickstart` - **Quickstart**: See a 40%+ performance improvement in just 3 lines of code
+* :doc:`examples/02_business_value` - **Business Value**: Learn how to optimize for dollars rather than statistical metrics with cost-sensitive optimization  
+* :doc:`examples/03_multiclass` - **Multiclass**: Handle complex multi-class scenarios with advanced threshold strategies
+* :doc:`examples/04_interactive_demo` - **Interactive Demo**: Deep dive into the mathematical foundations with interactive exploration
+
 Learning Path
 -------------
 
 For the best learning experience, follow this order:
 
-1. **Quickstart** - See a 40%+ performance improvement in just 3 lines of code
-2. **Business Value** - Learn how to optimize for dollars rather than statistical metrics with cost-sensitive optimization
-3. **Multiclass** - Handle complex multi-class scenarios with advanced threshold strategies
-4. **Interactive Demo** - Deep dive into the mathematical foundations with interactive exploration
+1. **Quickstart** → See immediate 40%+ improvements with minimal code
+2. **Business Value** → Understand cost-sensitive optimization for real ROI
+3. **Multiclass** → Master advanced multiclass threshold strategies  
+4. **Interactive Demo** → Explore mathematical foundations interactively
 
 Each example builds on the previous ones while being self-contained enough to run independently.
 

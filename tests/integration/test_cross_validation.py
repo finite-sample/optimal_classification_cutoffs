@@ -16,9 +16,9 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from sklearn.model_selection import KFold, StratifiedKFold
 
-from optimal_cutoffs.cv import cross_validate
 from optimal_cutoffs.cv import (
     _average_threshold_dicts,
+    cross_validate,
     nested_cross_validate,
 )
 from tests.fixtures.assertions import (

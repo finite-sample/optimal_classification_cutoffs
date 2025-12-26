@@ -5,8 +5,8 @@ import pytest
 
 from optimal_cutoffs import (
     confusion_matrix_at_threshold,
-    optimize_thresholds,
     multiclass_confusion_matrices_at_thresholds,
+    optimize_thresholds,
 )
 
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed

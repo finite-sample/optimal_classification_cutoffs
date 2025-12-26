@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import (
-    optimize_thresholds,
     multiclass_confusion_matrices_at_thresholds,
     multiclass_metric_ovr,
+    optimize_thresholds,
 )
 from tests.fixtures.assertions import (
     assert_valid_confusion_matrix,
