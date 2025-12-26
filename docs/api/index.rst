@@ -9,7 +9,6 @@ Overview
 The main entry points are:
 
 * :func:`~optimal_cutoffs.optimizers.get_optimal_threshold` - Core optimization function for binary and multiclass problems
-* :class:`~optimal_cutoffs.wrapper.ThresholdOptimizer` - Scikit-learn compatible wrapper class
 * :func:`~optimal_cutoffs.cv.cv_threshold_optimization` - Cross-validation utilities
 
 Core Functions
@@ -32,15 +31,6 @@ Built-in metrics and utilities for custom metric registration:
 
    metrics
 
-Scikit-learn Interface
-----------------------
-
-High-level wrapper for integration with scikit-learn workflows:
-
-.. toctree::
-   :maxdepth: 1
-
-   wrapper
 
 Cross-Validation
 ----------------

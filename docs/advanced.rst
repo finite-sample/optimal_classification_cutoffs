@@ -68,7 +68,7 @@ For well-calibrated probabilities, you can calculate the theoretical optimum wit
 The Bayes-optimal threshold is: ``t* = (U_tn - U_fp) / [(U_tn - U_fp) + (U_tp - U_fn)]``
 
 Probability Calibration
-----------------------
+-----------------------
 
 Threshold optimization assumes well-calibrated probabilities. If your model's probabilities are poorly calibrated, consider calibration first:
 
@@ -281,7 +281,7 @@ Advanced Metric Registration
    print(f"Balanced accuracy optimized threshold: {threshold:.3f}")
 
 Non-Piecewise Metrics
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 For metrics that are not piecewise-constant:
 
@@ -331,7 +331,7 @@ For unbiased performance estimation:
        print(f"Outer fold {fold_idx}: threshold={np.mean(thresholds):.3f}, score={np.mean(scores):.3f}")
 
 Production Deployment Considerations
------------------------------------
+------------------------------------
 
 Model Serialization
 ~~~~~~~~~~~~~~~~~~~
