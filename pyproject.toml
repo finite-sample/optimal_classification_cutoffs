@@ -101,7 +101,12 @@ dev = [
     "mypy>=1.0",
     "pre-commit>=3.0",
     "hypothesis>=6.0",
-    "psutil>=5.0"
+    "psutil>=5.0",
+    "nbsphinx>=0.9.8",
+    "matplotlib>=3.10.7",
+    "seaborn>=0.13.2",
+    "pandas>=2.3.3",
+    "jupyter>=1.1.1",
 ]
 
 # For running all tests with full coverage (numba optional - use 'performance' group for numba-accelerated tests)

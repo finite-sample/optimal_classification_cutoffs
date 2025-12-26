@@ -51,16 +51,21 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
-    # "nbsphinx",  # Temporarily disabled due to template issues
+    "nbsphinx",  # Re-enabled for notebook execution and embedding
 ]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- nbsphinx configuration --------------------------------------------------
-nbsphinx_execute = 'never'  # Don't execute notebooks during build
-nbsphinx_allow_errors = True
+nbsphinx_execute = 'auto'  # Execute notebooks during build
+nbsphinx_allow_errors = False  # Fail build if notebooks have errors
 nbsphinx_kernel_name = 'python3'
+nbsphinx_timeout = 300  # 5 minute timeout for notebook execution
+nbsphinx_execute_arguments = [
+    "--InlineBackend.figure_formats={'svg', 'pdf'}",
+    "--InlineBackend.rc={'figure.dpi': 96}",
+]
 
 # Custom CSS for notebooks
 nbsphinx_custom_formats = {
