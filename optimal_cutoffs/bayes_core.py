@@ -487,7 +487,7 @@ def bayes_optimal_decisions(
         thresholds=thresholds,
         scores=scores,
         predict=predict_bayes_decisions,
-        task=Task.AUTO,
+        task=Task.MULTICLASS,
         metric=metric_name,
         n_classes=n_decisions,
     )

@@ -123,6 +123,10 @@ def optimize_thresholds(
     if isinstance(average, str):
         average = Average(average.lower())
     
+    # Check that empirical mode has true labels
+    if mode == "empirical" and y_true is None:
+        raise ValueError("true_labels required for empirical optimization")
+    
     # For Bayes and Expected modes, y_true is not needed 
     # Handle None inputs gracefully for these cases
     if (mode == "bayes" or mode == "expected") and y_true is None:

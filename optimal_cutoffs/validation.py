@@ -36,6 +36,13 @@ def validate_binary_labels(labels: ArrayLike) -> NDArray[np.int8]:
     if labels is None:
         raise ValueError("Labels cannot be None")
 
+    # First check for NaN/inf in input before conversion
+    temp_arr = np.asarray(labels, dtype=float)
+    if np.any(np.isnan(temp_arr)):
+        raise ValueError("cannot convert float NaN to integer")
+    if np.any(np.isinf(temp_arr)):
+        raise ValueError("cannot convert float inf to integer")
+    
     # Try conversion to int8, but catch potential overflow/conversion errors
     try:
         arr = np.asarray(labels, dtype=np.int8)

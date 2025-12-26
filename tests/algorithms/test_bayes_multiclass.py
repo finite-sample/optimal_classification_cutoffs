@@ -16,8 +16,7 @@ class TestBayesDecisionFromUtilityMatrix:
         U = np.eye(3)  # Correct prediction = +1, wrong = 0
 
         result = optimize_decisions(y_prob, cost_matrix=-U)  # Negate for cost matrix
-        result_decisions = result.predict(y_prob)
-        decisions = result_decisions.predict(y_prob)
+        decisions = result.predict(y_prob)
         expected = np.array([0, 1, 2])  # Argmax of each row
 
         np.testing.assert_array_equal(decisions, expected)
@@ -29,8 +28,7 @@ class TestBayesDecisionFromUtilityMatrix:
         U = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [0.6, 0.6, 0.6]])
 
         result = optimize_decisions(y_prob, cost_matrix=-U)  # Negate for cost matrix
-        result_decisions = result.predict(y_prob)
-        decisions = result_decisions.predict(y_prob)
+        decisions = result.predict(y_prob)
 
         # First sample: max prob is 0.4, abstain gives 0.6*0.4 + 0.6*0.3 + 0.6*0.3 = 0.6
         # Class 0 gives 1*0.4 = 0.4, so should abstain (decision 3)
@@ -45,8 +43,7 @@ class TestBayesDecisionFromUtilityMatrix:
         U = np.eye(3)
 
         result = optimize_decisions(y_prob, cost_matrix=-U)  # Negate for cost matrix
-        result_decisions = result.predict(y_prob)
-        decisions = result_decisions.predict(y_prob)
+        decisions = result.predict(y_prob)
 
         # Compute expected utilities manually for verification
         expected_utilities = (
@@ -64,10 +61,9 @@ class TestBayesDecisionFromUtilityMatrix:
         U = np.eye(3)
         labels = ["A", "B", "C"]
 
-        # Get numeric result_decisions and map to labels
+        # Get numeric decisions and map to labels
         result = optimize_decisions(y_prob, cost_matrix=-U)  # Negate for cost matrix
-        result_decisions = result.predict(y_prob)
-        numeric_decisions = result_decisions.predict(y_prob)
+        numeric_decisions = result.predict(y_prob)
         decisions = [labels[i] for i in numeric_decisions]
         assert decisions[0] == "A"
 
@@ -232,8 +228,8 @@ class TestIntegrationWithRouter:
 
         # No utility specified
         with pytest.raises(
-            NotImplementedError,
-            match="Per-class utilities from matrix not yet implemented",
+            ValueError,
+            match="mode='bayes' requires utility parameter",
         ):
             optimize_thresholds(None, y_prob, mode="bayes")
 

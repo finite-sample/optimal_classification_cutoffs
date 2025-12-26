@@ -241,9 +241,11 @@ class TestUtilitySpecValidation:
 
     def test_from_dict_validation(self):
         """Test validation in from_dict."""
-        with pytest.raises(ValueError, match="must contain keys"):
-            UtilitySpec.from_dict({"tp": 1, "tn": 1})
+        # Test that unknown keys raise error
+        with pytest.raises(ValueError, match="Unknown utility keys"):
+            UtilitySpec.from_dict({"tp": 1, "tn": 1, "invalid_key": 2})
 
+        # Test that non-finite values raise error
         with pytest.raises(ValueError, match="finite"):
             UtilitySpec.from_dict({"tp": 1, "tn": 1, "fp": np.inf, "fn": 1})
 

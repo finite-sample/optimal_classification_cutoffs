@@ -361,7 +361,7 @@ class TestFallbackEdgeCases:
         assert 0 <= threshold <= 1
 
         # Should produce valid confusion matrix
-        from optimal_cutoffs import confusion_matrix_at_threshold
+        from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold
 
         tp, tn, fp, fn = confusion_matrix_at_threshold(
             true_labels, pred_probs, threshold

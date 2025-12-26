@@ -316,7 +316,7 @@ class TestCrossValidation:
             y_true, y_prob, method="sort_scan", cv=5, random_state=42
         )
 
-        assert thresholds.shape == (5, 1)
+        assert thresholds.shape == (5,)  # Binary thresholds are scalars per fold
         assert scores.shape == (5,)
         assert np.all((thresholds >= 0) & (thresholds <= 1))
         assert np.all((scores >= 0) & (scores <= 1))
