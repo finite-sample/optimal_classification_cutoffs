@@ -1,7 +1,7 @@
 Optimal Classification Cutoffs
 ===============================
 
-Transform your ML model performance with optimal decision thresholds. API 2.0.0 delivers 40%+ metric improvements in 3 lines of code.
+Optimize classification thresholds to improve model performance. The library provides efficient algorithms for threshold selection in binary and multiclass classification.
 
 **Why Default 0.5 Thresholds Are Wrong:**
 
@@ -15,7 +15,7 @@ Most classifiers output probabilities, but decisions need thresholds. The defaul
 * **💰 Cost-matrix decisions** - Bayes-optimal without thresholds
 * **🔧 Namespaced power tools** - metrics/, cv/, bayes/, algorithms/
 * **📊 Match/case routing** - Modern Python 3.10+ performance
-* **🎓 Zero backward compatibility** - clean slate redesign
+* **API v2.0** - Redesigned architecture with modern patterns
 
 .. toctree::
    :maxdepth: 2
@@ -117,27 +117,24 @@ Quick Example
    print(f"Default F1: {f1_score(y_test, default_pred):.3f}")
    print(f"Optimal F1: {f1_score(y_test, optimal_pred):.3f}")
 
-Performance Comparison
-======================
+Algorithm Performance
+=====================
 
-The library's specialized algorithms significantly outperform standard optimization:
+The library provides multiple optimization algorithms with different trade-offs:
 
-.. table:: Performance Comparison
-   :widths: 25 25 25 25
+**Available Methods:**
 
-   +------------------+------------------+------------------+------------------+
-   | Dataset Size     | sort_scan        | smart_brute      | scipy minimize   |
-   +==================+==================+==================+==================+
-   | 1,000 samples    | 0.001s ⚡        | 0.003s ⚡        | 0.050s           |
-   +------------------+------------------+------------------+------------------+
-   | 10,000 samples   | 0.008s ⚡        | 0.025s ⚡        | 0.200s           |
-   +------------------+------------------+------------------+------------------+
-   | 100,000 samples  | 0.080s ⚡        | 2.100s           | 5.000s           |
-   +------------------+------------------+------------------+------------------+
+* **sort_scan**: O(n log n) exact algorithm for piecewise metrics - fastest for large datasets
+* **minimize**: Uses scipy optimization with fallback to ensure global optimum
+* **gradient**: Simple gradient ascent (baseline method)
+* **auto** (default): Automatically selects the best method based on data characteristics
 
-✅ **sort_scan**: O(n log n) exact algorithm for piecewise metrics
-✅ **smart_brute**: Evaluates only unique probability values
-⚠️ **minimize**: Standard scipy optimization (often suboptimal)
+**Performance Characteristics:**
+
+* The ``sort_scan`` method scales as O(n log n) where n is the number of samples
+* For piecewise metrics (F1, accuracy, precision, recall), ``sort_scan`` guarantees the global optimum
+* The ``auto`` method intelligently selects between algorithms based on metric properties
+* All methods are tested to complete within reasonable time limits (see ``tests/performance/``)
 
 Citation
 ========

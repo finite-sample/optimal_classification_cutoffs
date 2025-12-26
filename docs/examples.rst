@@ -61,7 +61,7 @@ What You'll Learn
 - Enum-based explicit control (Task, Average)
 - Namespace organization (metrics/, cv/, bayes/, algorithms/)
 - Modern match/case performance optimizations
-- Zero backward compatibility - clean slate approach
+- API v2.0 with modernized design patterns
 
 **Real-World Applications:**
 
