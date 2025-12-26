@@ -159,8 +159,6 @@ Independent of class priors, depends only on cost ratio.
 - **O(n log n)** exact optimization for piecewise metrics
 - **O(1)** closed-form solutions for cost-sensitive objectives
 - **Optional Numba acceleration** (10-100× speedups) with automatic pure Python fallback
-- **Python 3.14+ compatible** - works on all modern Python versions
-- **640+ tests** ensuring correctness
 
 Typical speedups: 10-100× faster than grid search, with **exact** solutions. Performance optimizations are optional - core functionality works everywhere.
 
