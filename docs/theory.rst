@@ -238,4 +238,3 @@ References
 
 .. [ZadroznyCElkan2002] Zadrozny, B. & Elkan, C. (2002). "Transforming classifier scores into accurate multiclass probability estimates". In *Proceedings of the eighth ACM SIGKDD international conference on Knowledge discovery and data mining*.
 
-.. [NiculescuMizilCaruana2005] Niculescu-Mizil, A. & Caruana, R. (2005). "Predicting Good Probabilities with Supervised Learning". In *Proceedings of the 22nd International Conference on Machine Learning*.

@@ -94,7 +94,7 @@ Quick Example
 
 .. code-block:: python
 
-   from optimal_cutoffs import get_optimal_threshold
+   from optimal_cutoffs import optimize_thresholds
    import numpy as np
    from sklearn.ensemble import RandomForestClassifier
    from sklearn.model_selection import train_test_split
@@ -122,19 +122,22 @@ Quick Example
    print(f"Optimal F1: {f1_score(y_test, optimal_pred):.3f}")
 
 Performance Comparison
-=====================
+======================
 
 The library's specialized algorithms significantly outperform standard optimization:
 
-+------------------+------------------+------------------+------------------+
-| Dataset Size     | sort_scan        | smart_brute      | scipy minimize   |
-+==================+==================+==================+==================+
-| 1,000 samples    | 0.001s ⚡       | 0.003s ⚡       | 0.050s          |
-+------------------+------------------+------------------+------------------+
-| 10,000 samples   | 0.008s ⚡       | 0.025s ⚡       | 0.200s          |
-+------------------+------------------+------------------+------------------+
-| 100,000 samples  | 0.080s ⚡       | 2.100s          | 5.000s          |
-+------------------+------------------+------------------+------------------+
+.. table:: Performance Comparison
+   :widths: 25 25 25 25
+
+   +------------------+------------------+------------------+------------------+
+   | Dataset Size     | sort_scan        | smart_brute      | scipy minimize   |
+   +==================+==================+==================+==================+
+   | 1,000 samples    | 0.001s ⚡        | 0.003s ⚡        | 0.050s           |
+   +------------------+------------------+------------------+------------------+
+   | 10,000 samples   | 0.008s ⚡        | 0.025s ⚡        | 0.200s           |
+   +------------------+------------------+------------------+------------------+
+   | 100,000 samples  | 0.080s ⚡        | 2.100s           | 5.000s           |
+   +------------------+------------------+------------------+------------------+
 
 ✅ **sort_scan**: O(n log n) exact algorithm for piecewise metrics
 ✅ **smart_brute**: Evaluates only unique probability values

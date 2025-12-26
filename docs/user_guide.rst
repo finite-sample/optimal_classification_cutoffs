@@ -69,7 +69,7 @@ Built-in metrics include:
        print(f"{metric}: {result.thresholds[0]:.3f}")
 
 Optimization Methods
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 The library provides several optimization strategies:
 
@@ -99,7 +99,7 @@ Uses scipy optimization with enhanced fallbacks for robustness.
 
 
 Comparison Operators
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 Control how threshold comparisons are handled:
 
@@ -129,7 +129,7 @@ Handle imbalanced datasets or assign different importance to samples:
    )
 
 Multiclass Classification
-------------------------
+-------------------------
 
 The library automatically detects multiclass problems and uses One-vs-Rest strategy:
 
@@ -228,21 +228,23 @@ For calibrated probabilities, calculate theoretical optimum without training dat
    )
 
 Cross-Validation
----------------
+----------------
 
 Robust threshold estimation using cross-validation:
 
 .. code-block:: python
 
-   from optimal_cutoffs import cv_threshold_optimization
+   from optimal_cutoffs.cv import cross_validate
 
    # 5-fold cross-validation
-   thresholds, scores = cv_threshold_optimization(
+   cv_results = cross_validate(
        y_true, y_prob,
        metric='f1',
        cv=5,
        method='auto'
    )
+   thresholds = cv_results['thresholds']
+   scores = cv_results['scores']
 
    print(f"CV thresholds: {thresholds}")
    print(f"CV scores: {scores}")
@@ -270,10 +272,10 @@ Register your own metrics for optimization:
    result = optimize_thresholds(y_true, y_prob, metric='custom')
 
 Performance Considerations
--------------------------
+---------------------------
 
 Method Selection Guidelines
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * **Small datasets (< 1,000 samples)**: Use ``method='minimize'``
 * **Large datasets**: Use ``method='auto'`` or ``method='sort_scan'``

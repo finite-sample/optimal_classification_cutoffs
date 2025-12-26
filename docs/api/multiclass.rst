@@ -18,7 +18,7 @@ The default multiclass strategy treats each class independently:
 
 .. code-block:: python
 
-   from optimal_cutoffs import get_optimal_threshold
+   from optimal_cutoffs import optimize_thresholds
    import numpy as np
 
    # 3-class problem
@@ -72,7 +72,7 @@ The library uses sophisticated decision rules for multiclass prediction:
    y_pred = optimizer.predict(y_prob_new)
 
 Averaging Strategies
--------------------
+--------------------
 
 Control how metrics are aggregated across classes:
 
@@ -105,7 +105,7 @@ Micro Averaging
        print(f"Micro averaging not supported: {e}")
 
 Weighted Averaging
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -117,7 +117,7 @@ Weighted Averaging
    )
 
 Multiclass Metrics
------------------
+------------------
 
 Exclusive Single-Label Metrics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -200,7 +200,7 @@ Custom Class Costs
        custom_thresholds.append(result.thresholds[0])
 
 Performance Considerations
--------------------------
+---------------------------
 
 Memory Usage
 ~~~~~~~~~~~~
@@ -233,7 +233,7 @@ For large problems, consider:
        return np.median(all_thresholds, axis=0)
 
 Speed Optimization
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 For multiclass problems:
 

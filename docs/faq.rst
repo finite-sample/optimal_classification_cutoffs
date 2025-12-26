@@ -271,10 +271,12 @@ A: Some variance is expected, but high variance suggests:
 
 .. code-block:: python
 
-   from optimal_cutoffs import cv_threshold_optimization
+   from optimal_cutoffs.cv import cross_validate
 
    # Check CV results
-   thresholds, scores = cv_threshold_optimization(y, prob, metric='f1', cv=10)
+   cv_results = cross_validate(y, prob, metric='f1', cv=10)
+   thresholds = cv_results['thresholds']
+   scores = cv_results['scores']
 
    print(f"Threshold std: {np.std(thresholds):.3f}")
    print(f"Score std: {np.std(scores):.3f}")
@@ -286,7 +288,7 @@ A: Some variance is expected, but high variance suggests:
    # 4. Consider ensemble methods
 
 Integration Questions
---------------------
+---------------------
 
 **Q: How do I integrate this with scikit-learn pipelines?**
 
@@ -352,7 +354,7 @@ A: Extract probabilities from your model and apply threshold optimization:
    result = optimize_thresholds(y_test, y_prob, metric='f1')
 
 Still Have Questions?
---------------------
+---------------------
 
 If you don't find your question answered here:
 
