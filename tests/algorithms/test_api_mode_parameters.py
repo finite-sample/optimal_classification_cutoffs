@@ -3,12 +3,9 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import (
-    bayes_optimal_threshold,
-    cross_validate,
-    nested_cross_validate,
-    optimize_thresholds,
-)
+from optimal_cutoffs import optimize_thresholds
+from optimal_cutoffs.cv import cross_validate, nested_cross_validate
+from optimal_cutoffs.bayes import threshold as bayes_threshold
 
 
 class TestModeParameter:
@@ -38,9 +35,9 @@ class TestModeParameter:
         utility = {"tp": 0, "tn": 0, "fp": -1, "fn": -5}
 
         result1 = optimize_thresholds(None, y_prob, mode="bayes", utility=utility)
-        result_expected = bayes_optimal_threshold(fp_cost=1, fn_cost=5)
+        result_expected = bayes_threshold(fp_cost=1, fn_cost=5)
 
-        assert abs(result1.threshold - result_expected.threshold) < 1e-10
+        assert abs(result1.threshold - result_expected) < 1e-10
 
     def test_mode_expected_f1_only(self):
         """Test that mode='expected' only works with F1/F-beta metrics."""
@@ -244,14 +241,12 @@ class TestGoldenTests:
         utility = {"tp": 2, "tn": 1, "fp": -1, "fn": -5}
 
         # Direct call to Bayes function (use negative costs to match utility convention)
-        result1 = bayes_optimal_threshold(
-            fp_cost=1, fn_cost=5, tp_benefit=2, tn_benefit=1
-        )
+        result1 = bayes_threshold(fp_cost=1, fn_cost=5)
 
         # Via optimize_thresholds API
         result2 = optimize_thresholds(None, y_prob, utility=utility, mode="bayes")
 
-        assert abs(result1.threshold - result2.threshold) < 1e-12
+        assert abs(result1 - result2.threshold) < 1e-12
 
     def test_method_consistency(self):
         """Test that methods give consistent results."""

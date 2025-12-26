@@ -6,8 +6,8 @@ import pytest
 from optimal_cutoffs.bayes import (
     BayesOptimal,
     UtilitySpec,
-    bayes_optimal_threshold,
-    bayes_thresholds_from_costs,
+    threshold,
+    thresholds_from_costs,
 )
 
 
@@ -16,12 +16,8 @@ class TestBinaryMathematicalCorrectness:
 
     def test_cost_only_threshold(self):
         """Test C_fp = 1, C_fn = 5 -> t = 1/6."""
-        result = bayes_optimal_threshold(1, 5)
-        threshold = result.threshold
-        threshold = result.threshold
-        threshold = result.threshold
-        threshold = result.threshold
-        assert abs(threshold - (1 / 6)) < 1e-12
+        result_threshold = threshold(1, 5)
+        assert abs(result_threshold - (1 / 6)) < 1e-12
 
     def test_standard_case_D_positive(self):
         """Test standard case with D > 0."""
@@ -210,27 +206,26 @@ class TestExpectedUtility:
 class TestVectorizedThresholds:
     """Test vectorized threshold computation."""
 
-    def test_bayes_thresholds_from_costs_vectorized(self):
+    def test_thresholds_from_costs_vectorized(self):
         """Test vectorized threshold computation matches element-wise."""
         fp_costs = np.array([1, 2, 3])
         fn_costs = np.array([5, 4, 3])
 
-        result = bayes_thresholds_from_costs(fp_costs, fn_costs)
-        thresholds = result.thresholds
+        thresholds = thresholds_from_costs(fp_costs, fn_costs)
         expected = fp_costs / (fp_costs + fn_costs)
         np.testing.assert_array_equal(thresholds, expected)
 
     def test_bayes_thresholds_validation(self):
         """Test input validation for vectorized thresholds."""
         with pytest.raises(ValueError, match="same shape"):
-            bayes_thresholds_from_costs([1, 2], [1])
+            thresholds_from_costs([1, 2], [1])
 
         with pytest.raises(ValueError, match="finite"):
-            bayes_thresholds_from_costs([1, np.inf], [1, 2])
+            thresholds_from_costs([1, np.inf], [1, 2])
 
         # Zero costs should fail since |fp| + |fn| = 0
         with pytest.raises(ValueError, match="must be > 0"):
-            bayes_thresholds_from_costs([0, 1], [0, 2])
+            thresholds_from_costs([0, 1], [0, 2])
 
 
 class TestUtilitySpecValidation:

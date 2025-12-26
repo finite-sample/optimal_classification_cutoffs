@@ -17,7 +17,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from optimal_cutoffs import multiclass_metric_single_label, optimize_thresholds
+from optimal_cutoffs import optimize_thresholds
+from optimal_cutoffs.metrics_core import multiclass_metric_single_label
 
 
 def _generate_multiclass_data(n_samples, n_classes, random_state=42):

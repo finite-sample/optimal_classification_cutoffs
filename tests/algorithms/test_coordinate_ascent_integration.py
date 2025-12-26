@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.metrics import (
+from optimal_cutoffs.metrics_core import (
     compute_multiclass_metrics_from_labels,
 )
 from optimal_cutoffs.numba_utils import NUMBA_AVAILABLE

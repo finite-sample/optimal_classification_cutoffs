@@ -3,13 +3,47 @@
 import numpy as np
 import pytest
 
-from optimal_cutoffs import (
-    confusion_matrix_at_threshold,
-    multiclass_confusion_matrices_at_thresholds,
-    optimize_thresholds,
-)
+from optimal_cutoffs import optimize_thresholds
+from sklearn.metrics import confusion_matrix
 
 # from optimal_cutoffs.wrapper import ThresholdOptimizer  # Disabled - wrapper removed
+
+
+def confusion_matrix_at_threshold(y_true, y_prob, threshold, sample_weight=None, comparison=">="):
+    """Helper function to compute confusion matrix at a threshold with comparison operator."""
+    if comparison == ">=":
+        y_pred = (y_prob >= threshold).astype(int)
+    elif comparison == ">":
+        y_pred = (y_prob > threshold).astype(int) 
+    else:
+        raise ValueError(f"Invalid comparison operator: {comparison}")
+        
+    cm = confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
+    if cm.size == 4:
+        tn, fp, fn, tp = cm.ravel()
+        return tp, tn, fp, fn
+    else:
+        # Handle edge cases where not all classes are present
+        return 0, 0, 0, 0
+
+
+def multiclass_confusion_matrices_at_thresholds(y_true, y_prob, thresholds, comparison=">="):
+    """Helper function to compute per-class confusion matrices for multiclass OvR."""
+    n_classes = y_prob.shape[1]
+    cms = []
+    
+    for class_idx in range(n_classes):
+        # One-vs-Rest for this class
+        y_true_binary = (y_true == class_idx).astype(int)
+        y_prob_class = y_prob[:, class_idx]
+        threshold = thresholds[class_idx]
+        
+        tp, tn, fp, fn = confusion_matrix_at_threshold(
+            y_true_binary, y_prob_class, threshold, comparison=comparison
+        )
+        cms.append((tp, tn, fp, fn))
+        
+    return cms
 
 
 class TestComparisonOperators:

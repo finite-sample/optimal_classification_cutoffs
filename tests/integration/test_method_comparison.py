@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.metrics import confusion_matrix_at_threshold
+from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold
 
 
 class TestMethodConsistency:

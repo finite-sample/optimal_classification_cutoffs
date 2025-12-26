@@ -1612,7 +1612,6 @@ performance = [
 ]
 test = [
     { name = "hypothesis" },
-    { name = "numba" },
     { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -1664,7 +1663,6 @@ examples = [
 performance = [{ name = "numba", specifier = ">=0.57.0" }]
 test = [
     { name = "hypothesis", specifier = ">=6.0" },
-    { name = "numba", specifier = ">=0.57.0" },
     { name = "psutil", specifier = ">=5.0" },
     { name = "pytest", specifier = ">=7.0" },
     { name = "pytest-cov", specifier = ">=4.0" },

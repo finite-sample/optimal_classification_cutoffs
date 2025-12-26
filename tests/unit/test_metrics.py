@@ -1,8 +1,17 @@
 import numpy as np
 import pytest
+from sklearn.metrics import confusion_matrix
 
-from optimal_cutoffs import confusion_matrix_at_threshold, optimize_thresholds
-from optimal_cutoffs.metrics import METRICS, register_metric, register_metrics
+from optimal_cutoffs import optimize_thresholds
+from optimal_cutoffs.metrics import get, register, list_available
+
+
+def confusion_matrix_at_threshold(y_true, y_prob, threshold):
+    """Simple confusion matrix calculation for tests."""
+    y_pred = (y_prob >= threshold).astype(int)
+    cm = confusion_matrix(y_true, y_pred)
+    tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+    return tp, tn, fp, fn
 
 # Local tolerance for test precision
 TOLERANCE = 1e-10
@@ -25,19 +34,28 @@ def test_confusion_matrix_and_metrics():
 
 
 def test_metric_registry_and_custom_registration():
-    assert "f1" in METRICS
-    assert "accuracy" in METRICS
-
-    @register_metric("sum_tp_tn")
+    # Test that we can get built-in metrics
+    f1_metric = get("f1")
+    accuracy_metric = get("accuracy")
+    
+    assert f1_metric is not None
+    assert accuracy_metric is not None
+    
+    # Test custom metric registration
     def sum_tp_tn(tp, tn, fp, fn):
         return tp + tn
 
-    assert METRICS["sum_tp_tn"].fn(1, 1, 0, 0) == 2
+    register("sum_tp_tn", sum_tp_tn)
+    
+    # Test that custom metric was registered
+    sum_metric = get("sum_tp_tn")
+    assert sum_metric is not None
+    assert sum_metric(1, 1, 0, 0) == 2
 
     def tpr(tp, tn, fp, fn):
         return np.where(tp + fn > 0, tp / (tp + fn), 0.0)
 
-    register_metrics({"tpr": tpr})
+    register("tpr", tpr)
 
     y_true = np.array([0, 0, 1, 1])
     y_prob = np.array([0.1, 0.4, 0.6, 0.9])

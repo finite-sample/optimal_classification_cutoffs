@@ -16,7 +16,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
+from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.hypothesis_strategies import beta_bernoulli_calibrated
 
 

@@ -11,7 +11,7 @@ import numpy as np
 
 from optimal_cutoffs import optimize_thresholds
 from optimal_cutoffs.expected import dinkelbach_expected_fbeta_binary
-from optimal_cutoffs.metrics import confusion_matrix_at_threshold, f1_score
+from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold, f1_score
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
     assert_valid_threshold,

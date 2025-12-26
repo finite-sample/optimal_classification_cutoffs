@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from optimal_cutoffs import optimize_thresholds
-from optimal_cutoffs.metrics import confusion_matrix_at_threshold, get_metric_function
+from optimal_cutoffs.metrics_core import confusion_matrix_at_threshold, get_metric_function
 from optimal_cutoffs.piecewise import optimal_threshold_sortscan
 from tests.fixtures.assertions import (
     assert_valid_metric_score,
