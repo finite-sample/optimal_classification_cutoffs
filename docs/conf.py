@@ -3,17 +3,16 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-import os
 import sys
+from pathlib import Path
 
 # Add src directory to Python path
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 # Load project information from pyproject.toml (single source of truth)
-import pathlib
 
 try:
     # Method 1: Try reading from installed package metadata
@@ -32,7 +31,7 @@ except Exception:
     # Method 2: Fallback - read directly from pyproject.toml for development
     import tomllib
 
-    pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
+    pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
     with open(pyproject_path, "rb") as f:
         pyproject_data = tomllib.load(f)
 

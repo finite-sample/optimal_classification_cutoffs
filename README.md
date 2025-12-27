@@ -4,6 +4,7 @@
 [![Downloads](https://pepy.tech/badge/optimal-classification-cutoffs)](https://pepy.tech/project/optimal-classification-cutoffs)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://finite-sample.github.io/optimal-classification-cutoffs/)
 [![PyPI version](https://img.shields.io/pypi/v/optimal-classification-cutoffs.svg)](https://pypi.org/project/optimal-classification-cutoffs/)
+[![Python](https://img.shields.io/pypi/pyversions/optimal-classification-cutoffs.svg)](https://pypi.org/project/optimal-classification-cutoffs/)
 
 **Optimize classification thresholds for improved model performance.**
 

@@ -31,12 +31,12 @@ from .core import Average, OptimizationResult, Task
 def _import_metrics():
     """Import metrics namespace avoiding circular dependency."""
     import importlib.util
-    import os
 
     # Load metrics namespace module
+    metrics_path = pathlib.Path(__file__).parent / "metrics" / "__init__.py"
     spec = importlib.util.spec_from_file_location(
         "optimal_cutoffs.metrics",
-        os.path.join(os.path.dirname(__file__), "metrics", "__init__.py"),
+        metrics_path,
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

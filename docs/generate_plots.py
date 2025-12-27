@@ -5,15 +5,15 @@ can miss the global optimum for metrics like F1 score, and demonstrates the
 effectiveness of the fallback mechanism.
 """
 
-import os
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import optimize
 
 # Add the parent directory to sys.path to import optimal_cutoffs
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from optimal_cutoffs.metrics import METRIC_REGISTRY, get_confusion_matrix
 
@@ -162,7 +162,7 @@ def plot_piecewise_f1_demonstration():
 
     plt.tight_layout()
     plt.savefig(
-        "/Users/soodoku/Documents/GitHub/optimal_classification_cutoffs/docs/piecewise_f1_demo.png",
+        Path(__file__).parent / "piecewise_f1_demo.png",
         dpi=300,
         bbox_inches="tight",
     )
@@ -280,7 +280,7 @@ def plot_optimization_methods_comparison():
 
     plt.tight_layout()
     plt.savefig(
-        "/Users/soodoku/Documents/GitHub/optimal_classification_cutoffs/docs/optimization_comparison.png",
+        Path(__file__).parent / "optimization_comparison.png",
         dpi=300,
         bbox_inches="tight",
     )
@@ -356,7 +356,7 @@ def plot_multiple_metrics_comparison():
 
     plt.tight_layout()
     plt.savefig(
-        "/Users/soodoku/Documents/GitHub/optimal_classification_cutoffs/docs/multiple_metrics.png",
+        Path(__file__).parent / "multiple_metrics.png",
         dpi=300,
         bbox_inches="tight",
     )
